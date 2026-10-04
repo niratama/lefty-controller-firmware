@@ -4,7 +4,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'firmware')))
 
-from key_mapper import parse_key, parse_keys, Keycode
+from key_mapper import parse_key, parse_keys, parse_action, parse_actions, Keycode
 
 class TestKeyMapper(unittest.TestCase):
     def test_parse_single_keys(self):
@@ -27,6 +27,28 @@ class TestKeyMapper(unittest.TestCase):
         self.assertEqual(parse_keys(["Shift", "W"]), [Keycode.LEFT_SHIFT, Keycode.W])
         self.assertEqual(parse_keys("W"), [Keycode.W])
         self.assertEqual(parse_keys([]), [])
+
+    def test_parse_mouse_actions(self):
+        self.assertEqual(parse_action("Mouse_Left"), ("mouse_button", 1))
+        self.assertEqual(parse_action("mouse_right"), ("mouse_button", 2))
+        self.assertEqual(parse_action("Click_Middle"), ("mouse_button", 4))
+        self.assertEqual(parse_action("Wheel_Up"), ("mouse_wheel", 1))
+        self.assertEqual(parse_action("wheel_down"), ("mouse_wheel", -1))
+
+    def test_parse_gamepad_actions(self):
+        self.assertEqual(parse_action("Gamepad_1"), ("gamepad_button", 1))
+        self.assertEqual(parse_action("gamepad_16"), ("gamepad_button", 16))
+        self.assertEqual(parse_action("Gamepad_A"), ("gamepad_button", 1))
+        self.assertEqual(parse_action("gamepad_b"), ("gamepad_button", 2))
+        self.assertEqual(parse_action("Gamepad_LB"), ("gamepad_button", 5))
+        self.assertEqual(parse_action("Gamepad_Start"), ("gamepad_button", 10))
+
+    def test_parse_actions_composite(self):
+        res = parse_actions(["LCtrl", "Mouse_Left", "Wheel_Up", "Gamepad_1"])
+        self.assertEqual(res["keyboard"], [Keycode.LEFT_CONTROL])
+        self.assertEqual(res["mouse_buttons"], 1)
+        self.assertEqual(res["mouse_wheel"], 1)
+        self.assertEqual(res["gamepad_buttons"], [1])
 
 if __name__ == '__main__':
     unittest.main()

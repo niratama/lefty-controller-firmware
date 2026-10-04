@@ -192,5 +192,57 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(active, {"W"})
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
+    def test_gamepad_mode(self):
+        self.engine.mode = "gamepad"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 1. デッドゾーン内 (中心 30000, 偏差 1000 < 2500)
+        active, press, release, info = self.engine.process(31000, 30000)
+        self.assertEqual(active, set())
+        self.assertEqual(info["mode"], "gamepad")
+        self.assertEqual(info["gamepad"], (0, 0))
+
+        # 2. 右に倒す (raw_x=30000, raw_y=45000 => dx=+15000, dy=0)
+        active, press, release, info = self.engine.process(30000, 45000)
+        self.assertEqual(active, set())
+        joy_x, joy_y = info["gamepad"]
+        self.assertGreater(joy_x, 0)
+        self.assertEqual(joy_y, 0)
+
+        # 3. 上に倒す (raw_x=45000, raw_y=30000 => dx=0, dy=+15000 => DirectInput Yは負)
+        active, press, release, info = self.engine.process(45000, 30000)
+        self.assertEqual(active, set())
+        joy_x, joy_y = info["gamepad"]
+        self.assertEqual(joy_x, 0)
+        self.assertLess(joy_y, 0)
+
+    def test_mouse_mode(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 1. デッドゾーン内
+        active, press, release, info = self.engine.process(31000, 30000)
+        self.assertEqual(active, set())
+        self.assertEqual(info["mode"], "mouse")
+        self.assertEqual(info["mouse"], (0, 0))
+
+        # 2. 右に倒す => mouse_dx > 0, mouse_dy == 0
+        active, press, release, info = self.engine.process(30000, 45000)
+        self.assertEqual(active, set())
+        mdx, mdy = info["mouse"]
+        self.assertGreater(mdx, 0)
+        self.assertEqual(mdy, 0)
+
+        # 3. 上に倒す => mouse_dx == 0, mouse_dy < 0 (画面座標系)
+        active, press, release, info = self.engine.process(45000, 30000)
+        self.assertEqual(active, set())
+        mdx, mdy = info["mouse"]
+        self.assertEqual(mdx, 0)
+        self.assertLess(mdy, 0)
+
 if __name__ == '__main__':
     unittest.main()

@@ -4,6 +4,8 @@ StickEngine: 2軸アナログスティックの多段階キー判定エンジン
 デッドゾーン処理、およびキー競合回避ロジックを提供します。
 """
 
+import math
+
 class DirectionState:
     NEUTRAL = 0
     WALK = 1
@@ -14,6 +16,10 @@ class StickEngine:
         self.center_x = 32768
         self.center_y = 32768
         self.is_calibrated = False
+
+        # 動作モード ("keyboard" | "gamepad" | "mouse")
+        self.mode = "keyboard"
+        self.mouse_speed = 12  # マウスモード時の最高速度 (px/frame)
 
         # デフォルトパラメータ
         self.deadzone = 2500
@@ -66,6 +72,8 @@ class StickEngine:
     def load_config(self, config):
         """設定辞書（joystick部分）からパラメータを更新"""
         joy_cfg = config.get("joystick", {}) if "joystick" in config else config
+        self.mode = joy_cfg.get("mode", self.mode)
+        self.mouse_speed = joy_cfg.get("mouse_speed", self.mouse_speed)
         self.deadzone = joy_cfg.get("deadzone", self.deadzone)
         self.hysteresis = joy_cfg.get("hysteresis", self.hysteresis)
         self.invert_x = joy_cfg.get("invert_x", self.invert_x)
@@ -173,12 +181,12 @@ class StickEngine:
 
     def process(self, raw_x, raw_y):
         """
-        1フレームのADC入力を評価し、押すべきキーセット、押下イベント、解放イベントを返します。
+        1フレームのADC入力を評価し、押すべきキーセット、押下イベント、解放イベント、およびデバッグ情報を返します。
         戻り値:
             active_keys: 現在押下中であるべきキーのセット (set)
             to_press: 今回新たに押下すべきキー (set)
             to_release: 今回解放すべきキー (set)
-            debug_info: 各方向の大きさやステートを含む辞書
+            debug_info: モード、各方向の大きさ、ステート、ゲームパッド値、マウス移動量を含む辞書
         """
         dx, dy = self.calculate_deltas(raw_x, raw_y)
 
@@ -189,6 +197,88 @@ class StickEngine:
         mag_right = max(0, dx)
         mag_left = max(0, -dx)
 
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        if self.mode == "gamepad":
+            if dist < self.deadzone:
+                joy_x = 0
+                joy_y = 0
+            else:
+                max_range = max(1.0, 32767.0 - self.deadzone)
+                clamped_dist = min(32767.0, dist)
+                ratio = (clamped_dist - self.deadzone) / max_range
+                norm_val = ratio * 127.0
+                joy_x = int((dx / dist) * norm_val)
+                # DirectInput / Gamepad: 上は負(-127)、下は正(+127)
+                joy_y = int((-dy / dist) * norm_val)
+                joy_x = max(-127, min(127, joy_x))
+                joy_y = max(-127, min(127, joy_y))
+
+            to_press = set()
+            to_release = set(self.active_keys)
+            self.active_keys = set()
+            for d in self.states:
+                self.states[d] = DirectionState.NEUTRAL
+
+            debug_info = {
+                "dx": dx,
+                "dy": dy,
+                "dist": dist,
+                "mode": "gamepad",
+                "gamepad": (joy_x, joy_y),
+                "mouse": (0, 0),
+                "magnitudes": {
+                    "up": mag_up,
+                    "down": mag_down,
+                    "left": mag_left,
+                    "right": mag_right
+                },
+                "states": dict(self.states),
+                "active_keys": []
+            }
+            return self.active_keys, to_press, to_release, debug_info
+
+        elif self.mode == "mouse":
+            if dist < self.deadzone:
+                mouse_dx = 0
+                mouse_dy = 0
+            else:
+                max_range = max(1.0, 32767.0 - self.deadzone)
+                clamped_dist = min(32767.0, dist)
+                ratio = (clamped_dist - self.deadzone) / max_range
+                # 倒しこみ量に応じた加速度カーブ (1.4乗)
+                speed = (ratio ** 1.4) * self.mouse_speed
+                mouse_dx = int((dx / dist) * speed)
+                # 画面座標系: 上は負(-mouse_dy)
+                mouse_dy = int((-dy / dist) * speed)
+                mouse_dx = max(-127, min(127, mouse_dx))
+                mouse_dy = max(-127, min(127, mouse_dy))
+
+            to_press = set()
+            to_release = set(self.active_keys)
+            self.active_keys = set()
+            for d in self.states:
+                self.states[d] = DirectionState.NEUTRAL
+
+            debug_info = {
+                "dx": dx,
+                "dy": dy,
+                "dist": dist,
+                "mode": "mouse",
+                "gamepad": (0, 0),
+                "mouse": (mouse_dx, mouse_dy),
+                "magnitudes": {
+                    "up": mag_up,
+                    "down": mag_down,
+                    "left": mag_left,
+                    "right": mag_right
+                },
+                "states": dict(self.states),
+                "active_keys": []
+            }
+            return self.active_keys, to_press, to_release, debug_info
+
+        # デフォルト: "keyboard" モード
         # 各方向のステートを更新
         st_up = self._update_axis_state("up", mag_up)
         st_down = self._update_axis_state("down", mag_down)
@@ -215,6 +305,10 @@ class StickEngine:
         debug_info = {
             "dx": dx,
             "dy": dy,
+            "dist": dist,
+            "mode": "keyboard",
+            "gamepad": (0, 0),
+            "mouse": (0, 0),
             "magnitudes": {
                 "up": mag_up,
                 "down": mag_down,

@@ -1,7 +1,9 @@
 # 左手デバイス近代化改修ファームウェア (Waveshare RP2040-Zero)
 
 PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare RP2040-Zero**（3.3V系）に換装してファームウェアを刷新・近代化したプロジェクトです。
-通常の13個のキースイッチ入力に加え、**2軸アナログスティックの倒しこみ量に応じた多段階キー判定（歩き／走り、斜め移動合成）** と、**Web Serial API によるブラウザ設定ツール** を提供します。
+13個のボタンスイッチ入力と2軸アナログスティックを備え、**USB Composite Device（Keyboard + Mouse + Gamepad）** として動作します。
+
+キーボードとしての多段階入力（歩き／走り、斜め移動合成）に加え、**アナログゲームパッド（X/Y軸コントローラー）** や **マウス（ポインタ移動・クリック）** としても利用可能で、**Web Serial API によるブラウザ設定ツール** からオンザフライで設定・プロファイル切り替えが行えます。
 
 ---
 
@@ -13,24 +15,24 @@ PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare
 
 ### ピンアサイン対応表
 
-| ピン番号 | 接続先デバイス | 役割・初期キー設定 |
-| :--- | :--- | :--- |
-| **GP0** | 前面ボタン 1 (SW1) | `1` |
-| **GP1** | 前面ボタン 2 (SW2) | `2` |
-| **GP2** | 前面ボタン 3 (SW3) | `x` |
-| **GP3** | 前面ボタン 4 (SW4) | `e` |
-| **GP4** | 前面ボタン 5 (SW5) | `Tab` |
-| **GP5** | 前面ボタン 6 (SW6) | `f` |
-| **GP6** | 前面ボタン 7 (SW7) | `q` |
-| **GP7** | 前面ボタン 8 (SW8) | `4` |
-| **GP8** | 前面ボタン 9 (SW9) | `3` |
-| **GP9** | 側面 上 / トリガー 1 (SW10) | `Space` |
-| **GP10** | 側面 中 / トリガー 2 (SW11) | `z` |
-| **GP11** | 側面 下 / トリガー 3 (SW12) | `LCtrl` |
-| **GP12** | スティック押し込み (SW_STK) | `LAlt` |
-| **GP26** | スティック X軸 (ADC0) | 左右方向 (Left: `A`, Right: `D` / 走り時は `Shift` 追加) |
-| **GP27** | スティック Y軸 (ADC1) | 前後方向 (Up: `W`, Down: `S` / 走り時は `Shift` 追加) |
-| **3V3 / GND**| スティック電源 / 各SWコモン | 3.3V 電源 / 共通グランド |
+| ピン番号 | 接続先デバイス | 物理ラベル | 初期キー設定 (Profile 1: キーボード) |
+| :--- | :--- | :--- | :--- |
+| **GP0** | 前面ボタン 1 (SW1) | `1` | `1` |
+| **GP1** | 前面ボタン 2 (SW2) | `2` | `2` |
+| **GP2** | 前面ボタン 3 (SW3) | `X` | `x` |
+| **GP3** | 前面ボタン 4 (SW4) | `E` | `e` |
+| **GP4** | 前面ボタン 5 (SW5) | `Ta` | `Tab` |
+| **GP5** | 前面ボタン 6 (SW6) | `F` | `f` |
+| **GP6** | 前面ボタン 7 (SW7) | `Q` | `q` |
+| **GP7** | 前面ボタン 8 (SW8) | `4` | `4` |
+| **GP8** | 前面ボタン 9 (SW9) | `3` | `3` |
+| **GP9** | 側面 上 / トリガー 1 (SW10) | 側面上 | `Space` |
+| **GP10** | 側面 中 / トリガー 2 (SW11) | 側面中 | `z` |
+| **GP11** | 側面 下 / トリガー 3 (SW12) | 側面下 | `LCtrl` |
+| **GP12** | スティック押し込み (SW_STK) | STK | `LAlt` |
+| **GP26** | スティック X軸 (ADC0) | - | 左右方向 (Left: `A`, Right: `D` / 走り時は `Shift` 追加) |
+| **GP27** | スティック Y軸 (ADC1) | - | 前後方向 (Up: `W`, Down: `S` / 走り時は `Shift` 追加) |
+| **3V3 / GND**| スティック電源 / 各SWコモン | - | 3.3V 電源 / 共通グランド |
 
 ---
 
@@ -39,22 +41,28 @@ PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare
 ```text
 lefty-controller-firmware/
 ├── firmware/                  # RP2040-Zero に書き込むファームウェア一式
-│   ├── boot.py                # USB HID構成 (Composite Keyboard)
-│   ├── code.py                # メインエントリーポイント (スキャンループ・通信・HID送信)
-│   ├── stick_engine.py        # 2軸スティック多段判定エンジン (ヒステリシス・合成)
+│   ├── boot.py                # USB Composite HID (Keyboard + Mouse + Gamepad) 構成
+│   ├── code.py                # メインプログラム (スキャンループ・通信・HIDディスパッチ)
+│   ├── hid_keyboard.py        # 外部依存ゼロのネイティブHIDキーボードドライバ
+│   ├── hid_mouse.py           # 外部依存ゼロのネイティブHIDマウスドライバ
+│   ├── hid_gamepad.py         # 外部依存ゼロのネイティブHIDゲームパッドドライバ
+│   ├── stick_engine.py        # スティック判定エンジン (WASD多段判定 / アナログ軸 / マウス移動)
 │   ├── debouncer.py           # 13ボタンの高速デバウンス処理 (Eager Debounce)
-│   ├── key_mapper.py          # キー名文字列 ⇔ USB HID Keycode 変換
+│   ├── key_mapper.py          # キーボード/マウス/ゲームパッド入力文字列パース
 │   ├── serial_handler.py      # Web Serial API 連携・JSONプロトコルハンドラ
-│   ├── diagnostic.py          # Phase 1 導通テスト & ADCプロファイリングツール
-│   └── config.json            # 動作設定ファイル
+│   ├── diagnostic.py          # 導通テスト & ADCプロファイリングツール
+│   └── config.json            # 動作設定ファイル (3つのプリセットプロファイル内蔵)
 ├── webui/                     # ブラウザ設定ツール (Web Serial API 対応)
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-├── tests/                     # PC上で即時実行可能な自動テストスイート
-│   ├── test_stick_engine.py   # スティック多段判定・ヒステリシス検証
+├── tests/                     # PC上で即時実行可能な自動テストスイート (34テスト)
+│   ├── test_stick_engine.py   # スティック多段判定・ゲームパッド/マウスモード検証
 │   ├── test_debouncer.py      # デバウンス・チャタリング耐性検証
-│   ├── test_key_mapper.py     # キーマッピング検証
+│   ├── test_key_mapper.py     # キー/マウス/ゲームパッドマッピング検証
+│   ├── test_hid_keyboard.py   # キーボードレポート生成検証
+│   ├── test_hid_mouse.py      # マウスレポート生成検証
+│   ├── test_hid_gamepad.py    # ゲームパッドレポート生成検証
 │   └── test_serial_handler.py # シリアル通信プロトコル検証
 ├── docs/
 │   └── handover_spec.md       # 引き継ぎ仕様書ドキュメント
@@ -63,19 +71,31 @@ lefty-controller-firmware/
 
 ---
 
-## 3. スティック多段判定エンジンの仕様 (Phase 2)
+## 3. スティック動作モードとプロファイルプリセット
 
-* **ゼロ点自動キャリブレーション:**
-  * 起動時に数十ms間スティックの静止値を読み取り、ニュートラル中心値として記録。
-* **デッドゾーン (遊び):**
-  * デフォルト `2500` (16bit空間)。中心値付近の微細なノイズをカットし、ニュートラル時は全キー解放。
-* **ヒステリシス (チャタリング防止):**
-  * デフォルト `1500`。Walk/Run境界での高速な連打・誤判定を防止。
-    * Walk ON: 偏差 $\ge 3000$ / Walk OFF: 偏差 $< 2500$
-    * Run ON: 偏差 $\ge 26000$ / Run OFF: 偏差 $< 24500$
-* **キー競合回避 & 斜め移動合成:**
-  * WalkからRunへの遷移時は、Walkキーを維持したまま `Shift` キーを追加押下（差分HIDレポート送信）。
-  * X軸・Y軸の同時倒し（斜め移動）時は、両軸のキー（例: `W` + `D` + `Shift`）を自然に合成。
+本ファームウェアでは、プロファイルごとにスティックの動作モードとボタン割り当てを自由に切り替えることができます。
+
+### 3.1 動作モード
+1. **キーボード (WASD 多段階入力):**
+   - 浅倒しで「歩き (W/A/S/D)」、深倒しで「走り (Shift + W/A/S/D)」の2段階入力。
+   - ヒステリシス機構（チャタリング防止）と斜め入力合成を完備。
+2. **ゲームパッド (アナログスティック):**
+   - ジョイスティックの倒しこみ量と角度を正規化アナログ値（X軸, Y軸: -127〜127）として出力。
+   - PC標準のDirectInputゲームパッドとして認識（Steam入力経由でXInputに自動変換可能）。
+3. **マウス (ポインタ移動):**
+   - スティックの傾き量に応じた加速度カーブ付きマウスポインタ移動。
+   - WebUIから最高速度（感度スライダー）を微調整可能。
+
+### 3.2 初期プロファイルプリセット
+* **プロファイル 1 (FPS / 汎用):**
+  - スティック: キーボード (WASD Walk/Run 多段階入力)
+  - ボタン: `1`, `2`, `X`, `E`, `Tab`, `F`, `Q`, `4`, `3`, `Space`, `z`, `LCtrl`, `LAlt`
+* **プロファイル 2 (ゲームパッド):**
+  - スティック: ゲームパッド (アナログスティック X/Y)
+  - ボタン: `Gamepad_1`〜`Gamepad_13` (A, B, X, Y, LB, RB, LT, RT, Select, Start 等)
+* **プロファイル 3 (マウス & 作業用):**
+  - スティック: マウス (カーソル移動)
+  - ボタン: `Mouse_Left`, `Mouse_Right`, `Mouse_Middle`, `Wheel_Up`, `Wheel_Down`, `LCtrl, z`, `LCtrl, c`, `LCtrl, v` 等
 
 ---
 
@@ -88,15 +108,13 @@ lefty-controller-firmware/
    * [CircuitPython 公式サイト (RP2040-Zero用)](https://circuitpython.org/board/waveshare_rp2040_zero/) から `.uf2` をダウンロードし、`RPI-RP2` ドライブにコピー。
    * ドライブ名が `CIRCUITPY` に変われば導入完了です。
 
-2. **ライブラリの配置:**
-   * [Adafruit CircuitPython Bundle](https://circuitpython.org/libraries) から `adafruit_hid` フォルダを取得し、`CIRCUITPY/lib/adafruit_hid` に配置します。
-
-3. **ファームウェアファイルのコピー:**
-   * 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`）を `CIRCUITPY` ドライブのルートにコピーします。
+2. **ファームウェアファイルのコピー:**
+   * 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
+   * **注意:** `boot.py` の更新によりUSB複合デバイス（Keyboard + Mouse + Gamepad）が構成されるため、**書き込み後に一度USBケーブルを抜き差ししてください。**
 
 ---
 
-## 5. Web Serial API 設定ツールの使い方 (Phase 4)
+## 5. Web Serial API 設定ツールの使い方
 
 Google Chrome または Microsoft Edge 等の Web Serial API 対応ブラウザで使用できます。
 
@@ -111,10 +129,9 @@ python3 -m http.server 8000 --directory webui
 * **デバイスと接続:**
   * 「デバイスと接続」ボタンを押し、一覧から RP2040-Zero のシリアルポート（CDC）を選択。
 * **スティック・ビジュアライザ:**
-  * スティックの現在の倒しこみ座標（Delta X, Delta Y）、現在の判定ステート（NEUTRAL / WALK / RUN）を円形レーダー上にリアルタイム描画。
-* **閾値・キーマップ編集:**
-  * デッドゾーン、ヒステリシス、Walk/Run閾値のスライダー調整。
-  * 13個のボタンのキーバインド変更（物理ボタンを押すと画面上の該当カードが緑に点灯）。
+  * スティックの現在の倒しこみ座標（Delta X, Delta Y）、動作モード、出力量を円形レーダー上にリアルタイム描画。
+* **プロファイル切り替え・管理:**
+  * FPS用キーボード、ゲームパッド、マウス操作プロファイルを1クリックで切り替え。
 * **設定の即時反映 (Hot Reload):**
   * 「デバイスへ保存・反映」をクリックすると、マイコンを再起動することなくオンザフライで新しい設定が適用されます。
 
@@ -125,7 +142,7 @@ python3 -m http.server 8000 --directory webui
 PCローカル（Python 3環境）で以下のコマンドを実行することで、ハードウェア実機がなくても全コアロジックをテストできます：
 
 ```bash
-python3 -m unittest discover tests
+python3 -m unittest discover tests -v
 ```
 
 ---

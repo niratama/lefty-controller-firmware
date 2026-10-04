@@ -12,16 +12,24 @@ import sys
 # 自作モジュール
 from stick_engine import StickEngine
 from debouncer import ButtonManager
-from key_mapper import parse_keys, parse_key
+from key_mapper import parse_keys, parse_key, parse_actions
 from serial_handler import SerialHandler
 import config_store
+
+try:
+    from hid_keyboard import NativeKeyboard
+    from hid_mouse import NativeMouse
+    from hid_gamepad import NativeGamepad
+except ImportError:
+    NativeKeyboard = None
+    NativeMouse = None
+    NativeGamepad = None
 
 try:
     import board
     import digitalio
     import analogio
     import usb_hid
-    from adafruit_hid.keyboard import Keyboard
     import supervisor
     IS_CIRCUITPYTHON = True
 except ImportError:
@@ -41,6 +49,8 @@ DEFAULT_CONFIG = {
                 ]
             },
             "joystick": {
+                "mode": "keyboard",
+                "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -55,37 +65,42 @@ DEFAULT_CONFIG = {
             }
         },
         {
-            "name": "プロファイル 2 (MMO/RPG)",
+            "name": "プロファイル 2 (ゲームパッド)",
             "keymap": {
                 "buttons": [
-                    "1", "2", "3", "4", "5", "6", "7", "8", "9",
+                    "Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4",
+                    "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8",
+                    "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"
+                ]
+            },
+            "joystick": {
+                "mode": "gamepad",
+                "mouse_speed": 12,
+                "deadzone": 2500,
+                "hysteresis": 1500,
+                "invert_x": False,
+                "invert_y": False,
+                "rotation": 90,
+                "directions": {
+                    "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                }
+            }
+        },
+        {
+            "name": "プロファイル 3 (マウス & 作業用)",
+            "keymap": {
+                "buttons": [
+                    "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",
+                    ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"],
                     "Space", "Tab", "LCtrl", "LAlt"
                 ]
             },
             "joystick": {
-                "deadzone": 2500,
-                "hysteresis": 1500,
-                "invert_x": False,
-                "invert_y": False,
-                "rotation": 90,
-                "directions": {
-                    "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
-                    "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
-                    "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
-                    "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
-                }
-            }
-        },
-        {
-            "name": "プロファイル 3 (作業用/クリエイティブ)",
-            "keymap": {
-                "buttons": [
-                    ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"],
-                    "b", "e", "r", "t",
-                    "Space", "Shift", "LCtrl", "LAlt"
-                ]
-            },
-            "joystick": {
+                "mode": "mouse",
+                "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -107,6 +122,8 @@ DEFAULT_CONFIG = {
         ]
     },
     "joystick": {
+        "mode": "keyboard",
+        "mouse_speed": 12,
         "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": False,
@@ -151,6 +168,8 @@ class LeftyController:
         self.adc_x_io = None
         self.adc_y_io = None
         self.keyboard = None
+        self.mouse = None
+        self.gamepad = None
 
         # 設定適用 (active_profile の反映)
         self.apply_config(self.config)
@@ -170,6 +189,24 @@ class LeftyController:
             self.button_keymap = cfg.get("keymap", {}).get("buttons", [])
             self.stick_engine.load_config(cfg.get("joystick", {}))
 
+        # プロファイル切替時の残存キー・ボタンを安全に全解放
+        if self.keyboard:
+            try:
+                self.keyboard.release_all()
+            except Exception:
+                pass
+        self.active_hid_keycodes.clear()
+        if self.mouse:
+            try:
+                self.mouse.release_all()
+            except Exception:
+                pass
+        if self.gamepad:
+            try:
+                self.gamepad.reset_all()
+            except Exception:
+                pass
+
     def load_config(self):
         try:
             return config_store.load_config(CONFIG_FILE, DEFAULT_CONFIG)
@@ -181,12 +218,24 @@ class LeftyController:
             print("[INFO] PCシミュレーション環境で初期化しました。")
             return
 
-        # 1. USB HID キーボード初期化
+        # 1. USB HID デバイス初期化 (Keyboard, Mouse, Gamepad)
         try:
-            self.keyboard = Keyboard(usb_hid.devices)
+            self.keyboard = NativeKeyboard(usb_hid.devices) if NativeKeyboard else None
             print("[INFO] USB HID Keyboard 初期化完了")
         except Exception as e:
-            print(f"[WARN] USB HID 初期化失敗: {e}")
+            print(f"[WARN] USB HID Keyboard 初期化失敗: {e}")
+
+        try:
+            self.mouse = NativeMouse(usb_hid.devices) if NativeMouse else None
+            print("[INFO] USB HID Mouse 初期化完了")
+        except Exception as e:
+            print(f"[WARN] USB HID Mouse 初期化失敗: {e}")
+
+        try:
+            self.gamepad = NativeGamepad(usb_hid.devices) if NativeGamepad else None
+            print("[INFO] USB HID Gamepad 初期化完了")
+        except Exception as e:
+            print(f"[WARN] USB HID Gamepad 初期化失敗: {e}")
 
         # 2. ボタンGPIO初期化 (GP0〜GP12: 内部プルアップ / Active Low)
         for p in self.button_pins_def:
@@ -292,26 +341,45 @@ class LeftyController:
         # 4. スティック多段判定エンジンの実行
         stick_active_str_keys, _, _, debug_info = self.stick_engine.process(rx, ry)
 
-        # 5. キーコードの合成
+        # 5. 各デバイス用アクションの合成
         desired_keycodes = set()
+        desired_mouse_buttons = 0
+        desired_mouse_wheel = 0
+        desired_gamepad_buttons = 0
 
-        # スティックキー (文字列 "W", "Shift" 等 -> Keycode)
-        for k_str in stick_active_str_keys:
-            c = parse_key(k_str)
-            if c is not None:
-                desired_keycodes.add(c)
+        # スティックからの入力
+        if self.stick_engine.mode == "keyboard":
+            for k_str in stick_active_str_keys:
+                c = parse_key(k_str)
+                if c is not None:
+                    desired_keycodes.add(c)
 
-        # ボタンキー
-        # self.button_keymap はリスト ["1", "2", ..., "Space", ...]
+        # ボタン入力のパース
         for idx, pin in enumerate(self.button_pins_def):
             if pin in pressed_pins and idx < len(self.button_keymap):
                 key_def = self.button_keymap[idx]
-                codes = parse_keys(key_def)
-                for c in codes:
+                actions = parse_actions(key_def)
+                for c in actions["keyboard"]:
                     desired_keycodes.add(c)
+                desired_mouse_buttons |= actions["mouse_buttons"]
+                desired_mouse_wheel += actions["mouse_wheel"]
+                for b_num in actions["gamepad_buttons"]:
+                    if 1 <= b_num <= 16:
+                        desired_gamepad_buttons |= (1 << (b_num - 1))
 
         # 6. USB HID レポート送信
+        # 6.1 キーボード送信
         self.update_hid_keys(desired_keycodes)
+
+        # 6.2 マウス送信
+        if self.mouse:
+            mdx, mdy = debug_info.get("mouse", (0, 0)) if self.stick_engine.mode == "mouse" else (0, 0)
+            self.mouse.update(desired_mouse_buttons, x=mdx, y=mdy, wheel=desired_mouse_wheel)
+
+        # 6.3 ゲームパッド送信
+        if self.gamepad:
+            joy_x, joy_y = debug_info.get("gamepad", (0, 0)) if self.stick_engine.mode == "gamepad" else (0, 0)
+            self.gamepad.update(desired_gamepad_buttons, x=joy_x, y=joy_y)
 
         # 7. テレメトリ送信（モニタ有効時、最大30Hz程度に制限）
         if self.serial_handler.monitor_enabled and (now - self.last_telemetry_time) >= 0.033:

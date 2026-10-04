@@ -30,6 +30,8 @@ const DEFAULT_CONFIG = {
         buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
       },
       joystick: {
+        mode: "keyboard",
+        mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -44,34 +46,42 @@ const DEFAULT_CONFIG = {
       }
     },
     {
-      name: "プロファイル 2 (MMO/RPG)",
-      keymap: {
-        buttons: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
-      },
-      joystick: {
-        deadzone: 2500,
-        hysteresis: 1500,
-        invert_x: false,
-        invert_y: false,
-        rotation: 90,
-        directions: {
-          up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
-          down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
-          left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
-          right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
-        }
-      }
-    },
-    {
-      name: "プロファイル 3 (作業用/クリエイティブ)",
+      name: "プロファイル 2 (ゲームパッド)",
       keymap: {
         buttons: [
-          ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"],
-          "b", "e", "r", "t",
-          "Space", "Shift", "LCtrl", "LAlt"
+          "Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4",
+          "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8",
+          "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"
         ]
       },
       joystick: {
+        mode: "gamepad",
+        mouse_speed: 12,
+        deadzone: 2500,
+        hysteresis: 1500,
+        invert_x: false,
+        invert_y: false,
+        rotation: 90,
+        directions: {
+          up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+          down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+          left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+          right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+        }
+      }
+    },
+    {
+      name: "プロファイル 3 (マウス & 作業用)",
+      keymap: {
+        buttons: [
+          "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",
+          ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"],
+          "Space", "Tab", "LCtrl", "LAlt"
+        ]
+      },
+      joystick: {
+        mode: "mouse",
+        mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -90,6 +100,8 @@ const DEFAULT_CONFIG = {
     buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
   },
   joystick: {
+    mode: "keyboard",
+    mouse_speed: 12,
     deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
@@ -150,6 +162,12 @@ const liveKeysContainer = document.getElementById("liveKeysContainer");
 const hwBtnGrid = document.getElementById("hwBtnGrid");
 
 // スティック・パラメータDOM要素
+const stickModeSelect = document.getElementById("stickModeSelect");
+const mouseSpeedRow = document.getElementById("mouseSpeedRow");
+const mouseSpeedInput = document.getElementById("mouseSpeedInput");
+const mouseSpeedVal = document.getElementById("mouseSpeedVal");
+const kbdThresholdsGroup = document.getElementById("kbdThresholdsGroup");
+
 const deadzoneInput = document.getElementById("deadzoneInput");
 const deadzoneVal = document.getElementById("deadzoneVal");
 const hysteresisInput = document.getElementById("hysteresisInput");
@@ -197,6 +215,12 @@ function ensureProfiles(cfg) {
       }
     ];
   }
+  cfg.profiles.forEach(p => {
+    if (p.joystick) {
+      if (!p.joystick.mode) p.joystick.mode = "keyboard";
+      if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
+    }
+  });
   if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
     cfg.active_profile = 0;
   }
@@ -204,7 +228,21 @@ function ensureProfiles(cfg) {
   const cur = cfg.profiles[cfg.active_profile];
   cfg.keymap = cur.keymap;
   cfg.joystick = cur.joystick;
+  if (cfg.joystick) {
+    if (!cfg.joystick.mode) cfg.joystick.mode = "keyboard";
+    if (!cfg.joystick.mouse_speed) cfg.joystick.mouse_speed = 12;
+  }
   return cfg;
+}
+
+function updateModeVisibility() {
+  const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  if (mouseSpeedRow) {
+    mouseSpeedRow.style.display = (mode === "mouse") ? "flex" : "none";
+  }
+  if (kbdThresholdsGroup) {
+    kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
+  }
 }
 
 // 現在のUI/メモリ状態をアクティブプロファイルに同期
@@ -374,6 +412,16 @@ function renderDirectionTable() {
 }
 
 function updateFormFromConfig() {
+  if (stickModeSelect) {
+    stickModeSelect.value = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  }
+  if (mouseSpeedInput) {
+    const spd = (currentConfig.joystick && currentConfig.joystick.mouse_speed) ? currentConfig.joystick.mouse_speed : 12;
+    mouseSpeedInput.value = spd;
+    if (mouseSpeedVal) mouseSpeedVal.textContent = spd;
+  }
+  updateModeVisibility();
+
   deadzoneInput.value = currentConfig.joystick.deadzone;
   deadzoneVal.textContent = currentConfig.joystick.deadzone;
   hysteresisInput.value = currentConfig.joystick.hysteresis;
@@ -541,6 +589,25 @@ if (btnClearTestInput) {
 }
 
 // パラメータリスナー
+if (stickModeSelect) {
+  stickModeSelect.addEventListener("change", (e) => {
+    currentConfig.joystick.mode = e.target.value;
+    updateModeVisibility();
+    syncCurrentToProfile();
+    drawRadar();
+    log(`スティック動作モードを「${e.target.value}」に変更しました`, "info");
+  });
+}
+
+if (mouseSpeedInput) {
+  mouseSpeedInput.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value, 10);
+    currentConfig.joystick.mouse_speed = val;
+    if (mouseSpeedVal) mouseSpeedVal.textContent = val;
+    syncCurrentToProfile();
+  });
+}
+
 batchWalkInput.addEventListener("input", (e) => {
   const val = parseInt(e.target.value, 10);
   batchWalkVal.textContent = val;
@@ -628,22 +695,25 @@ function drawRadar() {
   ctx.fill();
   ctx.stroke();
 
-  // 各方向のWalk / Run 領域の目安円
-  const avgWalk = (currentConfig.joystick.directions.up.th_walk + currentConfig.joystick.directions.right.th_walk) / 2;
-  const walkRatio = Math.min(1.0, avgWalk / 32768);
-  ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius * walkRatio, 0, Math.PI * 2);
-  ctx.stroke();
+  // 各方向のWalk / Run 領域の目安円 (キーボードモード時のみ描画)
+  const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  if (mode === "keyboard") {
+    const avgWalk = (currentConfig.joystick.directions.up.th_walk + currentConfig.joystick.directions.right.th_walk) / 2;
+    const walkRatio = Math.min(1.0, avgWalk / 32768);
+    ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * walkRatio, 0, Math.PI * 2);
+    ctx.stroke();
 
-  const avgRun = (currentConfig.joystick.directions.up.th_run + currentConfig.joystick.directions.right.th_run) / 2;
-  const runRatio = Math.min(1.0, avgRun / 32768);
-  ctx.strokeStyle = "rgba(16, 185, 129, 0.35)";
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius * runRatio, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
+    const avgRun = (currentConfig.joystick.directions.up.th_run + currentConfig.joystick.directions.right.th_run) / 2;
+    const runRatio = Math.min(1.0, avgRun / 32768);
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.35)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * runRatio, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // スティック現在位置プロット
   // deltaX, deltaY (-32768 〜 +32768)
@@ -666,6 +736,22 @@ function drawRadar() {
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5;
   ctx.stroke();
+
+  // モードバッジ
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "bold 11px Inter, sans-serif";
+  let modeBadge = "MODE: KEYBOARD (WASD)";
+  if (mode === "gamepad") modeBadge = "MODE: GAMEPAD (X/Y)";
+  if (mode === "mouse") modeBadge = "MODE: MOUSE (POINTER)";
+  ctx.fillText(modeBadge, 12, 20);
+
+  if (mode === "gamepad" && currentTelemetry.gamepad) {
+    ctx.font = "10px monospace";
+    ctx.fillText(`X:${currentTelemetry.gamepad[0]} Y:${currentTelemetry.gamepad[1]}`, 12, 34);
+  } else if (mode === "mouse" && currentTelemetry.mouse) {
+    ctx.font = "10px monospace";
+    ctx.fillText(`dX:${currentTelemetry.mouse[0]} dY:${currentTelemetry.mouse[1]}`, 12, 34);
+  }
 }
 
 // テレメトリ更新UI
@@ -675,6 +761,9 @@ function updateTelemetryUI(data) {
   currentTelemetry.dy = data.dy || 0;
   currentTelemetry.states = data.states || { up: 0, down: 0, left: 0, right: 0 };
   currentTelemetry.btns = data.btns || [];
+  currentTelemetry.mode = data.mode || "keyboard";
+  currentTelemetry.gamepad = data.gamepad || [0, 0];
+  currentTelemetry.mouse = data.mouse || [0, 0];
 
   rawXSpan.textContent = currentTelemetry.raw[0];
   rawYSpan.textContent = currentTelemetry.raw[1];

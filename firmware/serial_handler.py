@@ -116,6 +116,8 @@ class SerialHandler:
                         "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
                     },
                     "joystick": {
+                        "mode": "keyboard",
+                        "mouse_speed": 12,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -130,11 +132,17 @@ class SerialHandler:
                     }
                 },
                 {
-                    "name": "プロファイル 2 (MMO/RPG)",
+                    "name": "プロファイル 2 (ゲームパッド)",
                     "keymap": {
-                        "buttons": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
+                        "buttons": [
+                            "Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4",
+                            "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8",
+                            "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"
+                        ]
                     },
                     "joystick": {
+                        "mode": "gamepad",
+                        "mouse_speed": 12,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -149,11 +157,17 @@ class SerialHandler:
                     }
                 },
                 {
-                    "name": "プロファイル 3 (作業用/クリエイティブ)",
+                    "name": "プロファイル 3 (マウス & 作業用)",
                     "keymap": {
-                        "buttons": [["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"], "b", "e", "r", "t", "Space", "Shift", "LCtrl", "LAlt"]
+                        "buttons": [
+                            "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",
+                            ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"],
+                            "Space", "Tab", "LCtrl", "LAlt"
+                        ]
                     },
                     "joystick": {
+                        "mode": "mouse",
+                        "mouse_speed": 12,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -172,6 +186,8 @@ class SerialHandler:
                 "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
             },
             "joystick": {
+                "mode": "keyboard",
+                "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -217,6 +233,9 @@ class SerialHandler:
             "dy": debug_info["dy"],
             "states": debug_info["states"],
             "keys": debug_info["active_keys"],
-            "btns": pressed_buttons
+            "btns": pressed_buttons,
+            "mode": debug_info.get("mode", "keyboard"),
+            "gamepad": debug_info.get("gamepad", (0, 0)),
+            "mouse": debug_info.get("mouse", (0, 0))
         }
         self.send_response(payload)

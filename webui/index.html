@@ -65,7 +65,20 @@
           </div>
 
           <div class="stick-params">
-            <h3>グローバル設定</h3>
+            <h3>スティック動作設定</h3>
+            <div class="param-row">
+              <label for="stickModeSelect">スティック動作モード:</label>
+              <select id="stickModeSelect" class="btn-input" style="width: 100%;">
+                <option value="keyboard">キーボード (WASD 多段階入力)</option>
+                <option value="gamepad">ゲームパッド (アナログスティック X/Y)</option>
+                <option value="mouse">マウス (ポインタ移動)</option>
+              </select>
+            </div>
+            <div class="param-row" id="mouseSpeedRow" style="display: none;">
+              <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
+              <input type="range" id="mouseSpeedInput" min="2" max="30" step="1" value="12">
+              <span id="mouseSpeedVal" class="val-display">12</span>
+            </div>
             <div class="param-row">
               <label for="deadzoneInput">デッドゾーン (遊び):</label>
               <input type="range" id="deadzoneInput" min="500" max="10000" step="100" value="2500">
@@ -90,34 +103,36 @@
               </select>
             </div>
 
-            <h3 style="margin-top: 15px;">Walk / Run 閾値一括設定 (全方向)</h3>
-            <div class="param-row">
-              <label for="batchWalkInput">Walk (歩き) 閾値:</label>
-              <input type="range" id="batchWalkInput" min="1000" max="32000" step="500" value="3000">
-              <span id="batchWalkVal" class="val-display">3000</span>
-            </div>
-            <div class="param-row">
-              <label for="batchRunInput">Run (走り) 閾値:</label>
-              <input type="range" id="batchRunInput" min="1000" max="32000" step="500" value="26000">
-              <span id="batchRunVal" class="val-display">26000</span>
-            </div>
+            <div id="kbdThresholdsGroup">
+              <h3 style="margin-top: 15px;">Walk / Run 閾値一括設定 (全方向)</h3>
+              <div class="param-row">
+                <label for="batchWalkInput">Walk (歩き) 閾値:</label>
+                <input type="range" id="batchWalkInput" min="1000" max="32000" step="500" value="3000">
+                <span id="batchWalkVal" class="val-display">3000</span>
+              </div>
+              <div class="param-row">
+                <label for="batchRunInput">Run (走り) 閾値:</label>
+                <input type="range" id="batchRunInput" min="1000" max="32000" step="500" value="26000">
+                <span id="batchRunVal" class="val-display">26000</span>
+              </div>
 
-            <h3 style="margin-top: 15px;">方向別 個別設定 (微調整・キー割当)</h3>
-            <div class="direction-tabs">
-              <table class="dir-table">
-                <thead>
-                  <tr>
-                    <th>方向</th>
-                    <th>Walk閾値</th>
-                    <th>Walkキー</th>
-                    <th>Run閾値</th>
-                    <th>Runキー</th>
-                  </tr>
-                </thead>
-                <tbody id="dirTableBody">
-                  <!-- JSで動的生成 -->
-                </tbody>
-              </table>
+              <h3 style="margin-top: 15px;">方向別 個別設定 (微調整・キー割当)</h3>
+              <div class="direction-tabs">
+                <table class="dir-table">
+                  <thead>
+                    <tr>
+                      <th>方向</th>
+                      <th>Walk閾値</th>
+                      <th>Walkキー</th>
+                      <th>Run閾値</th>
+                      <th>Runキー</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dirTableBody">
+                    <!-- JSで動的生成 -->
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -127,6 +142,12 @@
       <section class="card buttons-section">
         <h2>スイッチ入力 (13ボタン) キーマップ</h2>
         <p class="section-desc">前面9個、側面トリガー3個、スティック押し込みスイッチの割当キーを設定します。</p>
+        <div class="quick-ref-box" style="margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 0.82em; color: #a0aec0; line-height: 1.6;">
+          <strong>💡 割り当て可能な入力の例:</strong><br>
+          ・<strong>キーボード:</strong> <code>1</code>, <code>2</code>, <code>X</code>, <code>Space</code>, <code>Tab</code>, <code>LCtrl</code>, <code>LCtrl, c</code> (複合キー)<br>
+          ・<strong>マウス:</strong> <code>Mouse_Left</code> (左クリック), <code>Mouse_Right</code> (右クリック), <code>Mouse_Middle</code>, <code>Wheel_Up</code>, <code>Wheel_Down</code><br>
+          ・<strong>ゲームパッド:</strong> <code>Gamepad_1</code> (A), <code>Gamepad_2</code> (B), <code>Gamepad_3</code> (X), <code>Gamepad_4</code> (Y), <code>Gamepad_5</code> (LB), <code>Gamepad_6</code> (RB), <code>Gamepad_9</code> (Select), <code>Gamepad_10</code> (Start)
+        </div>
         <div class="button-grid" id="buttonGrid">
           <!-- JSで動的生成 -->
         </div>
@@ -182,6 +203,6 @@
     </main>
   </div>
 
-  <script src="app.js?v=20261004g"></script>
+  <script src="app.js?v=20261004h"></script>
 </body>
 </html>
