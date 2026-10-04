@@ -1,11 +1,24 @@
 // Lefty Controller Configurator Client Script
 
 const PIN_NAMES = [
-  "SW1 (前面 1)", "SW2 (前面 2)", "SW3 (前面 3)",
-  "SW4 (前面 4)", "SW5 (前面 5)", "SW6 (前面 6)",
-  "SW7 (前面 7)", "SW8 (前面 8)", "SW9 (前面 9)",
-  "SW10 (側面 上)", "SW11 (側面 中)", "SW12 (側面 下)",
+  "SW1 (1)",
+  "SW2 (2)",
+  "SW3 (X)",
+  "SW4 (E)",
+  "SW5 (Ta)",
+  "SW6 (F)",
+  "SW7 (Q)",
+  "SW8 (4)",
+  "SW9 (3)",
+  "SW10 (側面 上)",
+  "SW11 (側面 中)",
+  "SW12 (側面 下)",
   "SW_STK (スティック押込)"
+];
+
+const BUTTON_LABELS = [
+  "1", "2", "X", "E", "Ta", "F", "Q", "4", "3",
+  "側面上", "側面中", "側面下", "STK"
 ];
 
 const DEFAULT_CONFIG = {
@@ -248,9 +261,8 @@ function renderHwButtonGrid() {
     const pill = document.createElement("div");
     pill.className = "hw-btn-pill";
     pill.id = `hw_btn_${pin}`;
-    const name = i < 9 ? `SW${i+1}` : (i === 12 ? "STK" : `SW${i+1}`);
-    pill.textContent = name;
-    pill.title = PIN_NAMES[i] || `GP${pin}`;
+    pill.textContent = BUTTON_LABELS[i] || `SW${i+1}`;
+    pill.title = `${PIN_NAMES[i]} (GP${pin})`;
     hwBtnGrid.appendChild(pill);
   });
 }
