@@ -19,7 +19,7 @@ class StickEngine:
         self.deadzone = 4000
         self.hysteresis = 1500
         self.invert_x = False
-        self.invert_y = True  # 一般的なADCでは上倒しで電圧低下する場合があるため
+        self.invert_y = False # デフォルトはXYともに反転なし
         self.rotation = 90    # 取付角度回転補正 (度数: 0, 90, 180, 270)
 
         self.dir_configs = {
@@ -110,11 +110,11 @@ class StickEngine:
         # 1. まず物理的な取付角度の回転補正を適用
         rot = self.rotation % 360
         if rot == 90:
-            dx, dy = -dy, dx
+            dx, dy = dy, dx
         elif rot == 180:
             dx, dy = -dx, -dy
         elif rot == 270:
-            dx, dy = dy, -dx
+            dx, dy = -dy, -dx
 
         # 2. 回転後の論理軸（X=左右, Y=上下）に対して反転を適用
         if self.invert_x:

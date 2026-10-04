@@ -20,7 +20,7 @@
     "deadzone": 4000,
     "hysteresis": 1500,
     "invert_x": false,
-    "invert_y": true,
+    "invert_y": false,
     "rotation": 90,
     "directions": {
       "up": {

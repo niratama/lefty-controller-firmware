@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
     deadzone: 4000,
     hysteresis: 1500,
     invert_x: false,
-    invert_y: true,
+    invert_y: false,
     rotation: 90,
     directions: {
       up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },

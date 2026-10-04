@@ -107,34 +107,50 @@ class TestStickEngine(unittest.TestCase):
 
     def test_rotation_90(self):
         # ユーザーのハードウェア状況:
-        # 左90度回転して取り付けられているため、
-        # 補正なしだと: 左倒しでUP(dy>0), 下倒しでLEFT(dx<0) となっていた。
-        # rotation=90 (反時計回り90度補正) を適用すると:
-        # ユーザーが「左に倒した」とき (元のセンサ出力: dx=0, dy=+15000) -> 補正後 dx=-15000, dy=0 (LEFT: 'A')
-        # ユーザーが「下に倒した」とき (元のセンサ出力: dx=-15000, dy=0) -> 補正後 dx=0, dy=-15000 (DOWN: 'S')
+        # 左90度回転して取り付けられており、反転なし (invert_x=False, invert_y=False) の状態で
+        # rotation=90 (dx, dy = dy, dx) により:
+        # 左倒し (生値 dy=-15000, dx=0) -> dx=-15000 (LEFT: 'A'), dy=0
+        # 下倒し (生値 dx=-15000, dy=0) -> dx=0, dy=-15000 (DOWN: 'S')
+        # 上倒し (生値 dx=+15000, dy=0) -> dx=0, dy=+15000 (UP: 'W')
+        # 右倒し (生値 dy=+15000, dx=0) -> dx=+15000 (RIGHT: 'D'), dy=0
         self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
 
-        # 1. ユーザーが左に倒す (センサ出力: raw_x=30000, raw_y=45000 => dx=0, dy=+15000)
-        active, _, _, _ = self.engine.process(30000, 45000)
+        # 1. ユーザーが左に倒す (raw_x=30000, raw_y=15000 => dx_raw=0, dy_raw=-15000)
+        active, _, _, _ = self.engine.process(30000, 15000)
         self.assertEqual(active, {"A"})
         self.assertEqual(self.engine.states["left"], DirectionState.WALK)
 
-        # ニュートラルに戻す
         self.engine.process(30000, 30000)
 
-        # 2. ユーザーが下に倒す (センサ出力: raw_x=15000, raw_y=30000 => dx=-15000, dy=0)
+        # 2. ユーザーが下に倒す (raw_x=15000, raw_y=30000 => dx_raw=-15000, dy_raw=0)
         active, _, _, _ = self.engine.process(15000, 30000)
         self.assertEqual(active, {"S"})
         self.assertEqual(self.engine.states["down"], DirectionState.WALK)
+
+        self.engine.process(30000, 30000)
+
+        # 3. ユーザーが上に倒す (raw_x=45000, raw_y=30000 => dx_raw=+15000, dy_raw=0)
+        active, _, _, _ = self.engine.process(45000, 30000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(self.engine.states["up"], DirectionState.WALK)
+
+        self.engine.process(30000, 30000)
+
+        # 4. ユーザーが右に倒す (raw_x=30000, raw_y=45000 => dx_raw=0, dy_raw=+15000)
+        active, _, _, _ = self.engine.process(30000, 45000)
+        self.assertEqual(active, {"D"})
+        self.assertEqual(self.engine.states["right"], DirectionState.WALK)
 
     def test_rotation_and_invert_order(self):
         # rotation=90 の状態で、invert_y=True にしても X軸 (左右) に干渉しないことを検証
         self.engine.rotation = 90
         self.engine.invert_x = False
-        self.engine.invert_y = True  # Y軸反転
+        self.engine.invert_y = True  # Y軸反転のみ有効化
 
         # 左に倒す (dx=-15000, dy=0) -> Y軸反転しても左右(X軸)は変わらず 'A' (LEFT) であるべき
-        active, _, _, _ = self.engine.process(30000, 45000)
+        active, _, _, _ = self.engine.process(30000, 15000)
         self.assertEqual(active, {"A"})
         self.assertEqual(self.engine.states["left"], DirectionState.WALK)
 
