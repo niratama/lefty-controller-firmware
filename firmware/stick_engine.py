@@ -20,6 +20,7 @@ class StickEngine:
         self.hysteresis = 1500
         self.invert_x = False
         self.invert_y = True  # 一般的なADCでは上倒しで電圧低下する場合があるため
+        self.rotation = 90    # 取付角度回転補正 (度数: 0, 90, 180, 270)
 
         self.dir_configs = {
             "up": {
@@ -69,6 +70,7 @@ class StickEngine:
         self.hysteresis = joy_cfg.get("hysteresis", self.hysteresis)
         self.invert_x = joy_cfg.get("invert_x", self.invert_x)
         self.invert_y = joy_cfg.get("invert_y", self.invert_y)
+        self.rotation = joy_cfg.get("rotation", self.rotation)
 
         dirs = joy_cfg.get("directions", {})
         for d in ["up", "down", "left", "right"]:
@@ -109,6 +111,15 @@ class StickEngine:
             dx = -dx
         if self.invert_y:
             dy = -dy
+
+        # 取付角度回転補正 (0度, 90度, 180度, 270度)
+        rot = self.rotation % 360
+        if rot == 90:
+            dx, dy = -dy, dx
+        elif rot == 180:
+            dx, dy = -dx, -dy
+        elif rot == 270:
+            dx, dy = dy, -dx
 
         return dx, dy
 

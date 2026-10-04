@@ -21,6 +21,7 @@
     "hysteresis": 1500,
     "invert_x": false,
     "invert_y": true,
+    "rotation": 90,
     "directions": {
       "up": {
         "th_walk": 12000,

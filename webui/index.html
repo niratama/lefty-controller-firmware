@@ -59,6 +59,15 @@
               <label><input type="checkbox" id="invertX"> X軸反転</label>
               <label><input type="checkbox" id="invertY" checked> Y軸反転</label>
             </div>
+            <div class="param-row">
+              <label for="rotationSelect">取付回転補正:</label>
+              <select id="rotationSelect" class="btn-input" style="width: 100%;">
+                <option value="0">0° (標準)</option>
+                <option value="90" selected>90° (左90°取付補正)</option>
+                <option value="180">180°</option>
+                <option value="270">270° (右90°取付補正)</option>
+              </select>
+            </div>
 
             <h3 style="margin-top: 15px;">方向別 多段階キー判定</h3>
             <div class="direction-tabs">

@@ -14,6 +14,7 @@ class TestStickEngine(unittest.TestCase):
         # Y軸: raw_y < 32768 => dy = -(raw_y - 32768) = 32768 - raw_y => UP
         # テストを分かりやすくするため、invert_y=False (raw_y > center => UP) でテスト
         self.engine.invert_y = False
+        self.engine.rotation = 0
         self.engine.set_center(30000, 30000)
 
     def test_calibration(self):
@@ -103,6 +104,28 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(active, {"D", "Shift"})
         self.assertEqual(press, set())
         self.assertEqual(release, {"W"})
+
+    def test_rotation_90(self):
+        # ユーザーのハードウェア状況:
+        # 左90度回転して取り付けられているため、
+        # 補正なしだと: 左倒しでUP(dy>0), 下倒しでLEFT(dx<0) となっていた。
+        # rotation=90 (反時計回り90度補正) を適用すると:
+        # ユーザーが「左に倒した」とき (元のセンサ出力: dx=0, dy=+15000) -> 補正後 dx=-15000, dy=0 (LEFT: 'A')
+        # ユーザーが「下に倒した」とき (元のセンサ出力: dx=-15000, dy=0) -> 補正後 dx=0, dy=-15000 (DOWN: 'S')
+        self.engine.rotation = 90
+
+        # 1. ユーザーが左に倒す (センサ出力: raw_x=30000, raw_y=45000 => dx=0, dy=+15000)
+        active, _, _, _ = self.engine.process(30000, 45000)
+        self.assertEqual(active, {"A"})
+        self.assertEqual(self.engine.states["left"], DirectionState.WALK)
+
+        # ニュートラルに戻す
+        self.engine.process(30000, 30000)
+
+        # 2. ユーザーが下に倒す (センサ出力: raw_x=15000, raw_y=30000 => dx=-15000, dy=0)
+        active, _, _, _ = self.engine.process(15000, 30000)
+        self.assertEqual(active, {"S"})
+        self.assertEqual(self.engine.states["down"], DirectionState.WALK)
 
 if __name__ == '__main__':
     unittest.main()

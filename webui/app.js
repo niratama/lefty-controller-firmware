@@ -17,6 +17,7 @@ const DEFAULT_CONFIG = {
     hysteresis: 1500,
     invert_x: false,
     invert_y: true,
+    rotation: 90,
     directions: {
       up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
       down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
@@ -64,6 +65,7 @@ const hysteresisInput = document.getElementById("hysteresisInput");
 const hysteresisVal = document.getElementById("hysteresisVal");
 const invertX = document.getElementById("invertX");
 const invertY = document.getElementById("invertY");
+const rotationSelect = document.getElementById("rotationSelect");
 
 const rawXSpan = document.getElementById("rawX");
 const rawYSpan = document.getElementById("rawY");
@@ -187,6 +189,7 @@ function updateFormFromConfig() {
   hysteresisVal.textContent = currentConfig.joystick.hysteresis;
   invertX.checked = !!currentConfig.joystick.invert_x;
   invertY.checked = !!currentConfig.joystick.invert_y;
+  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 90);
 
   // ボタン
   for (let i = 0; i < 13; i++) {
@@ -228,6 +231,10 @@ invertX.addEventListener("change", (e) => {
 
 invertY.addEventListener("change", (e) => {
   currentConfig.joystick.invert_y = e.target.checked;
+});
+
+rotationSelect.addEventListener("change", (e) => {
+  currentConfig.joystick.rotation = parseInt(e.target.value, 10);
 });
 
 // レーダー描画

@@ -40,6 +40,7 @@ DEFAULT_CONFIG = {
         "hysteresis": 1500,
         "invert_x": False,
         "invert_y": True,
+        "rotation": 90,
         "directions": {
             "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
             "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
