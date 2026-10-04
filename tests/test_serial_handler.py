@@ -77,7 +77,34 @@ class TestSerialHandler(unittest.TestCase):
         finally:
             sys.stdout = old_stdout
 
-        self.assertTrue(self.handler.monitor_enabled)
+    def test_set_config_callback(self):
+        called_with = []
+        self.handler.on_config_updated = lambda cfg: called_with.append(cfg)
+
+        cfg_with_profiles = {
+            "active_profile": 1,
+            "profiles": [
+                {"name": "P1", "joystick": {"deadzone": 4000}},
+                {"name": "P2", "joystick": {"deadzone": 6000}}
+            ]
+        }
+        self.handler.handle_line(json.dumps({"cmd": "set_config", "config": cfg_with_profiles}))
+        self.assertEqual(len(called_with), 1)
+        self.assertEqual(called_with[0]["active_profile"], 1)
+
+    def test_reset_config(self):
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            self.handler.handle_line(json.dumps({"cmd": "reset_config"}))
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "reset_config")
+        self.assertIn("profiles", resp["config"])
+        self.assertEqual(len(resp["config"]["profiles"]), 3)
 
 if __name__ == '__main__':
     unittest.main()

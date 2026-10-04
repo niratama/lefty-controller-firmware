@@ -9,10 +9,11 @@ import json
 import config_store
 
 class SerialHandler:
-    def __init__(self, stick_engine, button_manager, config_path="config.json"):
+    def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None):
         self.stick_engine = stick_engine
         self.button_manager = button_manager
         self.config_path = config_path
+        self.on_config_updated = on_config_updated
         self.monitor_enabled = False
         self.buffer = ""
 
@@ -73,8 +74,15 @@ class SerialHandler:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
 
     def _cmd_set_config(self, new_config):
-        # 1. スティックエンジンの設定をホットリロード
-        self.stick_engine.load_config(new_config)
+        # 1. スティックエンジンおよびキーマップ設定をホットリロード
+        if self.on_config_updated:
+            try:
+                self.on_config_updated(new_config)
+            except Exception as e:
+                print(f"[WARN] on_config_updated failed: {e}")
+                self.stick_engine.load_config(new_config)
+        else:
+            self.stick_engine.load_config(new_config)
 
         # 2. ストレージ & NVM (Flash) への永続保存
         saved_to_file, saved_to_nvm, warning_msg = config_store.save_config(new_config, self.config_path)
@@ -100,6 +108,66 @@ class SerialHandler:
     def _cmd_reset_config(self):
         config_store.clear_nvm()
         default_cfg = {
+            "active_profile": 0,
+            "profiles": [
+                {
+                    "name": "プロファイル 1 (FPS/汎用)",
+                    "keymap": {
+                        "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+                    },
+                    "joystick": {
+                        "deadzone": 4000,
+                        "hysteresis": 1500,
+                        "invert_x": False,
+                        "invert_y": False,
+                        "rotation": 90,
+                        "directions": {
+                            "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                            "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                            "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                            "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                        }
+                    }
+                },
+                {
+                    "name": "プロファイル 2 (MMO/RPG)",
+                    "keymap": {
+                        "buttons": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
+                    },
+                    "joystick": {
+                        "deadzone": 4000,
+                        "hysteresis": 1500,
+                        "invert_x": False,
+                        "invert_y": False,
+                        "rotation": 90,
+                        "directions": {
+                            "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                            "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                            "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                            "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                        }
+                    }
+                },
+                {
+                    "name": "プロファイル 3 (作業用/クリエイティブ)",
+                    "keymap": {
+                        "buttons": [["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"], "b", "e", "r", "t", "Space", "Shift", "LCtrl", "LAlt"]
+                    },
+                    "joystick": {
+                        "deadzone": 4000,
+                        "hysteresis": 1500,
+                        "invert_x": False,
+                        "invert_y": False,
+                        "rotation": 90,
+                        "directions": {
+                            "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
+                            "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
+                            "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Left", "key_run": ["Shift", "Left"]},
+                            "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "Right", "key_run": ["Shift", "Right"]}
+                        }
+                    }
+                }
+            ],
             "keymap": {
                 "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
             },
@@ -122,7 +190,13 @@ class SerialHandler:
                 "adc_y": 27
             }
         }
-        self.stick_engine.load_config(default_cfg)
+        if self.on_config_updated:
+            try:
+                self.on_config_updated(default_cfg)
+            except Exception:
+                self.stick_engine.load_config(default_cfg)
+        else:
+            self.stick_engine.load_config(default_cfg)
         self.send_response({"status": "ok", "cmd": "reset_config", "config": default_cfg})
 
     def send_response(self, obj):

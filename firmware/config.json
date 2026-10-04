@@ -1,19 +1,138 @@
 {
+  "active_profile": 0,
+  "profiles": [
+    {
+      "name": "プロファイル 1 (FPS/汎用)",
+      "keymap": {
+        "buttons": [
+          "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
+          "Space", "z", "LCtrl", "LAlt"
+        ]
+      },
+      "joystick": {
+        "deadzone": 4000,
+        "hysteresis": 1500,
+        "invert_x": false,
+        "invert_y": false,
+        "rotation": 90,
+        "directions": {
+          "up": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "W",
+            "key_run": ["Shift", "W"]
+          },
+          "down": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "S",
+            "key_run": ["Shift", "S"]
+          },
+          "left": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "A",
+            "key_run": ["Shift", "A"]
+          },
+          "right": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "D",
+            "key_run": ["Shift", "D"]
+          }
+        }
+      }
+    },
+    {
+      "name": "プロファイル 2 (MMO/RPG)",
+      "keymap": {
+        "buttons": [
+          "1", "2", "3", "4", "5", "6", "7", "8", "9",
+          "Space", "Tab", "LCtrl", "LAlt"
+        ]
+      },
+      "joystick": {
+        "deadzone": 4000,
+        "hysteresis": 1500,
+        "invert_x": false,
+        "invert_y": false,
+        "rotation": 90,
+        "directions": {
+          "up": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "W",
+            "key_run": ["Shift", "W"]
+          },
+          "down": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "S",
+            "key_run": ["Shift", "S"]
+          },
+          "left": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "A",
+            "key_run": ["Shift", "A"]
+          },
+          "right": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "D",
+            "key_run": ["Shift", "D"]
+          }
+        }
+      }
+    },
+    {
+      "name": "プロファイル 3 (作業用/クリエイティブ)",
+      "keymap": {
+        "buttons": [
+          ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"],
+          "b", "e", "r", "t",
+          "Space", "Shift", "LCtrl", "LAlt"
+        ]
+      },
+      "joystick": {
+        "deadzone": 4000,
+        "hysteresis": 1500,
+        "invert_x": false,
+        "invert_y": false,
+        "rotation": 90,
+        "directions": {
+          "up": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "Up",
+            "key_run": ["Shift", "Up"]
+          },
+          "down": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "Down",
+            "key_run": ["Shift", "Down"]
+          },
+          "left": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "Left",
+            "key_run": ["Shift", "Left"]
+          },
+          "right": {
+            "th_walk": 12000,
+            "th_run": 26000,
+            "key_walk": "Right",
+            "key_run": ["Shift", "Right"]
+          }
+        }
+      }
+    }
+  ],
   "keymap": {
     "buttons": [
-      "1",
-      "2",
-      "x",
-      "e",
-      "Tab",
-      "f",
-      "q",
-      "4",
-      "3",
-      "Space",
-      "z",
-      "LCtrl",
-      "LAlt"
+      "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
+      "Space", "z", "LCtrl", "LAlt"
     ]
   },
   "joystick": {

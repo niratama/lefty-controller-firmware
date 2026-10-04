@@ -23,6 +23,24 @@
       </div>
     </header>
 
+    <!-- プロファイル管理バー -->
+    <section class="card profile-section">
+      <div class="profile-bar">
+        <div class="profile-select-group">
+          <label for="profileSelect"><strong>プロファイル:</strong></label>
+          <select id="profileSelect" class="profile-select">
+            <!-- JSで動的生成 -->
+          </select>
+          <input type="text" id="profileNameInput" class="profile-name-input" placeholder="プロファイル名">
+        </div>
+        <div class="profile-btn-group">
+          <button id="btnAddProfile" class="btn btn-secondary">＋ 新規追加</button>
+          <button id="btnDuplicateProfile" class="btn btn-secondary">複製</button>
+          <button id="btnDeleteProfile" class="btn btn-danger">削除</button>
+        </div>
+      </div>
+    </section>
+
     <main class="main-content">
       <!-- 左ペイン: スティックモニタ & ビジュアライザ -->
       <section class="card stick-section">
@@ -114,6 +132,34 @@
         </div>
       </section>
 
+      <!-- 入力テスト & ハードウェア動作確認 -->
+      <section class="card test-input-section">
+        <div class="test-header">
+          <h2>キー入力テスト & ハードウェアモニター</h2>
+          <span class="test-badge">HID Key & Hardware Monitor</span>
+        </div>
+        <p class="section-desc">コントローラのボタンやスティック入力をブラウザ上で即座にテストできます。入力ボックスをクリックして実際に操作してみてください。</p>
+
+        <div class="test-input-container">
+          <input type="text" id="testInputBox" class="test-input-box" placeholder="ここをクリックしてキーやスティックを操作すると文字が入力されます..." autocomplete="off">
+          <button id="btnClearTestInput" class="btn btn-secondary">入力クリア</button>
+        </div>
+
+        <div class="test-key-display">
+          <span class="test-label">押下中キー (PC認識):</span>
+          <div id="liveKeysContainer" class="live-keys-container">
+            <span class="key-pill-placeholder">なし</span>
+          </div>
+        </div>
+
+        <div class="hw-monitor-container">
+          <span class="test-label">物理ボタン状態 (GP0〜GP12 / 30Hz):</span>
+          <div class="hw-btn-grid" id="hwBtnGrid">
+            <!-- JSで13ボタンのインジケータを生成 -->
+          </div>
+        </div>
+      </section>
+
       <!-- 下ペイン: コントロール & コンソールログ -->
       <section class="card actions-section">
         <div class="action-buttons-bar">
@@ -136,6 +182,6 @@
     </main>
   </div>
 
-  <script src="app.js?v=20261004d"></script>
+  <script src="app.js?v=20261004e"></script>
 </body>
 </html>

@@ -9,6 +9,70 @@ const PIN_NAMES = [
 ];
 
 const DEFAULT_CONFIG = {
+  active_profile: 0,
+  profiles: [
+    {
+      name: "プロファイル 1 (FPS/汎用)",
+      keymap: {
+        buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+      },
+      joystick: {
+        deadzone: 4000,
+        hysteresis: 1500,
+        invert_x: false,
+        invert_y: false,
+        rotation: 90,
+        directions: {
+          up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+          down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+          left: { th_walk: 12000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+          right: { th_walk: 12000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+        }
+      }
+    },
+    {
+      name: "プロファイル 2 (MMO/RPG)",
+      keymap: {
+        buttons: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
+      },
+      joystick: {
+        deadzone: 4000,
+        hysteresis: 1500,
+        invert_x: false,
+        invert_y: false,
+        rotation: 90,
+        directions: {
+          up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+          down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+          left: { th_walk: 12000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+          right: { th_walk: 12000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+        }
+      }
+    },
+    {
+      name: "プロファイル 3 (作業用/クリエイティブ)",
+      keymap: {
+        buttons: [
+          ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"],
+          "b", "e", "r", "t",
+          "Space", "Shift", "LCtrl", "LAlt"
+        ]
+      },
+      joystick: {
+        deadzone: 4000,
+        hysteresis: 1500,
+        invert_x: false,
+        invert_y: false,
+        rotation: 90,
+        directions: {
+          up: { th_walk: 12000, th_run: 26000, key_walk: "Up", key_run: ["Shift", "Up"] },
+          down: { th_walk: 12000, th_run: 26000, key_walk: "Down", key_run: ["Shift", "Down"] },
+          left: { th_walk: 12000, th_run: 26000, key_walk: "Left", key_run: ["Shift", "Left"] },
+          right: { th_walk: 12000, th_run: 26000, key_walk: "Right", key_run: ["Shift", "Right"] }
+        }
+      }
+    }
+  ],
   keymap: {
     buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
   },
@@ -59,6 +123,20 @@ const btnToggleMonitor = document.getElementById("btnToggleMonitor");
 const logArea = document.getElementById("logArea");
 const btnClearLog = document.getElementById("btnClearLog");
 
+// プロファイルDOM要素
+const profileSelect = document.getElementById("profileSelect");
+const profileNameInput = document.getElementById("profileNameInput");
+const btnAddProfile = document.getElementById("btnAddProfile");
+const btnDuplicateProfile = document.getElementById("btnDuplicateProfile");
+const btnDeleteProfile = document.getElementById("btnDeleteProfile");
+
+// テスト入力DOM要素
+const testInputBox = document.getElementById("testInputBox");
+const btnClearTestInput = document.getElementById("btnClearTestInput");
+const liveKeysContainer = document.getElementById("liveKeysContainer");
+const hwBtnGrid = document.getElementById("hwBtnGrid");
+
+// スティック・パラメータDOM要素
 const deadzoneInput = document.getElementById("deadzoneInput");
 const deadzoneVal = document.getElementById("deadzoneVal");
 const hysteresisInput = document.getElementById("hysteresisInput");
@@ -95,8 +173,93 @@ btnClearLog.addEventListener("click", () => {
   logArea.textContent = "";
 });
 
+// プロファイル構造の保証 (後方互換性)
+function ensureProfiles(cfg) {
+  if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
+    cfg.profiles = [
+      {
+        name: "プロファイル 1 (デフォルト)",
+        keymap: cfg.keymap || JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
+        joystick: cfg.joystick || JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
+      }
+    ];
+  }
+  if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
+    cfg.active_profile = 0;
+  }
+  // root keymap & joystick をアクティブプロファイルと同期
+  const cur = cfg.profiles[cfg.active_profile];
+  cfg.keymap = cur.keymap;
+  cfg.joystick = cur.joystick;
+  return cfg;
+}
+
+// 現在のUI/メモリ状態をアクティブプロファイルに同期
+function syncCurrentToProfile() {
+  if (!currentConfig.profiles || !currentConfig.profiles[currentConfig.active_profile]) return;
+  const p = currentConfig.profiles[currentConfig.active_profile];
+  p.keymap = JSON.parse(JSON.stringify(currentConfig.keymap));
+  p.joystick = JSON.parse(JSON.stringify(currentConfig.joystick));
+}
+
+// プロファイル切り替え
+function switchProfile(newIdx, shouldNotifyDevice = true) {
+  syncCurrentToProfile();
+  if (newIdx < 0 || newIdx >= currentConfig.profiles.length) return;
+  currentConfig.active_profile = newIdx;
+  const p = currentConfig.profiles[newIdx];
+  currentConfig.keymap = JSON.parse(JSON.stringify(p.keymap));
+  currentConfig.joystick = JSON.parse(JSON.stringify(p.joystick));
+
+  renderProfileSelect();
+  updateFormFromConfig();
+  renderButtonGrid();
+  renderDirectionTable();
+  drawRadar();
+
+  if (shouldNotifyDevice && serialPort && writer) {
+    sendJson({ cmd: "set_config", config: currentConfig });
+  }
+  log(`プロファイルを「${p.name}」に切り替えました`, "info");
+}
+
+function renderProfileSelect() {
+  if (!profileSelect) return;
+  profileSelect.innerHTML = "";
+  ensureProfiles(currentConfig);
+  currentConfig.profiles.forEach((p, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent = `${idx + 1}: ${p.name}`;
+    if (idx === currentConfig.active_profile) opt.selected = true;
+    profileSelect.appendChild(opt);
+  });
+  if (profileNameInput) {
+    profileNameInput.value = currentConfig.profiles[currentConfig.active_profile].name;
+  }
+}
+
+// ハードウェアボタン状態インジケータ生成
+function renderHwButtonGrid() {
+  if (!hwBtnGrid) return;
+  hwBtnGrid.innerHTML = "";
+  const pins = (currentConfig.pins && currentConfig.pins.buttons) ? currentConfig.pins.buttons : Array.from({length: 13}, (_, i) => i);
+  pins.forEach((pin, i) => {
+    const pill = document.createElement("div");
+    pill.className = "hw-btn-pill";
+    pill.id = `hw_btn_${pin}`;
+    const name = i < 9 ? `SW${i+1}` : (i === 12 ? "STK" : `SW${i+1}`);
+    pill.textContent = name;
+    pill.title = PIN_NAMES[i] || `GP${pin}`;
+    hwBtnGrid.appendChild(pill);
+  });
+}
+
 // UI初期化
 function initUI() {
+  ensureProfiles(currentConfig);
+  renderProfileSelect();
+  renderHwButtonGrid();
   renderButtonGrid();
   renderDirectionTable();
   updateFormFromConfig();
@@ -105,6 +268,7 @@ function initUI() {
 
 function renderButtonGrid() {
   const container = document.getElementById("buttonGrid");
+  if (!container) return;
   container.innerHTML = "";
 
   for (let i = 0; i < 13; i++) {
@@ -119,20 +283,26 @@ function renderButtonGrid() {
     label.className = "btn-label";
     label.textContent = PIN_NAMES[i] || `Button ${i+1}`;
 
-    const indicator = document.createElement("div");
-    indicator.className = "btn-indicator";
-    indicator.id = `btnInd_${i}`;
+    const pinInfo = document.createElement("span");
+    pinInfo.className = "btn-pin";
+    pinInfo.textContent = `GP${currentConfig.pins.buttons[i]}`;
 
     header.appendChild(label);
-    header.appendChild(indicator);
+    header.appendChild(pinInfo);
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "btn-input";
     input.id = `btnInput_${i}`;
-    input.value = currentConfig.keymap.buttons[i] || "";
+    const keyVal = currentConfig.keymap.buttons[i];
+    input.value = Array.isArray(keyVal) ? keyVal.join(', ') : (keyVal || "");
+    input.placeholder = "例: 1, Space, LCtrl, c";
+
     input.addEventListener("change", (e) => {
-      currentConfig.keymap.buttons[i] = e.target.value;
+      const parts = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+      const finalVal = parts.length > 1 ? parts : (parts[0] || "");
+      currentConfig.keymap.buttons[i] = finalVal;
+      syncCurrentToProfile();
     });
 
     card.appendChild(header);
@@ -143,6 +313,7 @@ function renderButtonGrid() {
 
 function renderDirectionTable() {
   const tbody = document.getElementById("dirTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   const dirs = [
@@ -169,19 +340,23 @@ function renderDirectionTable() {
     // イベントリスナー
     tr.querySelector(`#th_walk_${d.key}`).addEventListener("change", (e) => {
       currentConfig.joystick.directions[d.key].th_walk = parseInt(e.target.value, 10);
+      syncCurrentToProfile();
       drawRadar();
     });
     tr.querySelector(`#th_run_${d.key}`).addEventListener("change", (e) => {
       currentConfig.joystick.directions[d.key].th_run = parseInt(e.target.value, 10);
+      syncCurrentToProfile();
       drawRadar();
     });
     tr.querySelector(`#kw_${d.key}`).addEventListener("change", (e) => {
       const val = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       currentConfig.joystick.directions[d.key].key_walk = val.length === 1 ? val[0] : val;
+      syncCurrentToProfile();
     });
     tr.querySelector(`#kr_${d.key}`).addEventListener("change", (e) => {
       const val = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       currentConfig.joystick.directions[d.key].key_run = val.length === 1 ? val[0] : val;
+      syncCurrentToProfile();
     });
   });
 }
@@ -198,7 +373,10 @@ function updateFormFromConfig() {
   // ボタン
   for (let i = 0; i < 13; i++) {
     const input = document.getElementById(`btnInput_${i}`);
-    if (input) input.value = currentConfig.keymap.buttons[i] || "";
+    if (input) {
+      const val = currentConfig.keymap.buttons[i];
+      input.value = Array.isArray(val) ? val.join(', ') : (val || "");
+    }
   }
 
   // 方向
@@ -226,9 +404,131 @@ function updateFormFromConfig() {
     batchRunVal.textContent = upRun;
   }
 
+  // プロファイル表示の同期
+  if (profileSelect) {
+    profileSelect.value = currentConfig.active_profile;
+  }
+  if (profileNameInput && currentConfig.profiles && currentConfig.profiles[currentConfig.active_profile]) {
+    profileNameInput.value = currentConfig.profiles[currentConfig.active_profile].name;
+  }
+
   drawRadar();
 }
 
+// プロファイル操作リスナー
+if (profileSelect) {
+  profileSelect.addEventListener("change", (e) => {
+    const newIdx = parseInt(e.target.value, 10);
+    switchProfile(newIdx, true);
+  });
+}
+
+if (profileNameInput) {
+  profileNameInput.addEventListener("change", (e) => {
+    const name = e.target.value.trim() || `プロファイル ${currentConfig.active_profile + 1}`;
+    currentConfig.profiles[currentConfig.active_profile].name = name;
+    renderProfileSelect();
+    if (serialPort && writer) {
+      sendJson({ cmd: "set_config", config: currentConfig });
+    }
+    log(`プロファイル名を「${name}」に変更しました`, "info");
+  });
+}
+
+if (btnAddProfile) {
+  btnAddProfile.addEventListener("click", () => {
+    syncCurrentToProfile();
+    const newNum = currentConfig.profiles.length + 1;
+    const newProfile = {
+      name: `プロファイル ${newNum}`,
+      keymap: JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
+      joystick: JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
+    };
+    currentConfig.profiles.push(newProfile);
+    switchProfile(currentConfig.profiles.length - 1, true);
+    log(`新しいプロファイル「${newProfile.name}」を作成しました`, "success");
+  });
+}
+
+if (btnDuplicateProfile) {
+  btnDuplicateProfile.addEventListener("click", () => {
+    syncCurrentToProfile();
+    const cur = currentConfig.profiles[currentConfig.active_profile];
+    const duplicated = {
+      name: `${cur.name} (コピー)`,
+      keymap: JSON.parse(JSON.stringify(cur.keymap)),
+      joystick: JSON.parse(JSON.stringify(cur.joystick))
+    };
+    currentConfig.profiles.push(duplicated);
+    switchProfile(currentConfig.profiles.length - 1, true);
+    log(`プロファイルを複製しました: ${duplicated.name}`, "success");
+  });
+}
+
+if (btnDeleteProfile) {
+  btnDeleteProfile.addEventListener("click", () => {
+    if (currentConfig.profiles.length <= 1) {
+      alert("プロファイルは最低1つ必要です。");
+      return;
+    }
+    const curName = currentConfig.profiles[currentConfig.active_profile].name;
+    if (confirm(`プロファイル「${curName}」を削除しますか？`)) {
+      currentConfig.profiles.splice(currentConfig.active_profile, 1);
+      const newIdx = Math.max(0, currentConfig.active_profile - 1);
+      switchProfile(newIdx, true);
+      log(`プロファイル「${curName}」を削除しました`, "warn");
+    }
+  });
+}
+
+// テスト入力機能
+const activePhysicalKeys = new Set();
+function updateLiveKeysDisplay() {
+  if (!liveKeysContainer) return;
+  if (activePhysicalKeys.size === 0) {
+    liveKeysContainer.innerHTML = '<span class="key-pill-placeholder">なし</span>';
+    return;
+  }
+  liveKeysContainer.innerHTML = "";
+  activePhysicalKeys.forEach(k => {
+    const pill = document.createElement("span");
+    pill.className = "key-pill";
+    pill.textContent = k;
+    liveKeysContainer.appendChild(pill);
+  });
+}
+
+window.addEventListener("keydown", (e) => {
+  let keyName = e.key;
+  if (keyName === " ") keyName = "Space";
+  if (keyName.length === 1) keyName = keyName.toUpperCase();
+  activePhysicalKeys.add(keyName);
+  updateLiveKeysDisplay();
+});
+
+window.addEventListener("keyup", (e) => {
+  let keyName = e.key;
+  if (keyName === " ") keyName = "Space";
+  if (keyName.length === 1) keyName = keyName.toUpperCase();
+  activePhysicalKeys.delete(keyName);
+  updateLiveKeysDisplay();
+});
+
+window.addEventListener("blur", () => {
+  activePhysicalKeys.clear();
+  updateLiveKeysDisplay();
+});
+
+if (btnClearTestInput) {
+  btnClearTestInput.addEventListener("click", () => {
+    if (testInputBox) {
+      testInputBox.value = "";
+      testInputBox.focus();
+    }
+  });
+}
+
+// パラメータリスナー
 batchWalkInput.addEventListener("input", (e) => {
   const val = parseInt(e.target.value, 10);
   batchWalkVal.textContent = val;
@@ -237,6 +537,7 @@ batchWalkInput.addEventListener("input", (e) => {
     const el = document.getElementById(`th_walk_${d}`);
     if (el) el.value = val;
   });
+  syncCurrentToProfile();
   drawRadar();
 });
 
@@ -248,31 +549,37 @@ batchRunInput.addEventListener("input", (e) => {
     const el = document.getElementById(`th_run_${d}`);
     if (el) el.value = val;
   });
+  syncCurrentToProfile();
   drawRadar();
 });
 
 deadzoneInput.addEventListener("input", (e) => {
   deadzoneVal.textContent = e.target.value;
   currentConfig.joystick.deadzone = parseInt(e.target.value, 10);
+  syncCurrentToProfile();
   drawRadar();
 });
 
 hysteresisInput.addEventListener("input", (e) => {
   hysteresisVal.textContent = e.target.value;
   currentConfig.joystick.hysteresis = parseInt(e.target.value, 10);
+  syncCurrentToProfile();
   drawRadar();
 });
 
 invertX.addEventListener("change", (e) => {
   currentConfig.joystick.invert_x = e.target.checked;
+  syncCurrentToProfile();
 });
 
 invertY.addEventListener("change", (e) => {
   currentConfig.joystick.invert_y = e.target.checked;
+  syncCurrentToProfile();
 });
 
 rotationSelect.addEventListener("change", (e) => {
   currentConfig.joystick.rotation = parseInt(e.target.value, 10);
+  syncCurrentToProfile();
 });
 
 // レーダー描画
@@ -362,46 +669,55 @@ function updateTelemetryUI(data) {
   deltaXSpan.textContent = currentTelemetry.dx;
   deltaYSpan.textContent = currentTelemetry.dy;
 
-  // 方向ステート
-  const stateNames = ["NEUTRAL", "WALK", "RUN"];
-  const updatePill = (el, dirKey) => {
-    const st = currentTelemetry.states[dirKey] || 0;
-    el.textContent = `${dirKey.toUpperCase()}: ${stateNames[st]}`;
+  // ステートバッジ更新
+  const updateStatePill = (el, name, st) => {
+    let text = `${name}: NEUTRAL`;
     el.className = "state-pill";
-    if (st === 1) el.classList.add("active-walk");
-    if (st === 2) el.classList.add("active-run");
+    if (st === 1) {
+      text = `${name}: WALK`;
+      el.classList.add("active-walk");
+    } else if (st === 2) {
+      text = `${name}: RUN`;
+      el.classList.add("active-run");
+    }
+    el.textContent = text;
   };
 
-  updatePill(stateUp, "up");
-  updatePill(stateDown, "down");
-  updatePill(stateLeft, "left");
-  updatePill(stateRight, "right");
+  updateStatePill(stateUp, "UP", currentTelemetry.states.up);
+  updateStatePill(stateDown, "DOWN", currentTelemetry.states.down);
+  updateStatePill(stateLeft, "LEFT", currentTelemetry.states.left);
+  updateStatePill(stateRight, "RIGHT", currentTelemetry.states.right);
 
-  // ボタン押下状態
+  // ボタンの物理押下表示 (13ボタンカード & テスト入力エリアのハードウェアインジケータ)
+  const pressedPins = currentTelemetry.btns;
   for (let i = 0; i < 13; i++) {
+    const pin = currentConfig.pins.buttons[i];
     const card = document.getElementById(`btnCard_${i}`);
     if (card) {
-      if (currentTelemetry.btns.includes(i)) {
-        card.classList.add("physically-pressed");
-      } else {
-        card.classList.remove("physically-pressed");
-      }
+      card.classList.toggle("physically-pressed", pressedPins.includes(pin));
+    }
+    const hwPill = document.getElementById(`hw_btn_${pin}`);
+    if (hwPill) {
+      hwPill.classList.toggle("pressed", pressedPins.includes(pin));
     }
   }
 
   drawRadar();
 }
 
-// Web Serial 通信ロジック
+// Web Serial 接続
 async function connectSerial() {
   if (!("serial" in navigator)) {
-    alert("お使いのブラウザはWeb Serial APIに対応していません。Google Chrome / Edge 等をご利用ください。");
+    alert("このブラウザは Web Serial API をサポートしていません。Google Chrome / Edge 等の最新ブラウザをご利用ください。");
     return;
   }
 
   try {
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: 115200 });
+
+    reader = serialPort.readable.getReader();
+    writer = serialPort.writable.getWriter();
 
     connStatus.textContent = "接続中";
     connStatus.className = "badge badge-connected";
@@ -412,29 +728,40 @@ async function connectSerial() {
     btnCalibrate.disabled = false;
     btnToggleMonitor.disabled = false;
 
-    log("シリアルポートに接続しました (115200 baud)", "success");
+    log("シリアルポートを開きました (115200bps)", "success");
 
+    // バックグラウンド受信ループ
     readLoop();
 
-    // 接続時に自動で設定を取得
+    // 接続時に設定を自動読込
     sendJson({ cmd: "get_config" });
 
+    // モニタリングを自動開始
+    isMonitoring = true;
+    btnToggleMonitor.textContent = "モニタリング停止";
+    sendJson({ cmd: "monitor", enable: true });
+
   } catch (err) {
-    log(`接続失敗 / キャンセル: ${err.message}`, "error");
+    log(`接続エラー: ${err.message}`, "error");
   }
 }
 
 async function disconnectSerial() {
   try {
     if (isMonitoring) {
-      await sendJson({ cmd: "monitor", enable: false });
+      sendJson({ cmd: "monitor", enable: false });
       isMonitoring = false;
       btnToggleMonitor.textContent = "モニタリング開始";
     }
 
     if (reader) {
       await reader.cancel();
+      reader.releaseLock();
       reader = null;
+    }
+    if (writer) {
+      writer.releaseLock();
+      writer = null;
     }
     if (serialPort) {
       await serialPort.close();
@@ -450,49 +777,39 @@ async function disconnectSerial() {
     btnCalibrate.disabled = true;
     btnToggleMonitor.disabled = true;
 
-    log("シリアルポートから切断しました", "info");
+    log("シリアルポートを切断しました", "info");
   } catch (err) {
-    log(`切断時エラー: ${err.message}`, "error");
+    log(`切断エラー: ${err.message}`, "error");
   }
 }
 
 async function sendJson(obj) {
-  if (!serialPort || !serialPort.writable) {
-    log("シリアルポートが書き込み可能ではありません", "error");
-    return;
-  }
+  if (!writer) return;
   try {
     const encoder = new TextEncoder();
     const str = JSON.stringify(obj) + "\n";
-    const w = serialPort.writable.getWriter();
-    await w.write(encoder.encode(str));
-    w.releaseLock();
-    log(`送信: ${str.trim()}`, "tx");
+    await writer.write(encoder.encode(str));
   } catch (err) {
     log(`送信エラー: ${err.message}`, "error");
   }
 }
 
 async function readLoop() {
-  const textDecoder = new TextDecoderStream();
-  const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
-  reader = textDecoder.readable.getReader();
-
-  let lineBuffer = "";
+  const decoder = new TextDecoder();
+  let buffer = "";
 
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       if (value) {
-        lineBuffer += value;
-        const lines = lineBuffer.split("\n");
-        lineBuffer = lines.pop(); // 最後の不完全な行を保持
+        buffer += decoder.decode(value, { stream: true });
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); // 最後の不完全な行を保持
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed) continue;
-          handleReceivedLine(trimmed);
+          if (trimmed) handleReceivedLine(trimmed);
         }
       }
     }
@@ -512,7 +829,11 @@ function handleReceivedLine(line) {
     log(`受信: ${line}`, "rx");
 
     if (msg.cmd === "get_config" && msg.status === "ok") {
-      currentConfig = msg.config;
+      currentConfig = ensureProfiles(msg.config);
+      renderProfileSelect();
+      renderHwButtonGrid();
+      renderButtonGrid();
+      renderDirectionTable();
       updateFormFromConfig();
       log("デバイスから設定を正常に読み込みました", "success");
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
@@ -524,7 +845,11 @@ function handleReceivedLine(line) {
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
     } else if (msg.cmd === "reset_config" && msg.status === "ok") {
-      currentConfig = msg.config;
+      currentConfig = ensureProfiles(msg.config);
+      renderProfileSelect();
+      renderHwButtonGrid();
+      renderButtonGrid();
+      renderDirectionTable();
       updateFormFromConfig();
       invertX.checked = false;
       invertY.checked = false;
@@ -545,6 +870,7 @@ btnLoadConfig.addEventListener("click", () => {
 });
 
 btnSaveConfig.addEventListener("click", () => {
+  syncCurrentToProfile();
   sendJson({ cmd: "set_config", config: currentConfig });
 });
 
@@ -559,6 +885,7 @@ btnToggleMonitor.addEventListener("click", () => {
 });
 
 btnExportJson.addEventListener("click", () => {
+  syncCurrentToProfile();
   const blob = new Blob([JSON.stringify(currentConfig, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -566,7 +893,7 @@ btnExportJson.addEventListener("click", () => {
   a.download = "lefty_config.json";
   a.click();
   URL.revokeObjectURL(url);
-  log("設定を left_config.json にエクスポートしました", "info");
+  log("設定を lefty_config.json にエクスポートしました", "info");
 });
 
 fileImportJson.addEventListener("change", (e) => {
@@ -576,7 +903,11 @@ fileImportJson.addEventListener("change", (e) => {
   reader.onload = (evt) => {
     try {
       const parsed = JSON.parse(evt.target.result);
-      currentConfig = parsed;
+      currentConfig = ensureProfiles(parsed);
+      renderProfileSelect();
+      renderHwButtonGrid();
+      renderButtonGrid();
+      renderDirectionTable();
       updateFormFromConfig();
       log(`設定ファイルをインポートしました: ${file.name}`, "success");
     } catch (err) {
@@ -589,6 +920,11 @@ fileImportJson.addEventListener("change", (e) => {
 btnResetDefault.addEventListener("click", () => {
   if (confirm("設定をデフォルトに戻しますか？マイコンのFlash(NVM)設定も初期化されます。")) {
     currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    ensureProfiles(currentConfig);
+    renderProfileSelect();
+    renderHwButtonGrid();
+    renderButtonGrid();
+    renderDirectionTable();
     updateFormFromConfig();
     invertX.checked = false;
     invertY.checked = false;

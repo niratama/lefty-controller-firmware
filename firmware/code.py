@@ -30,6 +30,76 @@ except ImportError:
 CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
+    "active_profile": 0,
+    "profiles": [
+        {
+            "name": "プロファイル 1 (FPS/汎用)",
+            "keymap": {
+                "buttons": [
+                    "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
+                    "Space", "z", "LCtrl", "LAlt"
+                ]
+            },
+            "joystick": {
+                "deadzone": 4000,
+                "hysteresis": 1500,
+                "invert_x": False,
+                "invert_y": False,
+                "rotation": 90,
+                "directions": {
+                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                }
+            }
+        },
+        {
+            "name": "プロファイル 2 (MMO/RPG)",
+            "keymap": {
+                "buttons": [
+                    "1", "2", "3", "4", "5", "6", "7", "8", "9",
+                    "Space", "Tab", "LCtrl", "LAlt"
+                ]
+            },
+            "joystick": {
+                "deadzone": 4000,
+                "hysteresis": 1500,
+                "invert_x": False,
+                "invert_y": False,
+                "rotation": 90,
+                "directions": {
+                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                }
+            }
+        },
+        {
+            "name": "プロファイル 3 (作業用/クリエイティブ)",
+            "keymap": {
+                "buttons": [
+                    ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"], ["LCtrl", "s"],
+                    "b", "e", "r", "t",
+                    "Space", "Shift", "LCtrl", "LAlt"
+                ]
+            },
+            "joystick": {
+                "deadzone": 4000,
+                "hysteresis": 1500,
+                "invert_x": False,
+                "invert_y": False,
+                "rotation": 90,
+                "directions": {
+                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
+                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
+                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Left", "key_run": ["Shift", "Left"]},
+                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "Right", "key_run": ["Shift", "Right"]}
+                }
+            }
+        }
+    ],
     "keymap": {
         "buttons": [
             "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
@@ -60,12 +130,21 @@ class LeftyController:
     def __init__(self):
         self.config = self.load_config()
         self.button_pins_def = self.config.get("pins", {}).get("buttons", list(range(13)))
-        self.button_keymap = self.config.get("keymap", {}).get("buttons", [])
+        self.button_keymap = []
 
         # モジュール初期化
-        self.stick_engine = StickEngine(self.config)
+        self.stick_engine = StickEngine()
         self.button_manager = ButtonManager(self.button_pins_def, debounce_ms=10)
-        self.serial_handler = SerialHandler(self.stick_engine, self.button_manager, CONFIG_FILE)
+        self.serial_handler = SerialHandler(
+            self.stick_engine,
+            self.button_manager,
+            CONFIG_FILE,
+            on_config_updated=self.apply_config
+        )
+
+        # 状態追跡用
+        self.active_hid_keycodes = set()
+        self.last_telemetry_time = 0.0
 
         # ハードウェアオブジェクト
         self.buttons_io = {}
@@ -73,11 +152,23 @@ class LeftyController:
         self.adc_y_io = None
         self.keyboard = None
 
-        # 状態追跡用
-        self.active_hid_keycodes = set()
-        self.last_telemetry_time = 0.0
-
+        # 設定適用 (active_profile の反映)
+        self.apply_config(self.config)
         self.init_hardware()
+
+    def apply_config(self, cfg):
+        """プロファイルおよび各種設定を反映"""
+        self.config = cfg
+        if "profiles" in cfg and isinstance(cfg["profiles"], list) and len(cfg["profiles"]) > 0:
+            act_idx = cfg.get("active_profile", 0)
+            if not isinstance(act_idx, int) or act_idx < 0 or act_idx >= len(cfg["profiles"]):
+                act_idx = 0
+            cur_prof = cfg["profiles"][act_idx]
+            self.button_keymap = cur_prof.get("keymap", {}).get("buttons", [])
+            self.stick_engine.load_config(cur_prof.get("joystick", {}))
+        else:
+            self.button_keymap = cfg.get("keymap", {}).get("buttons", [])
+            self.stick_engine.load_config(cfg.get("joystick", {}))
 
     def load_config(self):
         try:
