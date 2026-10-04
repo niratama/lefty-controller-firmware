@@ -127,3 +127,9 @@ PCローカル（Python 3環境）で以下のコマンドを実行すること�
 ```bash
 python3 -m unittest discover tests
 ```
+
+---
+
+## 7. ライセンス
+
+[MIT License](LICENSE)
