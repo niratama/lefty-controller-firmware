@@ -58,6 +58,8 @@ class SerialHandler:
         elif cmd == "monitor":
             self.monitor_enabled = bool(msg.get("enable", False))
             self.send_response({"status": "ok", "cmd": "monitor", "enabled": self.monitor_enabled})
+        elif cmd == "reset_config":
+            return self._cmd_reset_config()
         elif cmd == "ping":
             self.send_response({"status": "ok", "cmd": "pong"})
         else:
@@ -94,6 +96,34 @@ class SerialHandler:
             "cmd": "calibrate",
             "center": [self.stick_engine.center_x, self.stick_engine.center_y]
         })
+
+    def _cmd_reset_config(self):
+        config_store.clear_nvm()
+        default_cfg = {
+            "keymap": {
+                "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+            },
+            "joystick": {
+                "deadzone": 4000,
+                "hysteresis": 1500,
+                "invert_x": False,
+                "invert_y": False,
+                "rotation": 90,
+                "directions": {
+                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                }
+            },
+            "pins": {
+                "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                "adc_x": 26,
+                "adc_y": 27
+            }
+        }
+        self.stick_engine.load_config(default_cfg)
+        self.send_response({"status": "ok", "cmd": "reset_config", "config": default_cfg})
 
     def send_response(self, obj):
         try:

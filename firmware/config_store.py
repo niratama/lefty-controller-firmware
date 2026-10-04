@@ -39,6 +39,16 @@ def save_to_nvm(config_dict):
         print(f"[WARN] NVM保存エラー: {e}")
         return False
 
+def clear_nvm():
+    """microcontroller.nvm の設定データを消去 (マジックナンバーをクリア)"""
+    if microcontroller and hasattr(microcontroller, "nvm"):
+        try:
+            microcontroller.nvm[0:5] = b"\x00\x00\x00\x00\x00"
+            return True
+        except Exception:
+            pass
+    return False
+
 def load_from_nvm():
     """microcontroller.nvm から保存された設定を読出"""
     if not microcontroller or not hasattr(microcontroller, "nvm"):

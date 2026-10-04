@@ -485,6 +485,12 @@ function handleReceivedLine(line) {
       if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
+    } else if (msg.cmd === "reset_config" && msg.status === "ok") {
+      currentConfig = msg.config;
+      updateFormFromConfig();
+      invertX.checked = false;
+      invertY.checked = false;
+      log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
     }
   } catch (e) {
     // プレーンテキストログの出力
@@ -543,9 +549,14 @@ fileImportJson.addEventListener("change", (e) => {
 });
 
 btnResetDefault.addEventListener("click", () => {
-  if (confirm("設定をデフォルトに戻しますか？")) {
+  if (confirm("設定をデフォルトに戻しますか？マイコンのFlash(NVM)設定も初期化されます。")) {
     currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     updateFormFromConfig();
+    invertX.checked = false;
+    invertY.checked = false;
+    if (serialPort && writer) {
+      sendJson({ cmd: "reset_config" });
+    }
     log("設定をデフォルト値にリセットしました", "info");
   }
 });

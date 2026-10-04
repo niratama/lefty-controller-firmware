@@ -10,11 +10,12 @@ from stick_engine import StickEngine, DirectionState
 class TestStickEngine(unittest.TestCase):
     def setUp(self):
         self.engine = StickEngine()
-        # center: (32768, 32768), invert_x=False, invert_y=True
-        # Y軸: raw_y < 32768 => dy = -(raw_y - 32768) = 32768 - raw_y => UP
-        # テストを分かりやすくするため、invert_y=False (raw_y > center => UP) でテスト
+        # デフォルト: 左90度取付 (rotation=90), invert_x=False, invert_y=False
+        # 物理配置: GP26(raw_x)が前後(UP/DOWN), GP27(raw_y)が左右(LEFT/RIGHT)
+        # raw_x > center => UP, raw_y > center => RIGHT
+        self.engine.invert_x = False
         self.engine.invert_y = False
-        self.engine.rotation = 0
+        self.engine.rotation = 90
         self.engine.set_center(30000, 30000)
 
     def test_calibration(self):
@@ -37,70 +38,69 @@ class TestStickEngine(unittest.TestCase):
 
     def test_walk_threshold_and_hysteresis_up(self):
         # th_walk = 12000, th_run = 26000, hysteresis = 1500
-        # UP方向 (Y軸): center = 30000
-        # 1. 偏差 11999 (raw_y = 41999) -> NEUTRAL
-        active, press, release, _ = self.engine.process(30000, 41999)
+        # rotation=90: UP方向は raw_x
+        # 1. 偏差 11999 (raw_x = 41999, raw_y = 30000) -> NEUTRAL
+        active, press, release, _ = self.engine.process(41999, 30000)
         self.assertEqual(active, set())
         self.assertEqual(self.engine.states["up"], DirectionState.NEUTRAL)
 
-        # 2. 偏差 12000 (raw_y = 42000) -> WALK ('W' press)
-        active, press, release, _ = self.engine.process(30000, 42000)
+        # 2. 偏差 12000 (raw_x = 42000, raw_y = 30000) -> WALK ('W' press)
+        active, press, release, _ = self.engine.process(42000, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, {"W"})
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
-        # 3. 偏差 11000 (raw_y = 41000) -> 12000 - 1500 = 10500 以上なので WALK 維持 (ヒステリシス効果)
-        active, press, release, _ = self.engine.process(30000, 41000)
+        # 3. 偏差 11000 (raw_x = 41000) -> 12000 - 1500 = 10500 以上なので WALK 維持 (ヒステリシス効果)
+        active, press, release, _ = self.engine.process(41000, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, set())
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
-        # 4. 偏差 10499 (raw_y = 40499) -> 10500 未満なので NEUTRAL 復帰 ('W' release)
-        active, press, release, _ = self.engine.process(30000, 40499)
+        # 4. 偏差 10499 (raw_x = 40499) -> 10500 未満なので NEUTRAL 復帰 ('W' release)
+        active, press, release, _ = self.engine.process(40499, 30000)
         self.assertEqual(active, set())
         self.assertEqual(press, set())
         self.assertEqual(release, {"W"})
         self.assertEqual(self.engine.states["up"], DirectionState.NEUTRAL)
 
     def test_run_threshold_and_transition(self):
-        # 1. 一気に RUN (偏差 26000, raw_y = 56000) -> Shift + W
-        active, press, release, _ = self.engine.process(30000, 56000)
+        # 1. 一気に RUN (偏差 26000, raw_x = 56000, raw_y = 30000) -> Shift + W
+        active, press, release, _ = self.engine.process(56000, 30000)
         self.assertEqual(active, {"Shift", "W"})
         self.assertEqual(press, {"Shift", "W"})
         self.assertEqual(self.engine.states["up"], DirectionState.RUN)
 
         # 2. RUNから少し戻す: 偏差 25000 (th_run - 1500 = 24500 以上なので RUN 維持)
-        active, press, release, _ = self.engine.process(30000, 55000)
+        active, press, release, _ = self.engine.process(55000, 30000)
         self.assertEqual(active, {"Shift", "W"})
         self.assertEqual(press, set())
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.RUN)
 
         # 3. RUNから WALK に低下: 偏差 24400 (24500未満、かつ 10500 以上) -> WALK ('Shift' release, 'W' 維持)
-        active, press, release, _ = self.engine.process(30000, 54400)
+        active, press, release, _ = self.engine.process(54400, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, set())
         self.assertEqual(release, {"Shift"})
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
         # 4. WALKから再び RUN へ: 偏差 26000 -> RUN ('Shift' press, 'W' 維持)
-        active, press, release, _ = self.engine.process(30000, 56000)
+        active, press, release, _ = self.engine.process(56000, 30000)
         self.assertEqual(active, {"Shift", "W"})
         self.assertEqual(press, {"Shift"})
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.RUN)
 
     def test_diagonal_combination(self):
-        # 斜め入力: UP (WALK: 'W') + RIGHT (RUN: 'Shift', 'D')
-        # raw_y = 45000 (UP: WALK), raw_x = 57000 (RIGHT: RUN)
-        active, press, release, _ = self.engine.process(57000, 45000)
+        # 斜め入力: UP (WALK: 'W', raw_x = 45000) + RIGHT (RUN: 'Shift', 'D', raw_y = 57000)
+        active, press, release, _ = self.engine.process(45000, 57000)
         self.assertEqual(active, {"W", "D", "Shift"})
         self.assertEqual(press, {"W", "D", "Shift"})
 
-        # 次フレーム: UPを解除 (raw_y = 30000)、RIGHTは維持 (raw_x = 57000)
-        active, press, release, _ = self.engine.process(57000, 30000)
+        # 次フレーム: UPを解除 (raw_x = 30000)、RIGHTは維持 (raw_y = 57000)
+        active, press, release, _ = self.engine.process(30000, 57000)
         self.assertEqual(active, {"D", "Shift"})
         self.assertEqual(press, set())
         self.assertEqual(release, {"W"})
@@ -143,20 +143,51 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(active, {"D"})
         self.assertEqual(self.engine.states["right"], DirectionState.WALK)
 
+    def test_rotation_all_angles(self):
+        # 全角度の回転補正が対称かつ意図通り動作することを検証
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 0度: dx, dy = dx, -dy
+        self.engine.rotation = 0
+        active, _, _, _ = self.engine.process(45000, 30000)  # raw_x > center => dx=+15000 => RIGHT
+        self.assertEqual(active, {"D"})
+        self.engine.process(30000, 30000)
+        active, _, _, _ = self.engine.process(30000, 15000)  # raw_y < center => dy=+15000 => UP
+        self.assertEqual(active, {"W"})
+
+        # 180度: dx, dy = -dx, dy
+        self.engine.rotation = 180
+        self.engine.process(30000, 30000)
+        active, _, _, _ = self.engine.process(45000, 30000)  # raw_x > center => dx=-15000 => LEFT
+        self.assertEqual(active, {"A"})
+        self.engine.process(30000, 30000)
+        active, _, _, _ = self.engine.process(30000, 45000)  # raw_y > center => dy=+15000 => UP
+        self.assertEqual(active, {"W"})
+
+        # 270度: dx, dy = -dy, -dx
+        self.engine.rotation = 270
+        self.engine.process(30000, 30000)
+        active, _, _, _ = self.engine.process(45000, 30000)  # raw_x > center => dy=-15000 => DOWN
+        self.assertEqual(active, {"S"})
+        self.engine.process(30000, 30000)
+        active, _, _, _ = self.engine.process(30000, 15000)  # raw_y < center => dx=+15000 => RIGHT
+        self.assertEqual(active, {"D"})
+
     def test_rotation_and_invert_order(self):
         # rotation=90 の状態で、invert_y=True にしても X軸 (左右) に干渉しないことを検証
         self.engine.rotation = 90
         self.engine.invert_x = False
         self.engine.invert_y = True  # Y軸反転のみ有効化
 
-        # 左に倒す (dx=-15000, dy=0) -> Y軸反転しても左右(X軸)は変わらず 'A' (LEFT) であるべき
+        # 左に倒す (raw_x=30000, raw_y=15000) -> Y軸反転しても左右(X軸)は変わらず 'A' (LEFT) であるべき
         active, _, _, _ = self.engine.process(30000, 15000)
         self.assertEqual(active, {"A"})
         self.assertEqual(self.engine.states["left"], DirectionState.WALK)
 
         self.engine.process(30000, 30000)
 
-        # 下に倒す (dx=0, dy=-15000) -> Y軸反転されているので 'W' (UP) に反転する
+        # 下に倒す (raw_x=15000, raw_y=30000) -> Y軸反転されているので 'W' (UP) に反転する
         active, _, _, _ = self.engine.process(15000, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
