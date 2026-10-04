@@ -1,0 +1,127 @@
+"""
+serial_handler.py: Web Serial API 連携およびCLIプロトコルハンドラ
+改行区切りのJSONメッセージを送受信し、設定のホットリロード、
+テレメトリ（ADC・ボタン・判定状態）のストリーミング、およびキャリブレーションを実行します。
+"""
+
+import sys
+import json
+
+class SerialHandler:
+    def __init__(self, stick_engine, button_manager, config_path="config.json"):
+        self.stick_engine = stick_engine
+        self.button_manager = button_manager
+        self.config_path = config_path
+        self.monitor_enabled = False
+        self.buffer = ""
+
+    def process_incoming_char(self, ch):
+        """シリアルから1文字受信したときのバッファリング処理"""
+        if ch == '\n' or ch == '\r':
+            line = self.buffer.strip()
+            self.buffer = ""
+            if line:
+                return self.handle_line(line)
+        else:
+            self.buffer += ch
+            if len(self.buffer) > 4096:  # バッファ溢れ防止
+                self.buffer = ""
+        return None
+
+    def handle_line(self, line):
+        """1行のコマンド（JSONまたはプレーンテキスト）を解析して実行"""
+        try:
+            msg = json.loads(line)
+        except Exception:
+            # プレーンテキストコマンドのサポート
+            cmd = line.strip().lower()
+            if cmd == "help":
+                self.send_response({"status": "ok", "help": ["get_config", "set_config", "calibrate", "monitor_on", "monitor_off"]})
+            elif cmd == "calibrate":
+                return self._cmd_calibrate()
+            elif cmd == "monitor_on":
+                self.monitor_enabled = True
+                self.send_response({"status": "ok", "monitor": True})
+            elif cmd == "monitor_off":
+                self.monitor_enabled = False
+                self.send_response({"status": "ok", "monitor": False})
+            return None
+
+        cmd = msg.get("cmd")
+        if cmd == "get_config":
+            return self._cmd_get_config()
+        elif cmd == "set_config":
+            return self._cmd_set_config(msg.get("config", {}))
+        elif cmd == "calibrate":
+            return self._cmd_calibrate()
+        elif cmd == "monitor":
+            self.monitor_enabled = bool(msg.get("enable", False))
+            self.send_response({"status": "ok", "cmd": "monitor", "enabled": self.monitor_enabled})
+        elif cmd == "ping":
+            self.send_response({"status": "ok", "cmd": "pong"})
+        else:
+            self.send_response({"status": "error", "message": f"Unknown command: {cmd}"})
+
+    def _cmd_get_config(self):
+        try:
+            with open(self.config_path, "r") as f:
+                cfg = json.load(f)
+            self.send_response({"status": "ok", "cmd": "get_config", "config": cfg})
+        except Exception as e:
+            self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
+
+    def _cmd_set_config(self, new_config):
+        # 1. スティックエンジンの設定をホットリロード
+        self.stick_engine.load_config(new_config)
+
+        # 2. ストレージへの保存を試みる
+        saved_to_file = False
+        save_error = None
+        try:
+            with open(self.config_path, "w") as f:
+                json.dump(new_config, f, indent=2)
+            saved_to_file = True
+        except OSError as e:
+            # USBマスストレージマウント時はCIRCUITPYへの書き込みがROになる場合がある
+            save_error = f"Storage is read-only from micro-controller (USB mounted). Config applied to RAM: {e}"
+        except Exception as e:
+            save_error = str(e)
+
+        resp = {
+            "status": "ok",
+            "cmd": "set_config",
+            "saved_to_file": saved_to_file
+        }
+        if save_error:
+            resp["warning"] = save_error
+        self.send_response(resp)
+
+    def _cmd_calibrate(self):
+        # 現在のADC値（未指定の場合は現在のセンター）を報告
+        self.send_response({
+            "status": "ok",
+            "cmd": "calibrate",
+            "center": [self.stick_engine.center_x, self.stick_engine.center_y]
+        })
+
+    def send_response(self, obj):
+        try:
+            line = json.dumps(obj)
+            print(line)
+        except Exception as e:
+            print(f'{{"status":"error","message":"{e}"}}')
+
+    def send_telemetry(self, raw_x, raw_y, debug_info, pressed_buttons):
+        """モニタモード有効時にリアルタイムテレメトリを送信"""
+        if not self.monitor_enabled:
+            return
+        payload = {
+            "type": "telemetry",
+            "raw": [raw_x, raw_y],
+            "dx": debug_info["dx"],
+            "dy": debug_info["dy"],
+            "states": debug_info["states"],
+            "keys": debug_info["active_keys"],
+            "btns": pressed_buttons
+        }
+        self.send_response(payload)

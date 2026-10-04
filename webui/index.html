@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lefty Controller Configurator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-area">
+        <h1>左手デバイス 近代化設定ツール</h1>
+        <span class="subtitle">Waveshare RP2040-Zero Firmware Configurator</span>
+      </div>
+      <div class="connection-bar">
+        <span id="connStatus" class="badge badge-disconnected">未接続</span>
+        <button id="btnConnect" class="btn btn-primary">デバイスと接続 (Web Serial)</button>
+        <button id="btnDisconnect" class="btn btn-secondary" disabled>切断</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- 左ペイン: スティックモニタ & ビジュアライザ -->
+      <section class="card stick-section">
+        <h2>2軸アナログスティック モニタ & 閾値</h2>
+        <div class="stick-grid">
+          <div class="visualizer-container">
+            <canvas id="stickCanvas" width="300" height="300"></canvas>
+            <div class="stick-coords">
+              <span>RAW: (<span id="rawX">32768</span>, <span id="rawY">32768</span>)</span>
+              <span>Delta: (<span id="deltaX">0</span>, <span id="deltaY">0</span>)</span>
+            </div>
+            <div class="active-states">
+              <span id="stateUp" class="state-pill">UP: NEUTRAL</span>
+              <span id="stateDown" class="state-pill">DOWN: NEUTRAL</span>
+              <span id="stateLeft" class="state-pill">LEFT: NEUTRAL</span>
+              <span id="stateRight" class="state-pill">RIGHT: NEUTRAL</span>
+            </div>
+            <div class="stick-action-btns">
+              <button id="btnCalibrate" class="btn btn-outline" disabled>ゼロ点キャリブレーション実行</button>
+              <button id="btnToggleMonitor" class="btn btn-outline" disabled>モニタリング開始</button>
+            </div>
+          </div>
+
+          <div class="stick-params">
+            <h3>グローバル設定</h3>
+            <div class="param-row">
+              <label for="deadzoneInput">デッドゾーン (遊び):</label>
+              <input type="range" id="deadzoneInput" min="500" max="10000" step="100" value="4000">
+              <span id="deadzoneVal" class="val-display">4000</span>
+            </div>
+            <div class="param-row">
+              <label for="hysteresisInput">ヒステリシス (チャタリング防止):</label>
+              <input type="range" id="hysteresisInput" min="200" max="5000" step="100" value="1500">
+              <span id="hysteresisVal" class="val-display">1500</span>
+            </div>
+            <div class="param-row-checkbox">
+              <label><input type="checkbox" id="invertX"> X軸反転</label>
+              <label><input type="checkbox" id="invertY" checked> Y軸反転</label>
+            </div>
+
+            <h3 style="margin-top: 15px;">方向別 多段階キー判定</h3>
+            <div class="direction-tabs">
+              <table class="dir-table">
+                <thead>
+                  <tr>
+                    <th>方向</th>
+                    <th>Walk閾値</th>
+                    <th>Walkキー</th>
+                    <th>Run閾値</th>
+                    <th>Runキー</th>
+                  </tr>
+                </thead>
+                <tbody id="dirTableBody">
+                  <!-- JSで動的生成 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右ペイン: 13ボタン キーマップ設定 -->
+      <section class="card buttons-section">
+        <h2>スイッチ入力 (13ボタン) キーマップ</h2>
+        <p class="section-desc">前面9個、側面トリガー3個、スティック押し込みスイッチの割当キーを設定します。</p>
+        <div class="button-grid" id="buttonGrid">
+          <!-- JSで動的生成 -->
+        </div>
+      </section>
+
+      <!-- 下ペイン: コントロール & コンソールログ -->
+      <section class="card actions-section">
+        <div class="action-buttons-bar">
+          <button id="btnLoadConfig" class="btn btn-secondary" disabled>デバイスから読込</button>
+          <button id="btnSaveConfig" class="btn btn-success" disabled>デバイスへ保存・反映 (Hot Reload)</button>
+          <button id="btnExportJson" class="btn btn-outline">JSONエクスポート</button>
+          <label class="btn btn-outline file-btn">
+            JSONインポート <input type="file" id="fileImportJson" accept=".json" style="display: none;">
+          </label>
+          <button id="btnResetDefault" class="btn btn-danger">デフォルトに戻す</button>
+        </div>
+        <div class="console-box">
+          <div class="console-header">
+            <span>シリアル通信ログ / コンソール</span>
+            <button id="btnClearLog" class="btn-sm">クリア</button>
+          </div>
+          <pre id="logArea"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
