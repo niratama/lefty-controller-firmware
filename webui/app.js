@@ -439,6 +439,9 @@ btnClearLog.addEventListener("click", () => {
 
 // プロファイル構造の保証 (後方互換性)
 function ensureProfiles(cfg) {
+  if (!cfg || typeof cfg !== "object") {
+    cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  }
   if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
     cfg.profiles = [
       {
@@ -1770,11 +1773,18 @@ function setDeviceOpLoading(opType, isLoading, successText = "", customText = ""
       progressText.textContent = customText || (opType === "save" ? "デバイスへ設定を保存中..." : "デバイスから設定を取得中...");
     }
 
-    // タイムアウト保護 (30秒)
+    // タイムアウト保護 (saveはFlash書込を考慮して35秒、loadはリトライ機構があるため7秒)
+    const timeoutMs = opType === "load" ? 7000 : 35000;
     activeOpTimer = setTimeout(() => {
+      stopLoadRetry();
       setDeviceOpLoading(opType, false);
       log(`「${opType}」処理がタイムアウトしました。`, "warn");
-    }, 30000);
+      // 接続時の自動読込がタイムアウトした場合でも、モニタリング待機中ならモニタリングを開始
+      if (autoStartMonitorPending) {
+        autoStartMonitorPending = false;
+        startMonitoring();
+      }
+    }, timeoutMs);
 
   } else {
     currentActiveOp = null;
@@ -1830,6 +1840,65 @@ function restoreDeviceButtons() {
   if (btnResetDefault) btnResetDefault.disabled = false;
 }
 
+// モニタリング制御ヘルパー
+function startMonitoring() {
+  if (!serialPort || !writer || isMonitoring) return;
+  isMonitoring = true;
+  if (btnToggleMonitor) btnToggleMonitor.textContent = "モニタリング停止";
+  sendJson({ cmd: "monitor", enable: true });
+}
+
+function stopMonitoring() {
+  if (!serialPort || !writer || !isMonitoring) return;
+  isMonitoring = false;
+  if (btnToggleMonitor) btnToggleMonitor.textContent = "モニタリング開始";
+  sendJson({ cmd: "monitor", enable: false });
+}
+
+// 設定読込リトライ制御
+let autoStartMonitorPending = false;
+let loadRetryTimer = null;
+let loadRetryCount = 0;
+const MAX_LOAD_RETRIES = 3;
+
+function stopLoadRetry() {
+  if (loadRetryTimer) {
+    clearTimeout(loadRetryTimer);
+    loadRetryTimer = null;
+  }
+  loadRetryCount = 0;
+}
+
+async function requestConfigWithRetry(isStartup = false) {
+  stopLoadRetry();
+  loadRetryCount = 0;
+
+  const sendAttempt = async () => {
+    if (!serialPort || !writer) {
+      stopLoadRetry();
+      return;
+    }
+    loadRetryCount++;
+    if (loadRetryCount > 1) {
+      log(`応答待機中... 設定取得を再試行します (${loadRetryCount}/${MAX_LOAD_RETRIES})`, "info");
+    }
+    await sendJson({ cmd: "get_config" });
+
+    if (loadRetryCount < MAX_LOAD_RETRIES) {
+      loadRetryTimer = setTimeout(() => {
+        if (currentActiveOp === "load") {
+          sendAttempt();
+        } else {
+          stopLoadRetry();
+        }
+      }, 1800);
+    }
+  };
+
+  setDeviceOpLoading("load", true, "", isStartup ? "接続完了: 設定を自動取得中..." : "デバイスから設定を取得中...");
+  await sendAttempt();
+}
+
 // Web Serial 接続
 async function connectSerial() {
   if (!("serial" in navigator)) {
@@ -1858,14 +1927,14 @@ async function connectSerial() {
     // バックグラウンド受信ループ
     readLoop();
 
-    // 接続時に設定を自動読込
-    setDeviceOpLoading("load", true, "", "接続完了: 設定を自動取得中...");
-    sendJson({ cmd: "get_config" });
+    // シリアルポート接続直後のCDC通信路の安定化を待機 (250ms)
+    await new Promise(r => setTimeout(r, 250));
 
-    // モニタリングを自動開始
-    isMonitoring = true;
-    btnToggleMonitor.textContent = "モニタリング停止";
-    sendJson({ cmd: "monitor", enable: true });
+    // 初回設定読込の完了後にモニタリングを自動開始するフラグ
+    autoStartMonitorPending = true;
+
+    // 接続時に設定を自動読込 (自動リトライ保護付き)
+    await requestConfigWithRetry(true);
 
   } catch (err) {
     log(`接続エラー: ${err.message}`, "error");
@@ -1874,12 +1943,15 @@ async function connectSerial() {
 
 async function disconnectSerial() {
   try {
+    stopLoadRetry();
+    autoStartMonitorPending = false;
+
     if (currentActiveOp) {
       setDeviceOpLoading(currentActiveOp, false);
     }
 
     if (isMonitoring) {
-      sendJson({ cmd: "monitor", enable: false });
+      await sendJson({ cmd: "monitor", enable: false });
       isMonitoring = false;
       btnToggleMonitor.textContent = "モニタリング開始";
     }
@@ -1958,8 +2030,16 @@ async function readLoop() {
 }
 
 function handleReceivedLine(line) {
+  let msg;
   try {
-    const msg = JSON.parse(line);
+    msg = JSON.parse(line);
+  } catch (e) {
+    // プレーンテキストログの出力
+    log(`[DEVICE] ${line}`, "device");
+    return;
+  }
+
+  try {
     if (msg.type === "telemetry") {
       updateTelemetryUI(msg);
       return;
@@ -1968,6 +2048,7 @@ function handleReceivedLine(line) {
     log(`受信: ${line}`, "rx");
 
     if (msg.cmd === "get_config" && msg.status === "ok") {
+      stopLoadRetry();
       checkFirmwareVersion(msg.version);
       currentConfig = ensureProfiles(msg.config);
       renderProfileSelect();
@@ -1978,6 +2059,14 @@ function handleReceivedLine(line) {
       saveToLocalStorage(currentConfig, "デバイス読込同期");
       setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
+
+      // 初回接続時のロード完了後、少し間を置いてモニタリングを自動開始 (安定化)
+      if (autoStartMonitorPending) {
+        autoStartMonitorPending = false;
+        setTimeout(() => {
+          startMonitoring();
+        }, 150);
+      }
     } else if (msg.cmd === "version" && msg.status === "ok") {
       checkFirmwareVersion(msg.version);
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
@@ -1993,6 +2082,7 @@ function handleReceivedLine(line) {
       setDeviceOpLoading("calibrate", false, "補正完了!");
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
     } else if (msg.cmd === "reset_config" && msg.status === "ok") {
+      stopLoadRetry();
       currentConfig = ensureProfiles(msg.config);
       renderProfileSelect();
       renderHwButtonGrid();
@@ -2005,9 +2095,12 @@ function handleReceivedLine(line) {
       setDeviceOpLoading("reset", false, "初期化完了!");
       log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
     }
-  } catch (e) {
-    // プレーンテキストログの出力
-    log(`[DEVICE] ${line}`, "device");
+  } catch (err) {
+    console.error("受信データ処理エラー:", err);
+    log(`受信データ処理エラー: ${err.message}`, "error");
+    if (currentActiveOp) {
+      setDeviceOpLoading(currentActiveOp, false);
+    }
   }
 }
 
@@ -2016,9 +2109,8 @@ btnConnect.addEventListener("click", connectSerial);
 btnDisconnect.addEventListener("click", disconnectSerial);
 
 btnLoadConfig.addEventListener("click", () => {
-  setDeviceOpLoading("load", true, "", "デバイスから設定を取得中...");
   log("デバイスから設定を読み込み中...", "info");
-  sendJson({ cmd: "get_config" });
+  requestConfigWithRetry(false);
 });
 
 btnSaveConfig.addEventListener("click", () => {
@@ -2035,9 +2127,11 @@ btnCalibrate.addEventListener("click", () => {
 });
 
 btnToggleMonitor.addEventListener("click", () => {
-  isMonitoring = !isMonitoring;
-  btnToggleMonitor.textContent = isMonitoring ? "モニタリング停止" : "モニタリング開始";
-  sendJson({ cmd: "monitor", enable: isMonitoring });
+  if (isMonitoring) {
+    stopMonitoring();
+  } else {
+    startMonitoring();
+  }
 });
 
 btnExportJson.addEventListener("click", () => {

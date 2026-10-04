@@ -139,5 +139,18 @@ class TestSerialHandler(unittest.TestCase):
         self.assertEqual(resp["cmd"], "version")
         self.assertEqual(resp["version"], "1.1.0")
 
+    def test_garbage_prefixed_json(self):
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            # 接続過渡ノイズ等で先頭にゴミが付いたJSONの解析を検証
+            self.handler.handle_line("\x00\x00noise! {\"cmd\": \"ping\"} trailing_noise\r\n")
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "pong")
+
 if __name__ == '__main__':
     unittest.main()

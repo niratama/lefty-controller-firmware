@@ -47,9 +47,26 @@ class SerialHandler:
 
     def handle_line(self, line):
         """1行のコマンド（JSONまたはプレーンテキスト）を解析して実行"""
+        if not line:
+            return None
+        line = line.strip().strip('\x00').strip()
+        if not line:
+            return None
+
+        msg = None
         try:
             msg = json.loads(line)
         except Exception:
+            # 先頭や末尾にシリアル接続時のゴミ文字が付着していた場合、'{' 〜 '}' の抽出を試行
+            s = line.find('{')
+            e = line.rfind('}')
+            if s != -1 and e != -1 and e > s:
+                try:
+                    msg = json.loads(line[s:e + 1])
+                except Exception:
+                    msg = None
+
+        if msg is None:
             # プレーンテキストコマンドのサポート
             cmd = line.strip().lower()
             if cmd == "help":
@@ -238,9 +255,20 @@ class SerialHandler:
     def send_response(self, obj):
         try:
             line = json.dumps(obj)
-            print(line)
+            # USB CDC TX バッファのオーバーフローを防ぐため、128バイトごとに分割送信し flush
+            chunk_size = 128
+            for i in range(0, len(line), chunk_size):
+                sys.stdout.write(line[i:i + chunk_size])
+            sys.stdout.write("\n")
+            if hasattr(sys.stdout, "flush"):
+                sys.stdout.flush()
         except Exception as e:
-            print(f'{{"status":"error","message":"{e}"}}')
+            try:
+                sys.stdout.write(f'{{"status":"error","message":"{e}"}}\n')
+                if hasattr(sys.stdout, "flush"):
+                    sys.stdout.flush()
+            except Exception:
+                pass
 
     def send_telemetry(self, raw_x, raw_y, debug_info, pressed_buttons):
         """モニタモード有効時にリアルタイムテレメトリを送信"""

@@ -294,11 +294,13 @@ class LeftyController:
         """シリアルからの受信をノンブロッキングで一括処理"""
         if IS_CIRCUITPYTHON:
             try:
-                avail = supervisor.runtime.serial_bytes_available
-                if avail:
+                while supervisor.runtime.serial_bytes_available:
+                    avail = supervisor.runtime.serial_bytes_available
                     chunk = sys.stdin.read(avail)
                     if chunk:
                         self.serial_handler.process_incoming_text(chunk)
+                    else:
+                        break
             except Exception:
                 pass
 
