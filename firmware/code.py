@@ -20,7 +20,7 @@ from serial_handler import SerialHandler
 IS_CIRCUITPYTHON = (getattr(sys, "implementation", None) is not None and 
                     getattr(sys.implementation, "name", "") == "circuitpython")
 
-keyboard_import_error = None
+KeyboardClass = None
 
 # CircuitPython モジュールのインポート
 if IS_CIRCUITPYTHON:
@@ -39,11 +39,20 @@ if IS_CIRCUITPYTHON:
     except ImportError:
         usb_cdc = None
 
+    # 1. adafruit_hid の読み込みを試行
     try:
-        from adafruit_hid.keyboard import Keyboard
-    except Exception as e:
-        Keyboard = None
-        keyboard_import_error = e
+        from adafruit_hid.keyboard import Keyboard as _Kbd
+        KeyboardClass = _Kbd
+    except Exception:
+        pass
+
+    # 2. なければ外部ライブラリ依存ゼロの内蔵 NativeKeyboard に自動フォールバック
+    if KeyboardClass is None:
+        try:
+            from hid_keyboard import NativeKeyboard
+            KeyboardClass = NativeKeyboard
+        except Exception:
+            pass
 
     try:
         import neopixel
@@ -51,7 +60,8 @@ if IS_CIRCUITPYTHON:
     except Exception:
         pixel = None
 else:
-    Keyboard = None
+    from hid_keyboard import NativeKeyboard
+    KeyboardClass = NativeKeyboard
     pixel = None
     usb_cdc = None
 
@@ -132,21 +142,20 @@ class LeftyController:
         print("==========================================")
 
         # 1. USB HID キーボード初期化
-        if Keyboard is None:
-            print(f"[ERROR] adafruit_hid のインポートに失敗しました: {keyboard_import_error}")
-            print("        CIRCUITPY/lib/adafruit_hid フォルダが正しく配置されているか確認してください。")
+        if KeyboardClass is None:
+            print("[ERROR] キーボードドライバをロードできませんでした。")
             set_led((255, 0, 0))  # 赤点灯
             return
 
         try:
-            self.keyboard = Keyboard(usb_hid.devices)
-            print("[INFO] USB HID Keyboard 初期化成功")
-            set_led((0, 255, 0))  # 緑点灯 (正常)
+            self.keyboard = KeyboardClass(usb_hid.devices)
+            print("[INFO] USB HID Keyboard 初期化成功！キー入力が有効です。")
+            set_led((0, 255, 0))  # 緑点灯 (正常稼働)
         except Exception as e:
-            print(f"[ERROR] USB HID Keyboard 初期化失敗: {e}")
-            print("        【重要】boot.pyの変更を反映させるため、")
-            print("        USBケーブルを一度PCから抜いて挿し直してください！")
-            set_led((255, 120, 0))  # オレンジ点灯 (USB再接続待ち)
+            print(f"[WARN] USB HID Keyboard 初期化待ち: {e}")
+            print("       【重要】boot.pyのHID有効化を反映するため、")
+            print("       USBケーブルを一度PCから抜いて挿し直してください！")
+            set_led((255, 120, 0))  # オレンジ点灯 (USB抜差し待ち)
 
         # 2. ボタンGPIO初期化 (GP0〜GP12: 内部プルアップ / Active Low)
         for p in self.button_pins_def:
