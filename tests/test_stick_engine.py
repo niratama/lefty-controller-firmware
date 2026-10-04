@@ -244,5 +244,110 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(mdx, 0)
         self.assertLess(mdy, 0)
 
+    def test_4way_snap_single_direction(self):
+        # 4方向スナップモード: 斜め入力時でも最大1方向のみが出力され、同時押しが絶対に起きない
+        self.engine.direction_mode = "4way_snap"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 1. 右斜め上 (上成分が強い: dy=+20000, dx=+10000 => 生値 raw_x=50000, raw_y=40000)
+        # raw_x=50000 -> dy=+20000, raw_y=40000 -> dx=+10000
+        active, press, release, info = self.engine.process(50000, 40000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(self.engine.states["up"], DirectionState.WALK)
+        self.assertEqual(self.engine.states["right"], DirectionState.NEUTRAL)
+        self.assertEqual(info["current_4way_dir"], "up")
+
+        # ニュートラルへ戻す
+        self.engine.process(30000, 30000)
+
+        # 2. 上斜め右 (右成分が強い: dy=+10000, dx=+20000 => 生値 raw_x=40000, raw_y=50000)
+        active, press, release, info = self.engine.process(40000, 50000)
+        self.assertEqual(active, {"D"})
+        self.assertEqual(self.engine.states["right"], DirectionState.WALK)
+        self.assertEqual(self.engine.states["up"], DirectionState.NEUTRAL)
+        self.assertEqual(info["current_4way_dir"], "right")
+
+    def test_4way_axis_hysteresis(self):
+        # 45°境界付近での手のブレによるチャタリングをヒステリシスで防止
+        self.engine.direction_mode = "4way_snap"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 1. まず「上」に倒す (dy=+12000, dx=+8000 => raw_x=42000, raw_y=38000, dist≈14422)
+        active, _, _, info = self.engine.process(42000, 38000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(info["current_4way_dir"], "up")
+
+        # 2. 右成分が少し増えて 45°付近になる (dy=+12000, dx=+13000 => raw_x=42000, raw_y=43000)
+        # dx は dy よりわずかに大きいが、hysteresis 1.15 (12000 * 1.15 = 13800) 未満なので「上」を維持
+        active, _, _, info = self.engine.process(42000, 43000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(info["current_4way_dir"], "up")
+
+        # 3. 明確に右に倒れこむ (dy=+12000, dx=+15000 > 13800 => raw_x=42000, raw_y=45000)
+        active, press, release, info = self.engine.process(42000, 45000)
+        self.assertEqual(active, {"D"})
+        self.assertEqual(press, {"D"})
+        self.assertEqual(release, {"W"})
+        self.assertEqual(info["current_4way_dir"], "right")
+
+    def test_4way_walk_and_run(self):
+        # 4方向モードで斜め45°に全開で倒し込んだ場合 (dist >= th_run)
+        # 個別の dx, dy 成分は 26000 未満でも、合成半径 dist が 26000 以上なら確実に RUN が成立
+        self.engine.direction_mode = "4way_snap"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 斜め45°全開 (dy = +21500, dx = +21000 => dist = sqrt(21500^2 + 21000^2) ≈ 30054 >= 26000)
+        # 生値: raw_x=51500, raw_y=51000
+        active, press, release, _ = self.engine.process(51500, 51000)
+        # dy >= dx なので UP が選択され、RUN ('Shift', 'W') になる
+        self.assertEqual(active, {"Shift", "W"})
+        self.assertEqual(self.engine.states["up"], DirectionState.RUN)
+        self.assertEqual(self.engine.states["right"], DirectionState.NEUTRAL)
+
+    def test_4way_strict_deadzone(self):
+        # 4方向厳格モード: 斜め45°付近の領域 (35°〜55°) は無効化 (Neutral)
+        self.engine.direction_mode = "4way_strict"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 1. ほぼ真上 (dy=+20000, dx=+2000 => raw_x=50000, raw_y=32000) -> 'W'
+        active, _, _, info = self.engine.process(50000, 32000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(info["current_4way_dir"], "up")
+
+        # 2. 斜め45° (dy=+20000, dx=+20000 => raw_x=50000, raw_y=50000) -> 斜め不感帯で Neutral
+        active, _, release, info = self.engine.process(50000, 50000)
+        self.assertEqual(active, set())
+        self.assertEqual(release, {"W"})
+        self.assertIsNone(info["current_4way_dir"])
+
+        # 3. ほぼ真右 (dy=+2000, dx=+20000 => raw_x=32000, raw_y=50000) -> 'D'
+        active, press, _, info = self.engine.process(32000, 50000)
+        self.assertEqual(active, {"D"})
+        self.assertEqual(press, {"D"})
+        self.assertEqual(info["current_4way_dir"], "right")
+
+    def test_4way_gamepad_mode(self):
+        # ゲームパッドモード時の4方向スナップ: 非アクティブ軸が 0 にクランプされる
+        self.engine.mode = "gamepad"
+        self.engine.direction_mode = "4way_snap"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # 右斜め上 (dy=+25000, dx=+12000 => 上がアクティブ)
+        active, _, _, info = self.engine.process(55000, 42000)
+        self.assertEqual(active, set())
+        joy_x, joy_y = info["gamepad"]
+        self.assertEqual(joy_x, 0)
+        self.assertLess(joy_y, 0)
+
 if __name__ == '__main__':
     unittest.main()

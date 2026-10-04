@@ -80,6 +80,14 @@
                 <option value="mouse">マウス (ポインタ移動)</option>
               </select>
             </div>
+            <div class="param-row">
+              <label for="directionModeSelect">方向入力制限 (斜め防止):</label>
+              <select id="directionModeSelect" class="btn-input" style="width: 100%;">
+                <option value="8way">8方向入力 (標準: 斜め同時押し可)</option>
+                <option value="4way_snap">4方向スナップ (推奨: 最寄り1方向のみ入力)</option>
+                <option value="4way_strict">4方向厳格 (斜め不感帯: 斜め入力時は無効化)</option>
+              </select>
+            </div>
             <div class="param-row" id="mouseSpeedRow" style="display: none;">
               <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
               <input type="range" id="mouseSpeedInput" min="2" max="30" step="1" value="12">
@@ -265,6 +273,6 @@
     </datalist>
   </div>
 
-  <script src="app.js?v=20261005a"></script>
+  <script src="app.js?v=20261005b"></script>
 </body>
 </html>

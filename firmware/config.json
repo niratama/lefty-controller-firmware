@@ -17,6 +17,7 @@
         "invert_x": false,
         "invert_y": false,
         "rotation": 90,
+        "direction_mode": "8way",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -62,6 +63,7 @@
         "invert_x": false,
         "invert_y": false,
         "rotation": 90,
+        "direction_mode": "8way",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -107,6 +109,7 @@
         "invert_x": false,
         "invert_y": false,
         "rotation": 90,
+        "direction_mode": "8way",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -150,6 +153,7 @@
     "invert_x": false,
     "invert_y": false,
     "rotation": 90,
+    "direction_mode": "8way",
     "directions": {
       "up": {
         "th_walk": 3000,

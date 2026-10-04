@@ -250,6 +250,7 @@ const DEFAULT_CONFIG = {
       },
       joystick: {
         mode: "keyboard",
+        direction_mode: "8way",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -275,6 +276,7 @@ const DEFAULT_CONFIG = {
       },
       joystick: {
         mode: "gamepad",
+        direction_mode: "8way",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -300,6 +302,7 @@ const DEFAULT_CONFIG = {
       },
       joystick: {
         mode: "mouse",
+        direction_mode: "8way",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -320,6 +323,7 @@ const DEFAULT_CONFIG = {
   },
   joystick: {
     mode: "keyboard",
+    direction_mode: "8way",
     mouse_speed: 12,
     deadzone: 2500,
     hysteresis: 1500,
@@ -382,6 +386,7 @@ const hwBtnGrid = document.getElementById("hwBtnGrid");
 
 // スティック・パラメータDOM要素
 const stickModeSelect = document.getElementById("stickModeSelect");
+const directionModeSelect = document.getElementById("directionModeSelect");
 const mouseSpeedRow = document.getElementById("mouseSpeedRow");
 const mouseSpeedInput = document.getElementById("mouseSpeedInput");
 const mouseSpeedVal = document.getElementById("mouseSpeedVal");
@@ -438,6 +443,7 @@ function ensureProfiles(cfg) {
     if (p.joystick) {
       if (!p.joystick.mode) p.joystick.mode = "keyboard";
       if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
+      if (!p.joystick.direction_mode) p.joystick.direction_mode = "8way";
     }
   });
   if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
@@ -450,18 +456,21 @@ function ensureProfiles(cfg) {
   if (cfg.joystick) {
     if (!cfg.joystick.mode) cfg.joystick.mode = "keyboard";
     if (!cfg.joystick.mouse_speed) cfg.joystick.mouse_speed = 12;
+    if (!cfg.joystick.direction_mode) cfg.joystick.direction_mode = "8way";
   }
   return cfg;
 }
 
 function updateModeDisplay() {
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  const dirMode = (currentConfig.joystick && currentConfig.joystick.direction_mode) ? currentConfig.joystick.direction_mode : "8way";
   const textEl = document.getElementById("stickModeText");
   const extraEl = document.getElementById("stickModeExtra");
   if (!textEl) return;
 
+  let modeLabel = "";
   if (mode === "gamepad") {
-    textEl.textContent = "GAMEPAD (X/Y)";
+    modeLabel = "GAMEPAD (X/Y)";
     if (extraEl) {
       if (currentTelemetry && currentTelemetry.gamepad) {
         extraEl.textContent = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
@@ -470,7 +479,7 @@ function updateModeDisplay() {
       }
     }
   } else if (mode === "mouse") {
-    textEl.textContent = "MOUSE (POINTER)";
+    modeLabel = "MOUSE (POINTER)";
     if (extraEl) {
       if (currentTelemetry && currentTelemetry.mouse) {
         extraEl.textContent = `dX: ${currentTelemetry.mouse[0]} / dY: ${currentTelemetry.mouse[1]}`;
@@ -479,9 +488,16 @@ function updateModeDisplay() {
       }
     }
   } else {
-    textEl.textContent = "KEYBOARD (WASD)";
+    modeLabel = "KEYBOARD (WASD)";
     if (extraEl) extraEl.textContent = "";
   }
+
+  if (dirMode === "4way_snap") {
+    modeLabel += " [4方向スナップ]";
+  } else if (dirMode === "4way_strict") {
+    modeLabel += " [4方向厳格]";
+  }
+  textEl.textContent = modeLabel;
 }
 
 function updateModeVisibility() {
@@ -1174,6 +1190,9 @@ function updateFormFromConfig() {
   if (stickModeSelect) {
     stickModeSelect.value = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
   }
+  if (directionModeSelect) {
+    directionModeSelect.value = (currentConfig.joystick && currentConfig.joystick.direction_mode) ? currentConfig.joystick.direction_mode : "8way";
+  }
   if (mouseSpeedInput) {
     const spd = (currentConfig.joystick && currentConfig.joystick.mouse_speed) ? currentConfig.joystick.mouse_speed : 12;
     mouseSpeedInput.value = spd;
@@ -1362,6 +1381,17 @@ if (stickModeSelect) {
   });
 }
 
+if (directionModeSelect) {
+  directionModeSelect.addEventListener("change", (e) => {
+    currentConfig.joystick.direction_mode = e.target.value;
+    syncCurrentToProfile();
+    drawRadar();
+    updateModeDisplay();
+    const modeName = directionModeSelect.options[directionModeSelect.selectedIndex].text;
+    log(`方向入力制限を「${modeName}」に変更しました`, "info");
+  });
+}
+
 if (mouseSpeedInput) {
   mouseSpeedInput.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
@@ -1478,6 +1508,51 @@ function drawRadar() {
     ctx.setLineDash([]);
   }
 
+  // 4方向制限モード時のガイド線・不感帯可視化
+  const dirMode = (currentConfig.joystick && currentConfig.joystick.direction_mode) ? currentConfig.joystick.direction_mode : "8way";
+  if (dirMode === "4way_snap" || dirMode === "4way_strict") {
+    // 45° 対角分割線 (破線)
+    ctx.strokeStyle = "rgba(245, 158, 11, 0.45)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    const diagDist = radius * 0.98;
+    const diagOffset = diagDist * Math.SQRT1_2;
+
+    ctx.beginPath();
+    // 45° - 225° 線 (右上 - 左下)
+    ctx.moveTo(cx - diagOffset, cy + diagOffset);
+    ctx.lineTo(cx + diagOffset, cy - diagOffset);
+    // 135° - 315° 線 (左上 - 右下)
+    ctx.moveTo(cx - diagOffset, cy - diagOffset);
+    ctx.lineTo(cx + diagOffset, cy + diagOffset);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 4way_strict (斜め不感帯): 斜め45°付近を薄いハイライトで可視化
+    if (dirMode === "4way_strict") {
+      ctx.fillStyle = "rgba(239, 68, 68, 0.1)";
+      const angles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
+      const deadzoneAngle = 0.18; // 約 ±10.3°
+      angles.forEach(ang => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, ang - deadzoneAngle, ang + deadzoneAngle);
+        ctx.closePath();
+        ctx.fill();
+      });
+    }
+
+    // 4方向ラベル
+    ctx.fillStyle = "rgba(245, 158, 11, 0.75)";
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("▲ UP", cx, cy - radius * 0.85);
+    ctx.fillText("▼ DOWN", cx, cy + radius * 0.85);
+    ctx.fillText("◀ LEFT", cx - radius * 0.80, cy);
+    ctx.fillText("RIGHT ▶", cx + radius * 0.80, cy);
+  }
+
   // スティック現在位置プロット
   // deltaX, deltaY (-32768 〜 +32768)
   const px = cx + (currentTelemetry.dx / 32768) * radius;
@@ -1509,6 +1584,8 @@ function updateTelemetryUI(data) {
   currentTelemetry.states = data.states || { up: 0, down: 0, left: 0, right: 0 };
   currentTelemetry.btns = data.btns || [];
   currentTelemetry.mode = data.mode || "keyboard";
+  currentTelemetry.direction_mode = data.direction_mode || (currentConfig.joystick && currentConfig.joystick.direction_mode) || "8way";
+  currentTelemetry.current_4way_dir = data.current_4way_dir || null;
   currentTelemetry.gamepad = data.gamepad || [0, 0];
   currentTelemetry.mouse = data.mouse || [0, 0];
 
