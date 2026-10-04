@@ -148,11 +148,23 @@
       <section class="card buttons-section">
         <h2>スイッチ入力 (13ボタン) キーマップ</h2>
         <p class="section-desc">前面9個、側面トリガー3個、スティック押し込みスイッチの割当キーを設定します。</p>
-        <div class="quick-ref-box" style="margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 0.82em; color: #a0aec0; line-height: 1.6;">
-          <strong>💡 割り当て可能な入力の例:</strong><br>
-          ・<strong>キーボード:</strong> <code>1</code>, <code>2</code>, <code>X</code>, <code>Space</code>, <code>Tab</code>, <code>LCtrl</code>, <code>LCtrl, c</code> (複合キー)<br>
-          ・<strong>マウス:</strong> <code>Mouse_Left</code> (左クリック), <code>Mouse_Right</code> (右クリック), <code>Mouse_Middle</code>, <code>Wheel_Up</code>, <code>Wheel_Down</code><br>
-          ・<strong>ゲームパッド:</strong> <code>Gamepad_1</code> (A), <code>Gamepad_2</code> (B), <code>Gamepad_3</code> (X), <code>Gamepad_4</code> (Y), <code>Gamepad_5</code> (LB), <code>Gamepad_6</code> (RB), <code>Gamepad_9</code> (Select), <code>Gamepad_10</code> (Start)
+        <!-- 折りたたみ式 対応キー一覧カタログ -->
+        <div class="key-catalog-card">
+          <div class="key-catalog-header">
+            <div class="key-catalog-title">
+              <span class="catalog-title-main">📖 対応キー・アクション一覧カタログ</span>
+              <span class="catalog-hint">チップをクリックすると選択中の入力欄に自動挿入されます</span>
+            </div>
+            <button type="button" class="btn-sm btn-outline" id="btnToggleCatalog">一覧を展開 ▼</button>
+          </div>
+          <div class="key-catalog-body" id="keyCatalogBody" style="display: none;">
+            <div class="catalog-tabs" id="catalogTabs">
+              <!-- JSで動的生成 -->
+            </div>
+            <div class="catalog-chips-container" id="catalogChipsContainer">
+              <!-- JSで動的生成 -->
+            </div>
+          </div>
         </div>
         <div class="button-grid" id="buttonGrid">
           <!-- JSで動的生成 -->
@@ -211,8 +223,48 @@
         </div>
       </section>
     </main>
+    <!-- キー選択モーダル -->
+    <div id="keyPickerModal" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-header-info">
+            <h3 id="modalTargetTitle">キーを選択</h3>
+            <span class="modal-subtitle">割り当てたいキーやアクションをクリックしてください</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="btnModalClose">&times;</button>
+        </div>
+        <div class="modal-modifiers-row">
+          <span class="modifier-label">同時押し修飾キー:</span>
+          <label class="mod-checkbox-label"><input type="checkbox" id="modCtrl"> Ctrl</label>
+          <label class="mod-checkbox-label"><input type="checkbox" id="modShift"> Shift</label>
+          <label class="mod-checkbox-label"><input type="checkbox" id="modAlt"> Alt</label>
+          <label class="mod-checkbox-label"><input type="checkbox" id="modWin"> Win / Gui</label>
+        </div>
+        <div class="modal-tabs" id="modalTabs">
+          <!-- JSで動的生成 -->
+        </div>
+        <div class="modal-chips-grid" id="modalChipsGrid">
+          <!-- JSで動的生成 -->
+        </div>
+        <div class="modal-footer">
+          <div class="modal-preview">
+            <span class="preview-label">設定内容:</span>
+            <span class="preview-badge" id="modalSelectedKey">未選択</span>
+          </div>
+          <div class="modal-footer-btns">
+            <button type="button" class="btn btn-secondary" id="btnModalClear">キー解除 (なし)</button>
+            <button type="button" class="btn btn-primary" id="btnModalApply">確定して反映</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- キー入力補完用 datalist -->
+    <datalist id="allKeysList">
+      <!-- JSで動的生成 -->
+    </datalist>
   </div>
 
-  <script src="app.js?v=20261004k"></script>
+  <script src="app.js?v=20261005a"></script>
 </body>
 </html>

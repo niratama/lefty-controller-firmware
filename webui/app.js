@@ -21,6 +21,225 @@ const BUTTON_LABELS = [
   "側面上", "側面中", "側面下", "STK"
 ];
 
+// ==========================================
+// 対応キー・アクションカタログ定義 & バリデーション
+// ==========================================
+const SUPPORTED_KEY_CATALOG = [
+  {
+    category: "kbd_alpha",
+    name: "英数字",
+    icon: "🔤",
+    keys: [
+      { id: "A", label: "A", desc: "キー A" },
+      { id: "B", label: "B", desc: "キー B" },
+      { id: "C", label: "C", desc: "キー C" },
+      { id: "D", label: "D", desc: "キー D" },
+      { id: "E", label: "E", desc: "キー E" },
+      { id: "F", label: "F", desc: "キー F" },
+      { id: "G", label: "G", desc: "キー G" },
+      { id: "H", label: "H", desc: "キー H" },
+      { id: "I", label: "I", desc: "キー I" },
+      { id: "J", label: "J", desc: "キー J" },
+      { id: "K", label: "K", desc: "キー K" },
+      { id: "L", label: "L", desc: "キー L" },
+      { id: "M", label: "M", desc: "キー M" },
+      { id: "N", label: "N", desc: "キー N" },
+      { id: "O", label: "O", desc: "キー O" },
+      { id: "P", label: "P", desc: "キー P" },
+      { id: "Q", label: "Q", desc: "キー Q" },
+      { id: "R", label: "R", desc: "キー R" },
+      { id: "S", label: "S", desc: "キー S" },
+      { id: "T", label: "T", desc: "キー T" },
+      { id: "U", label: "U", desc: "キー U" },
+      { id: "V", label: "V", desc: "キー V" },
+      { id: "W", label: "W", desc: "キー W" },
+      { id: "X", label: "X", desc: "キー X" },
+      { id: "Y", label: "Y", desc: "キー Y" },
+      { id: "Z", label: "Z", desc: "キー Z" },
+      { id: "1", label: "1", desc: "数字 1" },
+      { id: "2", label: "2", desc: "数字 2" },
+      { id: "3", label: "3", desc: "数字 3" },
+      { id: "4", label: "4", desc: "数字 4" },
+      { id: "5", label: "5", desc: "数字 5" },
+      { id: "6", label: "6", desc: "数字 6" },
+      { id: "7", label: "7", desc: "数字 7" },
+      { id: "8", label: "8", desc: "数字 8" },
+      { id: "9", label: "9", desc: "数字 9" },
+      { id: "0", label: "0", desc: "数字 0" },
+    ]
+  },
+  {
+    category: "kbd_special",
+    name: "特殊・制御",
+    icon: "🎯",
+    keys: [
+      { id: "Space", label: "Space", desc: "スペースバー" },
+      { id: "Enter", label: "Enter", desc: "決定 / リターン" },
+      { id: "Tab", label: "Tab", desc: "タブ" },
+      { id: "Escape", label: "Esc", desc: "エスケープ" },
+      { id: "Backspace", label: "Backspace", desc: "後退 / 1文字削除" },
+      { id: "Delete", label: "Delete", desc: "削除" },
+      { id: "Insert", label: "Insert", desc: "挿入" },
+      { id: "Home", label: "Home", desc: "先頭へ移動" },
+      { id: "End", label: "End", desc: "末尾へ移動" },
+      { id: "PageUp", label: "PageUp", desc: "前のページ" },
+      { id: "PageDown", label: "PageDown", desc: "次のページ" },
+      { id: "CapsLock", label: "CapsLock", desc: "キャプスロック" },
+    ]
+  },
+  {
+    category: "kbd_mod",
+    name: "修飾キー",
+    icon: "⚡",
+    keys: [
+      { id: "Shift", label: "Shift", desc: "シフト (左/共通)" },
+      { id: "LCtrl", label: "Ctrl (左)", desc: "左コントロール" },
+      { id: "RCtrl", label: "Ctrl (右)", desc: "右コントロール" },
+      { id: "LAlt", label: "Alt (左)", desc: "左オルト" },
+      { id: "RAlt", label: "Alt (右)", desc: "右オルト" },
+      { id: "Win", label: "Win / Command", desc: "Windows / Command" },
+    ]
+  },
+  {
+    category: "kbd_symbols",
+    name: "記号",
+    icon: "🔣",
+    keys: [
+      { id: "-", label: "-", desc: "ハイフン / マイナス" },
+      { id: "=", label: "=", desc: "イコール" },
+      { id: "[", label: "[", desc: "左ブラケット" },
+      { id: "]", label: "]", desc: "右ブラケット" },
+      { id: "\\", label: "\\", desc: "バックスラッシュ" },
+      { id: ";", label: ";", desc: "セミコロン" },
+      { id: "'", label: "'", desc: "アポストロフィ / クォート" },
+      { id: "`", label: "`", desc: "バッククォート" },
+      { id: ",", label: ",", desc: "カンマ" },
+      { id: ".", label: ".", desc: "ピリオド" },
+      { id: "/", label: "/", desc: "スラッシュ" },
+    ]
+  },
+  {
+    category: "kbd_fn_arrow",
+    name: "矢印・Fキー",
+    icon: "🕹️",
+    keys: [
+      { id: "Up", label: "↑ Up", desc: "上矢印" },
+      { id: "Down", label: "↓ Down", desc: "下矢印" },
+      { id: "Left", label: "← Left", desc: "左矢印" },
+      { id: "Right", label: "→ Right", desc: "右矢印" },
+      { id: "F1", label: "F1", desc: "ファンクション 1" },
+      { id: "F2", label: "F2", desc: "ファンクション 2" },
+      { id: "F3", label: "F3", desc: "ファンクション 3" },
+      { id: "F4", label: "F4", desc: "ファンクション 4" },
+      { id: "F5", label: "F5", desc: "ファンクション 5" },
+      { id: "F6", label: "F6", desc: "ファンクション 6" },
+      { id: "F7", label: "F7", desc: "ファンクション 7" },
+      { id: "F8", label: "F8", desc: "ファンクション 8" },
+      { id: "F9", label: "F9", desc: "ファンクション 9" },
+      { id: "F10", label: "F10", desc: "ファンクション 10" },
+      { id: "F11", label: "F11", desc: "ファンクション 11" },
+      { id: "F12", label: "F12", desc: "ファンクション 12" },
+    ]
+  },
+  {
+    category: "mouse",
+    name: "マウス操作",
+    icon: "🖱️",
+    keys: [
+      { id: "Mouse_Left", label: "左クリック", desc: "左ボタン クリック" },
+      { id: "Mouse_Right", label: "右クリック", desc: "右ボタン クリック" },
+      { id: "Mouse_Middle", label: "中クリック", desc: "ホイール押込 クリック" },
+      { id: "Mouse_Back", label: "戻る", desc: "サイドボタン (手前)" },
+      { id: "Mouse_Forward", label: "進む", desc: "サイドボタン (奥)" },
+      { id: "Wheel_Up", label: "ホイール上", desc: "スクロール 上回転" },
+      { id: "Wheel_Down", label: "ホイール下", desc: "スクロール 下回転" },
+    ]
+  },
+  {
+    category: "gamepad",
+    name: "ゲームパッド",
+    icon: "🎮",
+    keys: [
+      { id: "Gamepad_A", label: "A (1)", desc: "Aボタン / ×" },
+      { id: "Gamepad_B", label: "B (2)", desc: "Bボタン / ◯" },
+      { id: "Gamepad_X", label: "X (3)", desc: "Xボタン / □" },
+      { id: "Gamepad_Y", label: "Y (4)", desc: "Yボタン / △" },
+      { id: "Gamepad_LB", label: "LB / L1 (5)", desc: "左バンパー" },
+      { id: "Gamepad_RB", label: "RB / R1 (6)", desc: "右バンパー" },
+      { id: "Gamepad_LT", label: "LT / L2 (7)", desc: "左トリガー" },
+      { id: "Gamepad_RT", label: "RT / R2 (8)", desc: "右トリガー" },
+      { id: "Gamepad_Select", label: "Select (9)", desc: "セレクト / ビュー / Back" },
+      { id: "Gamepad_Start", label: "Start (10)", desc: "スタート / メニュー" },
+      { id: "Gamepad_L3", label: "L3 / LS (11)", desc: "左スティック 押し込み" },
+      { id: "Gamepad_R3", label: "R3 / RS (12)", desc: "右スティック 押し込み" },
+      { id: "Gamepad_13", label: "BTN 13", desc: "拡張ボタン 13" },
+      { id: "Gamepad_14", label: "BTN 14", desc: "拡張ボタン 14" },
+      { id: "Gamepad_15", label: "BTN 15", desc: "拡張ボタン 15" },
+      { id: "Gamepad_16", label: "BTN 16", desc: "拡張ボタン 16" },
+    ]
+  }
+];
+
+const ALL_VALID_KEYS_SET = new Set();
+SUPPORTED_KEY_CATALOG.forEach(cat => {
+  cat.keys.forEach(k => {
+    ALL_VALID_KEYS_SET.add(k.id.toLowerCase());
+  });
+});
+[
+  "esc", "del", "ins", "return", "spacebar", "lshift", "rshift", "ctrl", "lctrl", "rctrl",
+  "alt", "lalt", "ralt", "gui", "windows", "command", "pgup", "pgdn", "page_up", "page_down",
+  "mouse_l", "click_left", "mouse_r", "click_right", "mouse_m", "click_middle",
+  "mouse_wheel_up", "mouse_wheel_down", "gamepad_l1", "gamepad_r1", "gamepad_l2", "gamepad_r2",
+  "gamepad_back", "gamepad_ls", "gamepad_rs", "minus", "equals", "leftbracket", "rightbracket",
+  "backslash", "semicolon", "quote", "grave", "comma", "period", "slash"
+].forEach(a => ALL_VALID_KEYS_SET.add(a));
+
+function isValidActionName(name) {
+  if (!name || typeof name !== "string") return false;
+  const lower = name.trim().toLowerCase();
+  if (ALL_VALID_KEYS_SET.has(lower)) return true;
+  if (/^(gamepad|btn)_\d{1,2}$/.test(lower)) {
+    const num = parseInt(lower.split("_")[1], 10);
+    return num >= 1 && num <= 16;
+  }
+  return false;
+}
+
+function validateKeyString(str) {
+  if (!str || !str.trim()) return { valid: true, empty: true };
+  const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return { valid: true, empty: true };
+  for (const part of parts) {
+    if (!isValidActionName(part)) {
+      return { valid: false, invalidPart: part };
+    }
+  }
+  return { valid: true, parts };
+}
+
+function updateValidationBadge(input, badge) {
+  if (!badge) return;
+  const res = validateKeyString(input.value);
+  if (res.empty) {
+    badge.textContent = "";
+    badge.className = "key-valid-badge";
+    input.classList.remove("invalid-key");
+  } else if (res.valid) {
+    badge.textContent = "✓";
+    badge.title = "有効なキー設定です";
+    badge.className = "key-valid-badge valid";
+    input.classList.remove("invalid-key");
+  } else {
+    badge.textContent = "⚠️";
+    badge.title = `「${res.invalidPart}」は認識できないキー名です`;
+    badge.className = "key-valid-badge invalid";
+    input.classList.add("invalid-key");
+  }
+}
+
+let lastFocusedInput = null;
+
 const DEFAULT_CONFIG = {
   active_profile: 0,
   profiles: [
@@ -396,6 +615,379 @@ function renderHwButtonGrid() {
   });
 }
 
+// ==========================================
+// キーカタログ・モーダルピッカー・キー打鍵キャプチャ
+// ==========================================
+let currentCatalogCategory = "kbd_alpha";
+let currentModalCategory = "kbd_alpha";
+let modalTargetInput = null;
+let modalSelectedBaseKey = null;
+let activeCapture = null;
+
+function populateDatalist() {
+  const datalist = document.getElementById("allKeysList");
+  if (!datalist) return;
+  datalist.innerHTML = "";
+  SUPPORTED_KEY_CATALOG.forEach(cat => {
+    cat.keys.forEach(k => {
+      const opt = document.createElement("option");
+      opt.value = k.id;
+      opt.label = `${k.label} - ${k.desc}`;
+      datalist.appendChild(opt);
+    });
+  });
+}
+
+function initKeyCatalog() {
+  const toggleBtn = document.getElementById("btnToggleCatalog");
+  const catalogBody = document.getElementById("keyCatalogBody");
+  const header = document.querySelector(".key-catalog-header");
+
+  if (toggleBtn && catalogBody) {
+    const toggleFunc = () => {
+      const isClosed = catalogBody.style.display === "none";
+      catalogBody.style.display = isClosed ? "flex" : "none";
+      toggleBtn.textContent = isClosed ? "一覧を閉じる ▲" : "一覧を展開 ▼";
+    };
+    toggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleFunc();
+    });
+    if (header) {
+      header.addEventListener("click", toggleFunc);
+    }
+  }
+
+  renderCatalogTabs();
+  renderCatalogChips(currentCatalogCategory);
+}
+
+function renderCatalogTabs() {
+  const tabsContainer = document.getElementById("catalogTabs");
+  if (!tabsContainer) return;
+  tabsContainer.innerHTML = "";
+
+  SUPPORTED_KEY_CATALOG.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `catalog-tab-btn ${cat.category === currentCatalogCategory ? "active" : ""}`;
+    btn.textContent = `${cat.icon} ${cat.name}`;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      currentCatalogCategory = cat.category;
+      document.querySelectorAll(".catalog-tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderCatalogChips(currentCatalogCategory);
+    });
+    tabsContainer.appendChild(btn);
+  });
+}
+
+function renderCatalogChips(catId) {
+  const container = document.getElementById("catalogChipsContainer");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const category = SUPPORTED_KEY_CATALOG.find(c => c.category === catId);
+  if (!category) return;
+
+  category.keys.forEach(k => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `key-chip chip-${category.category}`;
+    chip.textContent = k.label;
+    chip.title = `${k.id} (${k.desc}) - クリックで入力`;
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      applyKeyFromCatalog(k.id);
+    });
+    container.appendChild(chip);
+  });
+}
+
+function applyKeyFromCatalog(keyId) {
+  let target = lastFocusedInput;
+  if (!target) {
+    target = document.getElementById("btnInput_0");
+  }
+  if (!target) return;
+
+  target.value = keyId;
+  target.dispatchEvent(new Event("input"));
+  target.dispatchEvent(new Event("change"));
+  target.focus();
+
+  target.style.transition = "box-shadow 0.2s ease";
+  target.style.boxShadow = "0 0 10px #38bdf8";
+  setTimeout(() => {
+    target.style.boxShadow = "";
+  }, 400);
+
+  log(`カタログから「${keyId}」を入力欄に設定しました`, "info");
+}
+
+function stopKeyCapture() {
+  if (!activeCapture) return;
+  const { btn, handler, blurHandler } = activeCapture;
+  window.removeEventListener("keydown", handler, true);
+  window.removeEventListener("blur", blurHandler);
+  if (btn) {
+    btn.classList.remove("capturing-key");
+    btn.textContent = "⌨️ 検出";
+  }
+  activeCapture = null;
+}
+
+function startKeyCapture(input, btn) {
+  if (activeCapture) {
+    const wasSame = activeCapture.btn === btn;
+    stopKeyCapture();
+    if (wasSame) return;
+  }
+
+  btn.classList.add("capturing-key");
+  btn.textContent = "打鍵待機中(Esc取消)";
+
+  const handler = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === "Escape") {
+      stopKeyCapture();
+      log("キー検出をキャンセルしました", "info");
+      return;
+    }
+
+    if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) {
+      return;
+    }
+
+    const code = e.code;
+    let baseKey = null;
+
+    if (code.startsWith("Key")) {
+      baseKey = code.slice(3).toLowerCase();
+    } else if (code.startsWith("Digit")) {
+      baseKey = code.slice(5);
+    } else if (code.startsWith("Numpad") && !isNaN(code.slice(6))) {
+      baseKey = code.slice(6);
+    } else if (/^F\d{1,2}$/.test(code)) {
+      baseKey = code;
+    } else {
+      const codeMap = {
+        "Space": "Space",
+        "Enter": "Enter",
+        "NumpadEnter": "Enter",
+        "Tab": "Tab",
+        "Backspace": "Backspace",
+        "Delete": "Delete",
+        "Insert": "Insert",
+        "Home": "Home",
+        "End": "End",
+        "PageUp": "PageUp",
+        "PageDown": "PageDown",
+        "ArrowUp": "Up",
+        "ArrowDown": "Down",
+        "ArrowLeft": "Left",
+        "ArrowRight": "Right",
+        "Minus": "-",
+        "Equal": "=",
+        "BracketLeft": "[",
+        "BracketRight": "]",
+        "Backslash": "\\",
+        "Semicolon": ";",
+        "Quote": "'",
+        "Backquote": "`",
+        "Comma": ",",
+        "Period": ".",
+        "Slash": "/",
+        "CapsLock": "CapsLock"
+      };
+      baseKey = codeMap[code] || e.key;
+    }
+
+    const parts = [];
+    if (e.ctrlKey) parts.push("LCtrl");
+    if (e.shiftKey) parts.push("Shift");
+    if (e.altKey) parts.push("LAlt");
+    if (e.metaKey) parts.push("Win");
+
+    if (baseKey && !parts.some(p => p.toLowerCase() === baseKey.toLowerCase())) {
+      parts.push(baseKey);
+    }
+
+    const finalVal = parts.join(", ");
+    input.value = finalVal;
+    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new Event("change"));
+    log(`キー入力を検出・設定しました: ${finalVal}`, "info");
+
+    stopKeyCapture();
+  };
+
+  const blurHandler = () => stopKeyCapture();
+
+  activeCapture = { btn, input, handler, blurHandler };
+  window.addEventListener("keydown", handler, true);
+  window.addEventListener("blur", blurHandler);
+}
+
+function initModalEvents() {
+  const modal = document.getElementById("keyPickerModal");
+  const btnClose = document.getElementById("btnModalClose");
+  const btnClear = document.getElementById("btnModalClear");
+  const btnApply = document.getElementById("btnModalApply");
+
+  if (btnClose) btnClose.addEventListener("click", closeKeyPicker);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeKeyPicker();
+    });
+  }
+
+  ["modCtrl", "modShift", "modAlt", "modWin"].forEach(id => {
+    const chk = document.getElementById(id);
+    if (chk) chk.addEventListener("change", updateModalPreview);
+  });
+
+  if (btnClear) {
+    btnClear.addEventListener("click", () => {
+      if (modalTargetInput) {
+        modalTargetInput.value = "";
+        modalTargetInput.dispatchEvent(new Event("input"));
+        modalTargetInput.dispatchEvent(new Event("change"));
+      }
+      closeKeyPicker();
+    });
+  }
+
+  if (btnApply) {
+    btnApply.addEventListener("click", () => {
+      if (!modalTargetInput) return;
+      const result = buildModalCombinedKey();
+      modalTargetInput.value = result;
+      modalTargetInput.dispatchEvent(new Event("input"));
+      modalTargetInput.dispatchEvent(new Event("change"));
+      closeKeyPicker();
+    });
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closeKeyPicker();
+    }
+  });
+}
+
+function openKeyPicker(targetInput, title = "キーを選択") {
+  modalTargetInput = targetInput;
+  const modal = document.getElementById("keyPickerModal");
+  const titleEl = document.getElementById("modalTargetTitle");
+  if (!modal) return;
+
+  if (titleEl) titleEl.textContent = title;
+
+  const curVal = targetInput.value.trim();
+  const parts = curVal.split(',').map(s => s.trim()).filter(Boolean);
+
+  const modCtrl = document.getElementById("modCtrl");
+  const modShift = document.getElementById("modShift");
+  const modAlt = document.getElementById("modAlt");
+  const modWin = document.getElementById("modWin");
+
+  if (modCtrl) modCtrl.checked = parts.some(p => p.toLowerCase().includes("ctrl"));
+  if (modShift) modShift.checked = parts.some(p => p.toLowerCase().includes("shift"));
+  if (modAlt) modAlt.checked = parts.some(p => p.toLowerCase().includes("alt"));
+  if (modWin) modWin.checked = parts.some(p => ["win", "gui", "command"].includes(p.toLowerCase()));
+
+  const base = parts.find(p => !["ctrl", "lctrl", "rctrl", "shift", "lshift", "rshift", "alt", "lalt", "ralt", "win", "lwin", "gui"].includes(p.toLowerCase()));
+  modalSelectedBaseKey = base || null;
+
+  renderModalTabs();
+  renderModalChips();
+  updateModalPreview();
+
+  modal.style.display = "flex";
+}
+
+function closeKeyPicker() {
+  const modal = document.getElementById("keyPickerModal");
+  if (modal) modal.style.display = "none";
+  modalTargetInput = null;
+  modalSelectedBaseKey = null;
+}
+
+function renderModalTabs() {
+  const tabsContainer = document.getElementById("modalTabs");
+  if (!tabsContainer) return;
+  tabsContainer.innerHTML = "";
+
+  SUPPORTED_KEY_CATALOG.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `catalog-tab-btn ${cat.category === currentModalCategory ? "active" : ""}`;
+    btn.textContent = `${cat.icon} ${cat.name}`;
+    btn.addEventListener("click", () => {
+      currentModalCategory = cat.category;
+      document.querySelectorAll("#modalTabs .catalog-tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderModalChips();
+    });
+    tabsContainer.appendChild(btn);
+  });
+}
+
+function renderModalChips() {
+  const container = document.getElementById("modalChipsGrid");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const category = SUPPORTED_KEY_CATALOG.find(c => c.category === currentModalCategory);
+  if (!category) return;
+
+  category.keys.forEach(k => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    const isSelected = modalSelectedBaseKey && modalSelectedBaseKey.toLowerCase() === k.id.toLowerCase();
+    chip.className = `key-chip chip-${category.category} ${isSelected ? "selected" : ""}`;
+    chip.textContent = k.label;
+    chip.title = `${k.id}: ${k.desc}`;
+    chip.addEventListener("click", () => {
+      modalSelectedBaseKey = k.id;
+      renderModalChips();
+      updateModalPreview();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function buildModalCombinedKey() {
+  const parts = [];
+  const modCtrl = document.getElementById("modCtrl");
+  const modShift = document.getElementById("modShift");
+  const modAlt = document.getElementById("modAlt");
+  const modWin = document.getElementById("modWin");
+
+  if (modCtrl && modCtrl.checked) parts.push("LCtrl");
+  if (modShift && modShift.checked) parts.push("Shift");
+  if (modAlt && modAlt.checked) parts.push("LAlt");
+  if (modWin && modWin.checked) parts.push("Win");
+
+  if (modalSelectedBaseKey) {
+    if (!parts.some(p => p.toLowerCase() === modalSelectedBaseKey.toLowerCase())) {
+      parts.push(modalSelectedBaseKey);
+    }
+  }
+  return parts.join(", ");
+}
+
+function updateModalPreview() {
+  const preview = document.getElementById("modalSelectedKey");
+  if (!preview) return;
+  const key = buildModalCombinedKey();
+  preview.textContent = key || "未選択 (なし)";
+}
+
 // UI初期化
 function initUI() {
   const cached = loadFromLocalStorage();
@@ -407,6 +999,9 @@ function initUI() {
     ensureProfiles(currentConfig);
     updateStorageBadge("saved", "初期設定");
   }
+  populateDatalist();
+  initKeyCatalog();
+  initModalEvents();
   renderProfileSelect();
   renderHwButtonGrid();
   renderButtonGrid();
@@ -428,6 +1023,9 @@ function renderButtonGrid() {
     const header = document.createElement("div");
     header.className = "btn-card-header";
 
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "btn-card-title";
+
     const label = document.createElement("span");
     label.className = "btn-label";
     label.textContent = PIN_NAMES[i] || `Button ${i+1}`;
@@ -436,26 +1034,79 @@ function renderButtonGrid() {
     pinInfo.className = "btn-pin";
     pinInfo.textContent = `GP${currentConfig.pins.buttons[i]}`;
 
-    header.appendChild(label);
-    header.appendChild(pinInfo);
+    titleGroup.appendChild(label);
+    titleGroup.appendChild(pinInfo);
+
+    const toolsGroup = document.createElement("div");
+    toolsGroup.className = "btn-card-tools";
+
+    const btnPick = document.createElement("button");
+    btnPick.type = "button";
+    btnPick.className = "btn-tool-sm";
+    btnPick.textContent = "📋 選択";
+    btnPick.title = "一覧パレットから選んで設定";
+
+    const btnCapture = document.createElement("button");
+    btnCapture.type = "button";
+    btnCapture.className = "btn-tool-sm";
+    btnCapture.textContent = "⌨️ 検出";
+    btnCapture.title = "PCキーボードのキーを押して自動入力";
+
+    toolsGroup.appendChild(btnPick);
+    toolsGroup.appendChild(btnCapture);
+
+    header.appendChild(titleGroup);
+    header.appendChild(toolsGroup);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "btn-input-wrapper";
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "btn-input";
     input.id = `btnInput_${i}`;
+    input.setAttribute("list", "allKeysList");
     const keyVal = currentConfig.keymap.buttons[i];
     input.value = Array.isArray(keyVal) ? keyVal.join(', ') : (keyVal || "");
     input.placeholder = "例: 1, Space, LCtrl, c";
+
+    const badge = document.createElement("span");
+    badge.className = "key-valid-badge";
+    badge.id = `keyValid_${i}`;
+
+    input.addEventListener("focus", () => {
+      lastFocusedInput = input;
+    });
+
+    input.addEventListener("input", () => {
+      updateValidationBadge(input, badge);
+    });
 
     input.addEventListener("change", (e) => {
       const parts = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       const finalVal = parts.length > 1 ? parts : (parts[0] || "");
       currentConfig.keymap.buttons[i] = finalVal;
       syncCurrentToProfile();
+      updateValidationBadge(input, badge);
     });
 
+    btnPick.addEventListener("click", () => {
+      lastFocusedInput = input;
+      openKeyPicker(input, `${PIN_NAMES[i]} のキー設定`);
+    });
+
+    btnCapture.addEventListener("click", () => {
+      lastFocusedInput = input;
+      startKeyCapture(input, btnCapture);
+    });
+
+    updateValidationBadge(input, badge);
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(badge);
+
     card.appendChild(header);
-    card.appendChild(input);
+    card.appendChild(wrapper);
     container.appendChild(card);
   }
 }
@@ -479,12 +1130,21 @@ function renderDirectionTable() {
     tr.innerHTML = `
       <td><strong>${d.label}</strong></td>
       <td><input type="number" id="th_walk_${d.key}" value="${cfg.th_walk}" step="500" min="1000" max="32000"></td>
-      <td><input type="text" id="kw_${d.key}" value="${Array.isArray(cfg.key_walk) ? cfg.key_walk.join(', ') : cfg.key_walk}"></td>
+      <td><input type="text" id="kw_${d.key}" list="allKeysList" value="${Array.isArray(cfg.key_walk) ? cfg.key_walk.join(', ') : cfg.key_walk}"></td>
       <td><input type="number" id="th_run_${d.key}" value="${cfg.th_run}" step="500" min="1000" max="32000"></td>
-      <td><input type="text" id="kr_${d.key}" value="${Array.isArray(cfg.key_run) ? cfg.key_run.join(', ') : cfg.key_run}"></td>
+      <td><input type="text" id="kr_${d.key}" list="allKeysList" value="${Array.isArray(cfg.key_run) ? cfg.key_run.join(', ') : cfg.key_run}"></td>
     `;
 
     tbody.appendChild(tr);
+
+    const elKw = tr.querySelector(`#kw_${d.key}`);
+    const elKr = tr.querySelector(`#kr_${d.key}`);
+
+    [elKw, elKr].forEach(inp => {
+      if (inp) {
+        inp.addEventListener("focus", () => { lastFocusedInput = inp; });
+      }
+    });
 
     // イベントリスナー
     tr.querySelector(`#th_walk_${d.key}`).addEventListener("change", (e) => {
@@ -497,12 +1157,12 @@ function renderDirectionTable() {
       syncCurrentToProfile();
       drawRadar();
     });
-    tr.querySelector(`#kw_${d.key}`).addEventListener("change", (e) => {
+    elKw.addEventListener("change", (e) => {
       const val = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       currentConfig.joystick.directions[d.key].key_walk = val.length === 1 ? val[0] : val;
       syncCurrentToProfile();
     });
-    tr.querySelector(`#kr_${d.key}`).addEventListener("change", (e) => {
+    elKr.addEventListener("change", (e) => {
       const val = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       currentConfig.joystick.directions[d.key].key_run = val.length === 1 ? val[0] : val;
       syncCurrentToProfile();
@@ -532,9 +1192,11 @@ function updateFormFromConfig() {
   // ボタン
   for (let i = 0; i < 13; i++) {
     const input = document.getElementById(`btnInput_${i}`);
+    const badge = document.getElementById(`keyValid_${i}`);
     if (input) {
       const val = currentConfig.keymap.buttons[i];
       input.value = Array.isArray(val) ? val.join(', ') : (val || "");
+      if (badge) updateValidationBadge(input, badge);
     }
   }
 

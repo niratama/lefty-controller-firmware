@@ -70,6 +70,26 @@ KEY_NAME_MAP = {
     "F1": Keycode.F1, "F2": Keycode.F2, "F3": Keycode.F3, "F4": Keycode.F4,
     "F5": Keycode.F5, "F6": Keycode.F6, "F7": Keycode.F7, "F8": Keycode.F8,
     "F9": Keycode.F9, "F10": Keycode.F10, "F11": Keycode.F11, "F12": Keycode.F12,
+
+    # ナビゲーション・編集
+    "Insert": Keycode.INSERT, "Ins": Keycode.INSERT,
+    "Home": Keycode.HOME, "End": Keycode.END,
+    "PageUp": Keycode.PAGE_UP, "PgUp": Keycode.PAGE_UP, "Page_Up": Keycode.PAGE_UP,
+    "PageDown": Keycode.PAGE_DOWN, "PgDn": Keycode.PAGE_DOWN, "Page_Down": Keycode.PAGE_DOWN,
+    "CapsLock": Keycode.CAPS_LOCK,
+
+    # 記号
+    "-": Keycode.MINUS, "Minus": Keycode.MINUS,
+    "=": Keycode.EQUALS, "Equals": Keycode.EQUALS,
+    "[": Keycode.LEFT_BRACKET, "LeftBracket": Keycode.LEFT_BRACKET,
+    "]": Keycode.RIGHT_BRACKET, "RightBracket": Keycode.RIGHT_BRACKET,
+    "\\": Keycode.BACKSLASH, "Backslash": Keycode.BACKSLASH,
+    ";": Keycode.SEMICOLON, "Semicolon": Keycode.SEMICOLON,
+    "'": Keycode.QUOTE, "Quote": Keycode.QUOTE,
+    "`": Keycode.GRAVE_ACCENT, "Grave": Keycode.GRAVE_ACCENT,
+    ",": Keycode.COMMA, "Comma": Keycode.COMMA,
+    ".": Keycode.PERIOD, "Period": Keycode.PERIOD,
+    "/": Keycode.FORWARD_SLASH, "Slash": Keycode.FORWARD_SLASH,
 }
 
 # マウスアクション定義
