@@ -245,12 +245,69 @@ function updateModeVisibility() {
   }
 }
 
+// ==========================================
+// localStorage 永続化機能
+// ==========================================
+const STORAGE_KEY = "lefty_controller_config";
+
+function updateStorageBadge(state, detail = "") {
+  const badge = document.getElementById("storageBadge");
+  if (!badge) return;
+  const now = new Date().toLocaleTimeString();
+  if (state === "saved") {
+    badge.className = "badge badge-storage saved";
+    badge.textContent = "💾 ブラウザ保存済";
+    badge.title = `ブラウザのlocalStorageに自動保存されています (最終保存: ${now}${detail ? " - " + detail : ""})`;
+  } else if (state === "error") {
+    badge.className = "badge badge-storage badge-disconnected";
+    badge.textContent = "⚠️ 保存エラー";
+    badge.title = `localStorageの書き込みに失敗しました: ${detail}`;
+  }
+}
+
+function saveToLocalStorage(cfg, detail = "") {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    updateStorageBadge("saved", detail);
+  } catch (e) {
+    console.warn("localStorage save failed:", e);
+    updateStorageBadge("error", e.message);
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        if (!parsed.pins) {
+          parsed.pins = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins));
+        }
+        return ensureProfiles(parsed);
+      }
+    }
+  } catch (e) {
+    console.warn("localStorage load failed:", e);
+  }
+  return null;
+}
+
+function clearLocalStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.warn("localStorage clear failed:", e);
+  }
+}
+
 // 現在のUI/メモリ状態をアクティブプロファイルに同期
 function syncCurrentToProfile() {
   if (!currentConfig.profiles || !currentConfig.profiles[currentConfig.active_profile]) return;
   const p = currentConfig.profiles[currentConfig.active_profile];
   p.keymap = JSON.parse(JSON.stringify(currentConfig.keymap));
   p.joystick = JSON.parse(JSON.stringify(currentConfig.joystick));
+  saveToLocalStorage(currentConfig);
 }
 
 // プロファイル切り替え
@@ -267,6 +324,8 @@ function switchProfile(newIdx, shouldNotifyDevice = true) {
   renderButtonGrid();
   renderDirectionTable();
   drawRadar();
+
+  saveToLocalStorage(currentConfig, `プロファイル ${newIdx + 1}`);
 
   if (shouldNotifyDevice && serialPort && writer) {
     sendJson({ cmd: "set_config", config: currentConfig });
@@ -307,7 +366,15 @@ function renderHwButtonGrid() {
 
 // UI初期化
 function initUI() {
-  ensureProfiles(currentConfig);
+  const cached = loadFromLocalStorage();
+  if (cached) {
+    currentConfig = cached;
+    log("ブラウザの localStorage から保存済み設定を復元しました", "info");
+    updateStorageBadge("saved", "localStorageから復元");
+  } else {
+    ensureProfiles(currentConfig);
+    updateStorageBadge("saved", "初期設定");
+  }
   renderProfileSelect();
   renderHwButtonGrid();
   renderButtonGrid();
@@ -488,6 +555,7 @@ if (profileNameInput) {
     const name = e.target.value.trim() || `プロファイル ${currentConfig.active_profile + 1}`;
     currentConfig.profiles[currentConfig.active_profile].name = name;
     renderProfileSelect();
+    saveToLocalStorage(currentConfig, `名前変更: ${name}`);
     if (serialPort && writer) {
       sendJson({ cmd: "set_config", config: currentConfig });
     }
@@ -936,11 +1004,13 @@ function handleReceivedLine(line) {
       renderButtonGrid();
       renderDirectionTable();
       updateFormFromConfig();
-      log("デバイスから設定を正常に読み込みました", "success");
+      saveToLocalStorage(currentConfig, "デバイス読込同期");
+      log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
       let saveDest = "RAMのみ";
       if (msg.saved_to_nvm) saveDest = "内蔵Flash(NVM)に永続保存";
       if (msg.saved_to_file) saveDest += " & config.json";
+      saveToLocalStorage(currentConfig, "デバイス保存同期");
       log(`設定がデバイスに反映されました (${saveDest})`, "success");
       if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
@@ -954,6 +1024,7 @@ function handleReceivedLine(line) {
       updateFormFromConfig();
       invertX.checked = false;
       invertY.checked = false;
+      saveToLocalStorage(currentConfig, "デバイスリセット同期");
       log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
     }
   } catch (e) {
@@ -1010,7 +1081,8 @@ fileImportJson.addEventListener("change", (e) => {
       renderButtonGrid();
       renderDirectionTable();
       updateFormFromConfig();
-      log(`設定ファイルをインポートしました: ${file.name}`, "success");
+      saveToLocalStorage(currentConfig, `JSONインポート: ${file.name}`);
+      log(`設定ファイルをインポートしました: ${file.name} (localStorageに保存)`, "success");
     } catch (err) {
       log(`JSONの解析に失敗しました: ${err.message}`, "error");
     }
@@ -1019,7 +1091,7 @@ fileImportJson.addEventListener("change", (e) => {
 });
 
 btnResetDefault.addEventListener("click", () => {
-  if (confirm("設定をデフォルトに戻しますか？マイコンのFlash(NVM)設定も初期化されます。")) {
+  if (confirm("設定をデフォルトに戻しますか？マイコンのFlash(NVM)設定およびブラウザ保存も初期化されます。")) {
     currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     ensureProfiles(currentConfig);
     renderProfileSelect();
@@ -1029,10 +1101,11 @@ btnResetDefault.addEventListener("click", () => {
     updateFormFromConfig();
     invertX.checked = false;
     invertY.checked = false;
+    saveToLocalStorage(currentConfig, "デフォルト初期化");
     if (serialPort && writer) {
       sendJson({ cmd: "reset_config" });
     }
-    log("設定をデフォルト値にリセットしました", "info");
+    log("設定をデフォルト値にリセットしました (localStorageも初期化)", "info");
   }
 });
 
