@@ -6,6 +6,7 @@ serial_handler.py: Web Serial API 連携およびCLIプロトコルハンドラ
 
 import sys
 import json
+import config_store
 
 class SerialHandler:
     def __init__(self, stick_engine, button_manager, config_path="config.json"):
@@ -64,8 +65,7 @@ class SerialHandler:
 
     def _cmd_get_config(self):
         try:
-            with open(self.config_path, "r") as f:
-                cfg = json.load(f)
+            cfg = config_store.load_config(self.config_path)
             self.send_response({"status": "ok", "cmd": "get_config", "config": cfg})
         except Exception as e:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
@@ -74,26 +74,17 @@ class SerialHandler:
         # 1. スティックエンジンの設定をホットリロード
         self.stick_engine.load_config(new_config)
 
-        # 2. ストレージへの保存を試みる
-        saved_to_file = False
-        save_error = None
-        try:
-            with open(self.config_path, "w") as f:
-                json.dump(new_config, f, indent=2)
-            saved_to_file = True
-        except OSError as e:
-            # USBマスストレージマウント時はCIRCUITPYへの書き込みがROになる場合がある
-            save_error = f"Storage is read-only from micro-controller (USB mounted). Config applied to RAM: {e}"
-        except Exception as e:
-            save_error = str(e)
+        # 2. ストレージ & NVM (Flash) への永続保存
+        saved_to_file, saved_to_nvm, warning_msg = config_store.save_config(new_config, self.config_path)
 
         resp = {
             "status": "ok",
             "cmd": "set_config",
-            "saved_to_file": saved_to_file
+            "saved_to_file": saved_to_file,
+            "saved_to_nvm": saved_to_nvm
         }
-        if save_error:
-            resp["warning"] = save_error
+        if warning_msg:
+            resp["warning"] = warning_msg
         self.send_response(resp)
 
     def _cmd_calibrate(self):

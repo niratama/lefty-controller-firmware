@@ -127,5 +127,23 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(active, {"S"})
         self.assertEqual(self.engine.states["down"], DirectionState.WALK)
 
+    def test_rotation_and_invert_order(self):
+        # rotation=90 の状態で、invert_y=True にしても X軸 (左右) に干渉しないことを検証
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = True  # Y軸反転
+
+        # 左に倒す (dx=-15000, dy=0) -> Y軸反転しても左右(X軸)は変わらず 'A' (LEFT) であるべき
+        active, _, _, _ = self.engine.process(30000, 45000)
+        self.assertEqual(active, {"A"})
+        self.assertEqual(self.engine.states["left"], DirectionState.WALK)
+
+        self.engine.process(30000, 30000)
+
+        # 下に倒す (dx=0, dy=-15000) -> Y軸反転されているので 'W' (UP) に反転する
+        active, _, _, _ = self.engine.process(15000, 30000)
+        self.assertEqual(active, {"W"})
+        self.assertEqual(self.engine.states["up"], DirectionState.WALK)
+
 if __name__ == '__main__':
     unittest.main()

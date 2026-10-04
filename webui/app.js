@@ -478,8 +478,11 @@ function handleReceivedLine(line) {
       updateFormFromConfig();
       log("デバイスから設定を正常に読み込みました", "success");
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
-      log(`設定がデバイスに反映されました (ファイル保存: ${msg.saved_to_file ? "成功" : "RAMのみ"})`, "success");
-      if (msg.warning) log(`注意: ${msg.warning}`, "warn");
+      let saveDest = "RAMのみ";
+      if (msg.saved_to_nvm) saveDest = "内蔵Flash(NVM)に永続保存";
+      if (msg.saved_to_file) saveDest += " & config.json";
+      log(`設定がデバイスに反映されました (${saveDest})`, "success");
+      if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
     }

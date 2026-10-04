@@ -107,12 +107,7 @@ class StickEngine:
         dx = raw_x - self.center_x
         dy = raw_y - self.center_y
 
-        if self.invert_x:
-            dx = -dx
-        if self.invert_y:
-            dy = -dy
-
-        # 取付角度回転補正 (0度, 90度, 180度, 270度)
+        # 1. まず物理的な取付角度の回転補正を適用
         rot = self.rotation % 360
         if rot == 90:
             dx, dy = -dy, dx
@@ -120,6 +115,12 @@ class StickEngine:
             dx, dy = -dx, -dy
         elif rot == 270:
             dx, dy = dy, -dx
+
+        # 2. 回転後の論理軸（X=左右, Y=上下）に対して反転を適用
+        if self.invert_x:
+            dx = -dx
+        if self.invert_y:
+            dy = -dy
 
         return dx, dy
 

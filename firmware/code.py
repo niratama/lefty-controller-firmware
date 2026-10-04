@@ -14,6 +14,7 @@ from stick_engine import StickEngine
 from debouncer import ButtonManager
 from key_mapper import parse_keys, parse_key
 from serial_handler import SerialHandler
+import config_store
 
 try:
     import board
@@ -80,8 +81,7 @@ class LeftyController:
 
     def load_config(self):
         try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
+            return config_store.load_config(CONFIG_FILE, DEFAULT_CONFIG)
         except Exception:
             return DEFAULT_CONFIG
 
