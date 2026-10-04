@@ -8,6 +8,8 @@ import sys
 import json
 import config_store
 
+FIRMWARE_VERSION = "1.1.0"
+
 class SerialHandler:
     def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None):
         self.stick_engine = stick_engine
@@ -51,7 +53,9 @@ class SerialHandler:
             # プレーンテキストコマンドのサポート
             cmd = line.strip().lower()
             if cmd == "help":
-                self.send_response({"status": "ok", "help": ["get_config", "set_config", "calibrate", "monitor_on", "monitor_off"]})
+                self.send_response({"status": "ok", "help": ["get_config", "set_config", "version", "calibrate", "monitor_on", "monitor_off"]})
+            elif cmd == "version":
+                self.send_response({"status": "ok", "cmd": "version", "version": FIRMWARE_VERSION})
             elif cmd == "calibrate":
                 return self._cmd_calibrate()
             elif cmd == "monitor_on":
@@ -67,6 +71,8 @@ class SerialHandler:
             return self._cmd_get_config()
         elif cmd == "set_config":
             return self._cmd_set_config(msg.get("config", {}))
+        elif cmd == "version":
+            self.send_response({"status": "ok", "cmd": "version", "version": FIRMWARE_VERSION})
         elif cmd == "calibrate":
             return self._cmd_calibrate()
         elif cmd == "monitor":
@@ -75,14 +81,14 @@ class SerialHandler:
         elif cmd == "reset_config":
             return self._cmd_reset_config()
         elif cmd == "ping":
-            self.send_response({"status": "ok", "cmd": "pong"})
+            self.send_response({"status": "ok", "cmd": "pong", "version": FIRMWARE_VERSION})
         else:
             self.send_response({"status": "error", "message": f"Unknown command: {cmd}"})
 
     def _cmd_get_config(self):
         try:
             cfg = config_store.load_config(self.config_path)
-            self.send_response({"status": "ok", "cmd": "get_config", "config": cfg})
+            self.send_response({"status": "ok", "cmd": "get_config", "version": FIRMWARE_VERSION, "config": cfg})
         except Exception as e:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
 
@@ -103,6 +109,7 @@ class SerialHandler:
         resp = {
             "status": "ok",
             "cmd": "set_config",
+            "version": FIRMWARE_VERSION,
             "saved_to_file": saved_to_file,
             "saved_to_nvm": saved_to_nvm
         }
@@ -226,7 +233,7 @@ class SerialHandler:
                 self.stick_engine.load_config(default_cfg)
         else:
             self.stick_engine.load_config(default_cfg)
-        self.send_response({"status": "ok", "cmd": "reset_config", "config": default_cfg})
+        self.send_response({"status": "ok", "cmd": "reset_config", "version": FIRMWARE_VERSION, "config": default_cfg})
 
     def send_response(self, obj):
         try:

@@ -13,16 +13,32 @@
   <div class="app-container">
     <header class="app-header">
       <div class="logo-area">
-        <h1>左手デバイス 近代化設定ツール</h1>
+        <h1>左手デバイス 近代化設定ツール <span class="app-version-tag">WebUI v1.1.0</span></h1>
         <span class="subtitle">Waveshare RP2040-Zero Firmware Configurator</span>
       </div>
       <div class="connection-bar">
         <span id="storageBadge" class="badge badge-storage saved" title="ブラウザのlocalStorageに自動保存されています">💾 ブラウザ保存済</span>
+        <span id="fwVersionBadge" class="badge badge-fw-version" style="display: none;" title="接続中ファームウェアのバージョン">FW: 未確認</span>
         <span id="connStatus" class="badge badge-disconnected">未接続</span>
         <button id="btnConnect" class="btn btn-primary">デバイスと接続 (Web Serial)</button>
         <button id="btnDisconnect" class="btn btn-secondary" disabled>切断</button>
       </div>
     </header>
+
+    <!-- ファームウェア更新通知バナー -->
+    <div id="versionAlertBanner" class="version-alert-banner" style="display: none;">
+      <div class="banner-content">
+        <span class="banner-icon">⚠️</span>
+        <div class="banner-text">
+          <div class="banner-title" id="versionAlertTitle">ファームウェアの更新が推奨されます</div>
+          <div class="banner-detail" id="versionAlertDetail">デバイス側: 未対応 (v1.0以前) / WebUI推奨: v1.1.0</div>
+          <div class="banner-subtext">最新機能（4方向制限モード、高速設定保存、各種キー拡張）を安全に利用するため、最新のファームウェアファイルをマイコン（CIRCUITPY）にコピーしてください。</div>
+        </div>
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="btn-sm btn-outline" id="btnDismissVersionAlert">閉じる</button>
+      </div>
+    </div>
 
     <!-- プロファイル管理バー -->
     <section class="card profile-section">

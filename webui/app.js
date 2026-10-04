@@ -1,5 +1,8 @@
 // Lefty Controller Configurator Client Script
 
+const WEBUI_VERSION = "1.1.0";
+const MIN_RECOMMENDED_FW_VERSION = "1.1.0";
+
 const PIN_NAMES = [
   "SW1 (1)",
   "SW2 (2)",
@@ -359,6 +362,12 @@ let currentTelemetry = {
 
 // DOM要素取得
 const connStatus = document.getElementById("connStatus");
+const fwVersionBadge = document.getElementById("fwVersionBadge");
+const versionAlertBanner = document.getElementById("versionAlertBanner");
+const versionAlertTitle = document.getElementById("versionAlertTitle");
+const versionAlertDetail = document.getElementById("versionAlertDetail");
+const btnDismissVersionAlert = document.getElementById("btnDismissVersionAlert");
+
 const btnConnect = document.getElementById("btnConnect");
 const btnDisconnect = document.getElementById("btnDisconnect");
 const btnLoadConfig = document.getElementById("btnLoadConfig");
@@ -509,6 +518,87 @@ function updateModeVisibility() {
     kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
   }
   updateModeDisplay();
+}
+
+// ==========================================
+// ファームウェア・WebUI バージョン管理
+// ==========================================
+function parseSemVer(v) {
+  if (!v || typeof v !== "string") return [0, 0, 0];
+  const cleaned = v.replace(/^v/, "").trim();
+  const parts = cleaned.split(".").map(s => parseInt(s, 10) || 0);
+  while (parts.length < 3) parts.push(0);
+  return parts.slice(0, 3);
+}
+
+function compareVersions(v1, v2) {
+  const p1 = parseSemVer(v1);
+  const p2 = parseSemVer(v2);
+  for (let i = 0; i < 3; i++) {
+    if (p1[i] < p2[i]) return -1;
+    if (p1[i] > p2[i]) return 1;
+  }
+  return 0;
+}
+
+function checkFirmwareVersion(fwVersion) {
+  if (!fwVersionBadge) return;
+  fwVersionBadge.style.display = "inline-block";
+
+  if (!fwVersion) {
+    // バージョン未報告 (v1.0以前の旧ファームウェア)
+    fwVersionBadge.className = "badge badge-fw-version outdated";
+    fwVersionBadge.textContent = "FW: 旧版 (v1.0以前)";
+    fwVersionBadge.title = "ファームウェアが旧バージョンです。更新をおすすめします。";
+
+    if (versionAlertBanner) {
+      if (versionAlertTitle) versionAlertTitle.textContent = "⚠️ ファームウェアの更新が推奨されます";
+      if (versionAlertDetail) versionAlertDetail.textContent = `マイコン側: 未対応 (v1.0以前) / WebUI推奨: v${WEBUI_VERSION}`;
+      versionAlertBanner.style.display = "flex";
+    }
+    log(`⚠️ 接続されたファームウェアは旧版（v1.0以前）です。最新版 (v${WEBUI_VERSION}) への更新をおすすめします。`, "warn");
+    return;
+  }
+
+  const cmpRec = compareVersions(fwVersion, MIN_RECOMMENDED_FW_VERSION);
+  const cmpWeb = compareVersions(fwVersion, WEBUI_VERSION);
+
+  if (cmpRec < 0) {
+    // 推奨バージョンより古い
+    fwVersionBadge.className = "badge badge-fw-version outdated";
+    fwVersionBadge.textContent = `FW: v${fwVersion} (要更新)`;
+    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です。`;
+
+    if (versionAlertBanner) {
+      if (versionAlertTitle) versionAlertTitle.textContent = "⚠️ ファームウェアの更新が推奨されます";
+      if (versionAlertDetail) versionAlertDetail.textContent = `マイコン側: v${fwVersion} / WebUI推奨: v${WEBUI_VERSION}`;
+      versionAlertBanner.style.display = "flex";
+    }
+    log(`⚠️ ファームウェア更新が利用可能です: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "warn");
+
+  } else if (cmpWeb > 0) {
+    // ファームウェアの方がWebUIより新しい
+    fwVersionBadge.className = "badge badge-fw-version up-to-date";
+    fwVersionBadge.textContent = `FW: v${fwVersion}`;
+    fwVersionBadge.title = `ファームウェア (v${fwVersion}) がWebUI (v${WEBUI_VERSION}) より新しいです。`;
+
+    if (versionAlertBanner) {
+      if (versionAlertTitle) versionAlertTitle.textContent = "ℹ️ ファームウェアがWebUIより新しいバージョンです";
+      if (versionAlertDetail) versionAlertDetail.textContent = `マイコン側: v${fwVersion} / WebUI側: v${WEBUI_VERSION}`;
+      versionAlertBanner.style.display = "flex";
+    }
+    log(`ℹ️ ファームウェア (v${fwVersion}) がWebUI (v${WEBUI_VERSION}) より新しいため、WebUIをリロードしてください。`, "info");
+
+  } else {
+    // バージョン一致 / 最新
+    fwVersionBadge.className = "badge badge-fw-version up-to-date";
+    fwVersionBadge.textContent = `FW: v${fwVersion} (最新)`;
+    fwVersionBadge.title = "ファームウェアは最新版です。";
+    if (versionAlertBanner) {
+      versionAlertBanner.style.display = "none";
+    }
+    log(`ファームウェアバージョン: v${fwVersion} (最新)`, "success");
+  }
 }
 
 // ==========================================
@@ -1018,6 +1108,11 @@ function initUI() {
   populateDatalist();
   initKeyCatalog();
   initModalEvents();
+  if (btnDismissVersionAlert && versionAlertBanner) {
+    btnDismissVersionAlert.addEventListener("click", () => {
+      versionAlertBanner.style.display = "none";
+    });
+  }
   renderProfileSelect();
   renderHwButtonGrid();
   renderButtonGrid();
@@ -1805,6 +1900,12 @@ async function disconnectSerial() {
 
     connStatus.textContent = "未接続";
     connStatus.className = "badge badge-disconnected";
+    if (fwVersionBadge) {
+      fwVersionBadge.style.display = "none";
+    }
+    if (versionAlertBanner) {
+      versionAlertBanner.style.display = "none";
+    }
     btnConnect.disabled = false;
     btnDisconnect.disabled = true;
     btnLoadConfig.disabled = true;
@@ -1867,6 +1968,7 @@ function handleReceivedLine(line) {
     log(`受信: ${line}`, "rx");
 
     if (msg.cmd === "get_config" && msg.status === "ok") {
+      checkFirmwareVersion(msg.version);
       currentConfig = ensureProfiles(msg.config);
       renderProfileSelect();
       renderHwButtonGrid();
@@ -1876,7 +1978,10 @@ function handleReceivedLine(line) {
       saveToLocalStorage(currentConfig, "デバイス読込同期");
       setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
+    } else if (msg.cmd === "version" && msg.status === "ok") {
+      checkFirmwareVersion(msg.version);
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
+      if (msg.version) checkFirmwareVersion(msg.version);
       let saveDest = "RAMのみ";
       if (msg.saved_to_nvm) saveDest = "内蔵Flash(NVM)に永続保存";
       if (msg.saved_to_file) saveDest += " & config.json";
