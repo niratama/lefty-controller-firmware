@@ -359,6 +359,7 @@ function switchProfile(newIdx, shouldNotifyDevice = true) {
   saveToLocalStorage(currentConfig, `プロファイル ${newIdx + 1}`);
 
   if (shouldNotifyDevice && serialPort && writer) {
+    setDeviceOpLoading("save", true, "", `プロファイル「${p.name}」をデバイスへ反映中...`);
     sendJson({ cmd: "set_config", config: currentConfig });
   }
   log(`プロファイルを「${p.name}」に切り替えました`, "info");
@@ -588,6 +589,7 @@ if (profileNameInput) {
     renderProfileSelect();
     saveToLocalStorage(currentConfig, `名前変更: ${name}`);
     if (serialPort && writer) {
+      setDeviceOpLoading("save", true, "", "名前変更をデバイスへ反映中...");
       sendJson({ cmd: "set_config", config: currentConfig });
     }
     log(`プロファイル名を「${name}」に変更しました`, "info");
@@ -891,6 +893,109 @@ function updateTelemetryUI(data) {
   drawRadar();
 }
 
+// ==========================================
+// デバイス通信中の進行状態 (In-Progress / Loading) 管理
+// ==========================================
+let activeOpTimer = null;
+let currentActiveOp = null;
+
+function setDeviceOpLoading(opType, isLoading, successText = "", customText = "") {
+  const progressEl = document.getElementById("actionProgress");
+  const progressText = document.getElementById("actionProgressText");
+
+  if (activeOpTimer) {
+    clearTimeout(activeOpTimer);
+    activeOpTimer = null;
+  }
+
+  if (isLoading) {
+    currentActiveOp = opType;
+    // 多重送信・通信衝突を防止するために操作ボタンを一時無効化
+    if (btnLoadConfig) btnLoadConfig.disabled = true;
+    if (btnSaveConfig) btnSaveConfig.disabled = true;
+    if (btnResetDefault) btnResetDefault.disabled = true;
+    if (btnCalibrate) btnCalibrate.disabled = true;
+
+    if (opType === "save" && btnSaveConfig) {
+      btnSaveConfig.classList.add("btn-loading");
+      btnSaveConfig.innerHTML = '<span class="spinner"></span>デバイスへ保存中...';
+    } else if (opType === "load" && btnLoadConfig) {
+      btnLoadConfig.classList.add("btn-loading");
+      btnLoadConfig.innerHTML = '<span class="spinner"></span>読込中...';
+    } else if (opType === "reset" && btnResetDefault) {
+      btnResetDefault.classList.add("btn-loading");
+      btnResetDefault.innerHTML = '<span class="spinner"></span>初期化中...';
+    } else if (opType === "calibrate" && btnCalibrate) {
+      btnCalibrate.classList.add("btn-loading");
+      btnCalibrate.innerHTML = '<span class="spinner"></span>補正中...';
+    }
+
+    if (progressEl) {
+      progressEl.style.display = "inline-flex";
+      progressEl.className = "action-progress active";
+      progressText.textContent = customText || (opType === "save" ? "デバイスへ設定を保存中..." : "デバイスから設定を取得中...");
+    }
+
+    // タイムアウト保護 (10秒)
+    activeOpTimer = setTimeout(() => {
+      setDeviceOpLoading(opType, false);
+      log(`「${opType}」処理がタイムアウトしました。`, "warn");
+    }, 10000);
+
+  } else {
+    currentActiveOp = null;
+
+    if (btnLoadConfig) btnLoadConfig.classList.remove("btn-loading");
+    if (btnSaveConfig) btnSaveConfig.classList.remove("btn-loading");
+    if (btnResetDefault) btnResetDefault.classList.remove("btn-loading");
+    if (btnCalibrate) btnCalibrate.classList.remove("btn-loading");
+
+    if (successText) {
+      let targetBtn = null;
+      if (opType === "save") targetBtn = btnSaveConfig;
+      if (opType === "load") targetBtn = btnLoadConfig;
+      if (opType === "reset") targetBtn = btnResetDefault;
+      if (opType === "calibrate") targetBtn = btnCalibrate;
+
+      if (targetBtn) {
+        targetBtn.classList.add("btn-flash-success");
+        targetBtn.innerHTML = `✓ ${successText}`;
+      }
+      if (progressEl) {
+        progressEl.className = "action-progress success";
+        progressText.textContent = successText;
+      }
+
+      setTimeout(() => {
+        if (targetBtn) {
+          targetBtn.classList.remove("btn-flash-success");
+          if (opType === "save") targetBtn.textContent = "デバイスへ保存・反映 (Hot Reload)";
+          if (opType === "load") targetBtn.textContent = "デバイスから読込";
+          if (opType === "reset") targetBtn.textContent = "デフォルトに戻す";
+          if (opType === "calibrate") targetBtn.textContent = "ゼロ点キャリブレーション実行";
+        }
+        if (progressEl) progressEl.style.display = "none";
+        restoreDeviceButtons();
+      }, 1600);
+    } else {
+      if (btnSaveConfig) btnSaveConfig.textContent = "デバイスへ保存・反映 (Hot Reload)";
+      if (btnLoadConfig) btnLoadConfig.textContent = "デバイスから読込";
+      if (btnResetDefault) btnResetDefault.textContent = "デフォルトに戻す";
+      if (btnCalibrate) btnCalibrate.textContent = "ゼロ点キャリブレーション実行";
+      if (progressEl) progressEl.style.display = "none";
+      restoreDeviceButtons();
+    }
+  }
+}
+
+function restoreDeviceButtons() {
+  const isConn = !!serialPort;
+  if (btnLoadConfig) btnLoadConfig.disabled = !isConn;
+  if (btnSaveConfig) btnSaveConfig.disabled = !isConn;
+  if (btnCalibrate) btnCalibrate.disabled = !isConn;
+  if (btnResetDefault) btnResetDefault.disabled = false;
+}
+
 // Web Serial 接続
 async function connectSerial() {
   if (!("serial" in navigator)) {
@@ -920,6 +1025,7 @@ async function connectSerial() {
     readLoop();
 
     // 接続時に設定を自動読込
+    setDeviceOpLoading("load", true, "", "接続完了: 設定を自動取得中...");
     sendJson({ cmd: "get_config" });
 
     // モニタリングを自動開始
@@ -934,6 +1040,10 @@ async function connectSerial() {
 
 async function disconnectSerial() {
   try {
+    if (currentActiveOp) {
+      setDeviceOpLoading(currentActiveOp, false);
+    }
+
     if (isMonitoring) {
       sendJson({ cmd: "monitor", enable: false });
       isMonitoring = false;
@@ -977,6 +1087,9 @@ async function sendJson(obj) {
     await writer.write(encoder.encode(str));
   } catch (err) {
     log(`送信エラー: ${err.message}`, "error");
+    if (currentActiveOp) {
+      setDeviceOpLoading(currentActiveOp, false);
+    }
   }
 }
 
@@ -1022,15 +1135,18 @@ function handleReceivedLine(line) {
       renderDirectionTable();
       updateFormFromConfig();
       saveToLocalStorage(currentConfig, "デバイス読込同期");
+      setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
       let saveDest = "RAMのみ";
       if (msg.saved_to_nvm) saveDest = "内蔵Flash(NVM)に永続保存";
       if (msg.saved_to_file) saveDest += " & config.json";
       saveToLocalStorage(currentConfig, "デバイス保存同期");
+      setDeviceOpLoading("save", false, "保存完了!");
       log(`設定がデバイスに反映されました (${saveDest})`, "success");
       if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
+      setDeviceOpLoading("calibrate", false, "補正完了!");
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
     } else if (msg.cmd === "reset_config" && msg.status === "ok") {
       currentConfig = ensureProfiles(msg.config);
@@ -1042,6 +1158,7 @@ function handleReceivedLine(line) {
       invertX.checked = false;
       invertY.checked = false;
       saveToLocalStorage(currentConfig, "デバイスリセット同期");
+      setDeviceOpLoading("reset", false, "初期化完了!");
       log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
     }
   } catch (e) {
@@ -1055,15 +1172,21 @@ btnConnect.addEventListener("click", connectSerial);
 btnDisconnect.addEventListener("click", disconnectSerial);
 
 btnLoadConfig.addEventListener("click", () => {
+  setDeviceOpLoading("load", true, "", "デバイスから設定を取得中...");
+  log("デバイスから設定を読み込み中...", "info");
   sendJson({ cmd: "get_config" });
 });
 
 btnSaveConfig.addEventListener("click", () => {
   syncCurrentToProfile();
+  setDeviceOpLoading("save", true, "", "デバイスへ設定を保存中 (Flash書き込み待機)...");
+  log("デバイスへ設定を送信・保存中...", "info");
   sendJson({ cmd: "set_config", config: currentConfig });
 });
 
 btnCalibrate.addEventListener("click", () => {
+  setDeviceOpLoading("calibrate", true, "", "ゼロ点キャリブレーション実行中...");
+  log("スティックゼロ点キャリブレーション実行中...", "info");
   sendJson({ cmd: "calibrate" });
 });
 
@@ -1120,6 +1243,8 @@ btnResetDefault.addEventListener("click", () => {
     invertY.checked = false;
     saveToLocalStorage(currentConfig, "デフォルト初期化");
     if (serialPort && writer) {
+      setDeviceOpLoading("reset", true, "", "マイコンFlash初期化中...");
+      log("マイコン設定の初期化コマンドを送信中...", "info");
       sendJson({ cmd: "reset_config" });
     }
     log("設定をデフォルト値にリセットしました (localStorageも初期化)", "info");

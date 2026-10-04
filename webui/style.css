@@ -432,6 +432,63 @@ body {
   align-items: center;
 }
 
+/* アクション進行中インジケータ & スピナー */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 0.75s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.btn-loading {
+  cursor: wait !important;
+  opacity: 0.88 !important;
+  pointer-events: none;
+}
+
+.btn-flash-success {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+  transition: all 0.25s ease;
+}
+
+.action-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background-color: #151a21;
+  border: 1px solid var(--card-border);
+  color: #38bdf8;
+  transition: all 0.2s ease;
+}
+
+.action-progress.active {
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.15);
+}
+
+.action-progress.success {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+  background-color: rgba(16, 185, 129, 0.12);
+}
+
 /* コンソール */
 .console-box {
   background-color: #0b0d10;
