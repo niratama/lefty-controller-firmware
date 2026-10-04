@@ -3,7 +3,6 @@ code.py: 左手デバイス近代化改修ファームウェア メインプロ�
 - 13個のボタンスイッチ (GP0〜GP12)
 - 2軸アナログスティック (GP26, GP27) の多段階キー入力
 - Web Serial API 連携 (設定変更・モニタリング)
-- 自己診断 & ステータスLED (GP16 NeoPixel) 対応
 """
 
 import time
@@ -16,103 +15,16 @@ from debouncer import ButtonManager
 from key_mapper import parse_keys, parse_key
 from serial_handler import SerialHandler
 
-# 実行環境の判定
-IS_CIRCUITPYTHON = (getattr(sys, "implementation", None) is not None and 
-                    getattr(sys.implementation, "name", "") == "circuitpython")
-
-# --- 外部ライブラリ依存ゼロの内蔵ネイティブHIDキーボードドライバ ---
-class NativeKeyboard:
-    """
-    標準 8バイト USB HID キーボードレポートを直接送信する軽量ドライバ。
-    adafruit_hid フォルダが無くても CircuitPython 標準の usb_hid だけで動作します。
-    """
-    def __init__(self, devices=None):
-        if devices is None and IS_CIRCUITPYTHON:
-            devices = getattr(usb_hid, "devices", ())
-
-        self._device = None
-        if devices:
-            for dev in devices:
-                # Generic Desktop (0x01) / Keyboard (0x06)
-                if getattr(dev, "usage_page", None) == 0x01 and getattr(dev, "usage", None) == 0x06:
-                    self._device = dev
-                    break
-
-        if self._device is None and IS_CIRCUITPYTHON:
-            raise ValueError("キーボードデバイスが未検出です。USB抜差しが必要です。")
-
-        self.report = bytearray(8)
-        self._pressed_keys = set()
-
-    def press(self, *keycodes):
-        for k in keycodes:
-            self._pressed_keys.add(k)
-        self._send()
-
-    def release(self, *keycodes):
-        for k in keycodes:
-            self._pressed_keys.discard(k)
-        self._send()
-
-    def release_all(self):
-        self._pressed_keys.clear()
-        self._send()
-
-    def _send(self):
-        if self._device is None:
-            return
-
-        for i in range(8):
-            self.report[i] = 0
-
-        modifier_byte = 0
-        regular_keys = []
-
-        for code in self._pressed_keys:
-            if 0xE0 <= code <= 0xE7:
-                modifier_byte |= (1 << (code - 0xE0))
-            else:
-                regular_keys.append(code)
-
-        self.report[0] = modifier_byte
-        for idx, k in enumerate(regular_keys[:6]):
-            self.report[2 + idx] = k
-
-        try:
-            self._device.send_report(self.report)
-        except Exception:
-            pass
-
-
-KeyboardClass = NativeKeyboard
-
-# CircuitPython モジュールのインポート
-if IS_CIRCUITPYTHON:
+try:
     import board
     import digitalio
     import analogio
     import usb_hid
-
-    try:
-        import usb_cdc
-    except ImportError:
-        usb_cdc = None
-
-    # adafruit_hid が利用可能ならそちらを優先、なければ NativeKeyboard を使用
-    try:
-        from adafruit_hid.keyboard import Keyboard as _Kbd
-        KeyboardClass = _Kbd
-    except Exception:
-        KeyboardClass = NativeKeyboard
-
-    try:
-        import neopixel
-        pixel = neopixel.NeoPixel(board.GP16, 1, brightness=0.2)
-    except Exception:
-        pixel = None
-else:
-    pixel = None
-    usb_cdc = None
+    from adafruit_hid.keyboard import Keyboard
+    import supervisor
+    IS_CIRCUITPYTHON = True
+except ImportError:
+    IS_CIRCUITPYTHON = False
 
 CONFIG_FILE = "config.json"
 
@@ -142,14 +54,6 @@ DEFAULT_CONFIG = {
     }
 }
 
-def set_led(color):
-    """オンボードRGB LED (GP16) の色を設定 (R, G, B)"""
-    if pixel:
-        try:
-            pixel[0] = color
-        except Exception:
-            pass
-
 class LeftyController:
     def __init__(self):
         self.config = self.load_config()
@@ -177,8 +81,7 @@ class LeftyController:
         try:
             with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
-        except Exception as e:
-            print(f"[WARN] config.json 読み込み失敗、デフォルト値を使用: {e}")
+        except Exception:
             return DEFAULT_CONFIG
 
     def init_hardware(self):
@@ -186,25 +89,12 @@ class LeftyController:
             print("[INFO] PCシミュレーション環境で初期化しました。")
             return
 
-        print("\n==========================================")
-        print("  Lefty Controller Firmware (RP2040-Zero) ")
-        print("==========================================")
-
         # 1. USB HID キーボード初期化
-        if KeyboardClass is None:
-            print("[ERROR] キーボードドライバをロードできませんでした。")
-            set_led((255, 0, 0))  # 赤点灯
-            return
-
         try:
-            self.keyboard = KeyboardClass(usb_hid.devices)
-            print("[INFO] USB HID Keyboard 初期化成功！キー入力が有効です。")
-            set_led((0, 255, 0))  # 緑点灯 (正常稼働)
+            self.keyboard = Keyboard(usb_hid.devices)
+            print("[INFO] USB HID Keyboard 初期化完了")
         except Exception as e:
-            print(f"[WARN] USB HID Keyboard 初期化待ち: {e}")
-            print("       【重要】boot.pyのHID有効化を反映するため、")
-            print("       USBケーブルを一度PCから抜いて挿し直してください！")
-            set_led((255, 120, 0))  # オレンジ点灯 (USB抜差し待ち)
+            print(f"[WARN] USB HID 初期化失敗: {e}")
 
         # 2. ボタンGPIO初期化 (GP0〜GP12: 内部プルアップ / Active Low)
         for p in self.button_pins_def:
@@ -228,7 +118,6 @@ class LeftyController:
             try:
                 self.adc_x_io = analogio.AnalogIn(px)
                 self.adc_y_io = analogio.AnalogIn(py)
-                print(f"[INFO] ADC初期化成功: X=GP{adc_x_num}, Y=GP{adc_y_num}")
             except Exception as ex:
                 print(f"[WARN] ADC初期化失敗: {ex}")
 
@@ -261,31 +150,15 @@ class LeftyController:
         return raw_btns, rx, ry
 
     def check_serial_input(self):
-        """シリアルからの受信を完全ノンブロッキングで処理"""
-        if not IS_CIRCUITPYTHON:
-            return
-
-        # 1. usb_cdc によるノンブロッキング受信 (推奨)
-        if usb_cdc and usb_cdc.console:
+        """シリアルからの受信をノンブロッキングで処理"""
+        if IS_CIRCUITPYTHON:
             try:
-                n = usb_cdc.console.in_waiting
-                if n > 0:
-                    data = usb_cdc.console.read(n)
-                    for b in data:
-                        self.serial_handler.process_incoming_char(chr(b))
+                if supervisor.runtime.serial_bytes_available:
+                    ch = sys.stdin.read(1)
+                    if ch:
+                        self.serial_handler.process_incoming_char(ch)
             except Exception:
                 pass
-            return
-
-        # 2. supervisor によるフォールバック
-        try:
-            import supervisor
-            if supervisor.runtime.serial_bytes_available:
-                ch = sys.stdin.read(1)
-                if ch:
-                    self.serial_handler.process_incoming_char(ch)
-        except Exception:
-            pass
 
     def update_hid_keys(self, desired_keycodes):
         """現在押されるべきキーコードセットと前回の差分をとり、press/releaseを発行"""
@@ -354,19 +227,27 @@ class LeftyController:
             self.serial_handler.send_telemetry(rx, ry, debug_info, pressed_pins)
 
     def run_forever(self):
-        print("[INFO] Lefty Controller メインループを開始しました。")
+        print("[INFO] Lefty Controller メインループを開始します。")
         while True:
-            self.run_cycle()
+            try:
+                self.run_cycle()
+            except Exception as e:
+                print(f"[ERROR in loop] {e}")
             time.sleep(0.002)  # 約500Hzポーリング
 
 
 if __name__ == "__main__":
-    controller = LeftyController()
-    if IS_CIRCUITPYTHON:
-        controller.run_forever()
-    else:
-        # PC上でのテスト実行（数サイクル実行してエラーがないか検証）
-        print("[TEST] 10サイクルのシミュレーション実行を行います...")
-        for _ in range(10):
-            controller.run_cycle()
-        print("[TEST] シミュレーション実行 正常終了")
+    try:
+        controller = LeftyController()
+        if IS_CIRCUITPYTHON:
+            controller.run_forever()
+        else:
+            # PC上でのテスト実行（数サイクル実行してエラーがないか検証）
+            print("[TEST] 10サイクルのシミュレーション実行を行います...")
+            for _ in range(10):
+                controller.run_cycle()
+            print("[TEST] シミュレーション実行 正常終了")
+    except Exception as e:
+        print(f"[FATAL ERROR] {e}")
+        while True:
+            time.sleep(1)
