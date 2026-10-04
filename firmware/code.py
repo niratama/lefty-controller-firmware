@@ -31,8 +31,8 @@ CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "keymap": {
         "buttons": [
-            "1", "2", "3", "4", "5", "6", "7", "8", "9",
-            "Space", "Tab", "LCtrl", "LAlt"
+            "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
+            "Space", "z", "LCtrl", "LAlt"
         ]
     },
     "joystick": {

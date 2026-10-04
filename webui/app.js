@@ -4,13 +4,13 @@ const PIN_NAMES = [
   "SW1 (前面 1)", "SW2 (前面 2)", "SW3 (前面 3)",
   "SW4 (前面 4)", "SW5 (前面 5)", "SW6 (前面 6)",
   "SW7 (前面 7)", "SW8 (前面 8)", "SW9 (前面 9)",
-  "SW10 (側面トリガー 1)", "SW11 (側面トリガー 2)", "SW12 (側面トリガー 3)",
+  "SW10 (側面 上)", "SW11 (側面 中)", "SW12 (側面 下)",
   "SW_STK (スティック押込)"
 ];
 
 const DEFAULT_CONFIG = {
   keymap: {
-    buttons: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
+    buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
   },
   joystick: {
     deadzone: 4000,

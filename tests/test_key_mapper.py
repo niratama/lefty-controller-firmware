@@ -15,6 +15,13 @@ class TestKeyMapper(unittest.TestCase):
         self.assertEqual(parse_key("Space"), Keycode.SPACEBAR)
         self.assertEqual(parse_key("Tab"), Keycode.TAB)
         self.assertEqual(parse_key("1"), Keycode.ONE)
+        self.assertEqual(parse_key("x"), Keycode.X)
+        self.assertEqual(parse_key("e"), Keycode.E)
+        self.assertEqual(parse_key("f"), Keycode.F)
+        self.assertEqual(parse_key("q"), Keycode.Q)
+        self.assertEqual(parse_key("z"), Keycode.Z)
+        self.assertEqual(parse_key("3"), Keycode.THREE)
+        self.assertEqual(parse_key("4"), Keycode.FOUR)
 
     def test_parse_keys_list(self):
         self.assertEqual(parse_keys(["Shift", "W"]), [Keycode.LEFT_SHIFT, Keycode.W])
