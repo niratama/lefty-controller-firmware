@@ -18,17 +18,30 @@ class SerialHandler:
         self.buffer = ""
 
     def process_incoming_char(self, ch):
-        """シリアルから1文字受信したときのバッファリング処理"""
-        if ch == '\n' or ch == '\r':
-            line = self.buffer.strip()
+        """シリアルから1文字受信したときのバッファリング処理（下位互換性用）"""
+        return self.process_incoming_text(ch)
+
+    def process_incoming_text(self, text):
+        """シリアルから受信したテキストチャンクを一括処理"""
+        if not text:
+            return None
+
+        self.buffer += text
+        if len(self.buffer) > 32768:  # 32KBバッファ溢れ防止
             self.buffer = ""
-            if line:
-                return self.handle_line(line)
-        else:
-            self.buffer += ch
-            if len(self.buffer) > 4096:  # バッファ溢れ防止
-                self.buffer = ""
-        return None
+            return None
+
+        last_res = None
+        if '\n' in self.buffer or '\r' in self.buffer:
+            lines = self.buffer.replace('\r', '\n').split('\n')
+            self.buffer = lines[-1]  # 最後の未完了文字列をバッファに残す
+            for line in lines[:-1]:
+                line = line.strip()
+                if line:
+                    res = self.handle_line(line)
+                    if res is not None:
+                        last_res = res
+        return last_res
 
     def handle_line(self, line):
         """1行のコマンド（JSONまたはプレーンテキスト）を解析して実行"""

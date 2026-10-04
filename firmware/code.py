@@ -291,13 +291,14 @@ class LeftyController:
         return raw_btns, rx, ry
 
     def check_serial_input(self):
-        """シリアルからの受信をノンブロッキングで処理"""
+        """シリアルからの受信をノンブロッキングで一括処理"""
         if IS_CIRCUITPYTHON:
             try:
-                if supervisor.runtime.serial_bytes_available:
-                    ch = sys.stdin.read(1)
-                    if ch:
-                        self.serial_handler.process_incoming_char(ch)
+                avail = supervisor.runtime.serial_bytes_available
+                if avail:
+                    chunk = sys.stdin.read(avail)
+                    if chunk:
+                        self.serial_handler.process_incoming_text(chunk)
             except Exception:
                 pass
 

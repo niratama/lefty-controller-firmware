@@ -1675,11 +1675,11 @@ function setDeviceOpLoading(opType, isLoading, successText = "", customText = ""
       progressText.textContent = customText || (opType === "save" ? "デバイスへ設定を保存中..." : "デバイスから設定を取得中...");
     }
 
-    // タイムアウト保護 (10秒)
+    // タイムアウト保護 (30秒)
     activeOpTimer = setTimeout(() => {
       setDeviceOpLoading(opType, false);
       log(`「${opType}」処理がタイムアウトしました。`, "warn");
-    }, 10000);
+    }, 30000);
 
   } else {
     currentActiveOp = null;

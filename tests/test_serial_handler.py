@@ -106,5 +106,23 @@ class TestSerialHandler(unittest.TestCase):
         self.assertIn("profiles", resp["config"])
         self.assertEqual(len(resp["config"]["profiles"]), 3)
 
+    def test_process_incoming_text_chunked(self):
+        # チャンク分割されたシリアル入力が一括で正しく結合・処理されるかを検証
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            full_msg = json.dumps({"cmd": "ping"}) + "\n"
+            # 2分割して送信
+            chunk1 = full_msg[:5]
+            chunk2 = full_msg[5:]
+            self.handler.process_incoming_text(chunk1)
+            self.handler.process_incoming_text(chunk2)
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "pong")
+
 if __name__ == '__main__':
     unittest.main()
