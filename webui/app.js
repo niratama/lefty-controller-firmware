@@ -66,6 +66,10 @@ const hysteresisVal = document.getElementById("hysteresisVal");
 const invertX = document.getElementById("invertX");
 const invertY = document.getElementById("invertY");
 const rotationSelect = document.getElementById("rotationSelect");
+const batchWalkInput = document.getElementById("batchWalkInput");
+const batchWalkVal = document.getElementById("batchWalkVal");
+const batchRunInput = document.getElementById("batchRunInput");
+const batchRunVal = document.getElementById("batchRunVal");
 
 const rawXSpan = document.getElementById("rawX");
 const rawYSpan = document.getElementById("rawY");
@@ -210,8 +214,42 @@ function updateFormFromConfig() {
     if (elKr) elKr.value = Array.isArray(cfg.key_run) ? cfg.key_run.join(', ') : cfg.key_run;
   });
 
+  // 一括設定スライダーの同期
+  const upWalk = currentConfig.joystick.directions.up ? currentConfig.joystick.directions.up.th_walk : 12000;
+  const upRun = currentConfig.joystick.directions.up ? currentConfig.joystick.directions.up.th_run : 26000;
+  if (batchWalkInput) {
+    batchWalkInput.value = upWalk;
+    batchWalkVal.textContent = upWalk;
+  }
+  if (batchRunInput) {
+    batchRunInput.value = upRun;
+    batchRunVal.textContent = upRun;
+  }
+
   drawRadar();
 }
+
+batchWalkInput.addEventListener("input", (e) => {
+  const val = parseInt(e.target.value, 10);
+  batchWalkVal.textContent = val;
+  ["up", "down", "left", "right"].forEach(d => {
+    currentConfig.joystick.directions[d].th_walk = val;
+    const el = document.getElementById(`th_walk_${d}`);
+    if (el) el.value = val;
+  });
+  drawRadar();
+});
+
+batchRunInput.addEventListener("input", (e) => {
+  const val = parseInt(e.target.value, 10);
+  batchRunVal.textContent = val;
+  ["up", "down", "left", "right"].forEach(d => {
+    currentConfig.joystick.directions[d].th_run = val;
+    const el = document.getElementById(`th_run_${d}`);
+    if (el) el.value = val;
+  });
+  drawRadar();
+});
 
 deadzoneInput.addEventListener("input", (e) => {
   deadzoneVal.textContent = e.target.value;

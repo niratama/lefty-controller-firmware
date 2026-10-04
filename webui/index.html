@@ -72,7 +72,19 @@
               </select>
             </div>
 
-            <h3 style="margin-top: 15px;">方向別 多段階キー判定</h3>
+            <h3 style="margin-top: 15px;">Walk / Run 閾値一括設定 (全方向)</h3>
+            <div class="param-row">
+              <label for="batchWalkInput">Walk (歩き) 閾値:</label>
+              <input type="range" id="batchWalkInput" min="1000" max="32000" step="500" value="12000">
+              <span id="batchWalkVal" class="val-display">12000</span>
+            </div>
+            <div class="param-row">
+              <label for="batchRunInput">Run (走り) 閾値:</label>
+              <input type="range" id="batchRunInput" min="1000" max="32000" step="500" value="26000">
+              <span id="batchRunVal" class="val-display">26000</span>
+            </div>
+
+            <h3 style="margin-top: 15px;">方向別 個別設定 (微調整・キー割当)</h3>
             <div class="direction-tabs">
               <table class="dir-table">
                 <thead>
@@ -124,6 +136,6 @@
     </main>
   </div>
 
-  <script src="app.js?v=20261004c"></script>
+  <script src="app.js?v=20261004d"></script>
 </body>
 </html>
