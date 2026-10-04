@@ -16,7 +16,7 @@ class StickEngine:
         self.is_calibrated = False
 
         # デフォルトパラメータ
-        self.deadzone = 4000
+        self.deadzone = 2500
         self.hysteresis = 1500
         self.invert_x = False
         self.invert_y = False # デフォルトはXYともに反転なし
@@ -24,25 +24,25 @@ class StickEngine:
 
         self.dir_configs = {
             "up": {
-                "th_walk": 12000,
+                "th_walk": 3000,
                 "th_run": 26000,
                 "key_walk": ["W"],
                 "key_run": ["Shift", "W"]
             },
             "down": {
-                "th_walk": 12000,
+                "th_walk": 3000,
                 "th_run": 26000,
                 "key_walk": ["S"],
                 "key_run": ["Shift", "S"]
             },
             "left": {
-                "th_walk": 12000,
+                "th_walk": 3000,
                 "th_run": 26000,
                 "key_walk": ["A"],
                 "key_run": ["Shift", "A"]
             },
             "right": {
-                "th_walk": 12000,
+                "th_walk": 3000,
                 "th_run": 26000,
                 "key_walk": ["D"],
                 "key_run": ["Shift", "D"]

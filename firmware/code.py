@@ -41,16 +41,16 @@ DEFAULT_CONFIG = {
                 ]
             },
             "joystick": {
-                "deadzone": 4000,
+                "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
                 "invert_y": False,
                 "rotation": 90,
                 "directions": {
-                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
-                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
-                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
-                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                    "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
                 }
             }
         },
@@ -63,16 +63,16 @@ DEFAULT_CONFIG = {
                 ]
             },
             "joystick": {
-                "deadzone": 4000,
+                "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
                 "invert_y": False,
                 "rotation": 90,
                 "directions": {
-                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
-                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
-                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
-                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+                    "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+                    "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+                    "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+                    "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
                 }
             }
         },
@@ -86,16 +86,16 @@ DEFAULT_CONFIG = {
                 ]
             },
             "joystick": {
-                "deadzone": 4000,
+                "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
                 "invert_y": False,
                 "rotation": 90,
                 "directions": {
-                    "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
-                    "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
-                    "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "Left", "key_run": ["Shift", "Left"]},
-                    "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "Right", "key_run": ["Shift", "Right"]}
+                    "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
+                    "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
+                    "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "Left", "key_run": ["Shift", "Left"]},
+                    "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "Right", "key_run": ["Shift", "Right"]}
                 }
             }
         }
@@ -107,16 +107,16 @@ DEFAULT_CONFIG = {
         ]
     },
     "joystick": {
-        "deadzone": 4000,
+        "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": False,
         "invert_y": False,
         "rotation": 90,
         "directions": {
-            "up":    {"th_walk": 12000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
-            "down":  {"th_walk": 12000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
-            "left":  {"th_walk": 12000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
-            "right": {"th_walk": 12000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
+            "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
+            "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
+            "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
+            "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
         }
     },
     "pins": {

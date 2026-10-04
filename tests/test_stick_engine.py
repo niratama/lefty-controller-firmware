@@ -28,7 +28,7 @@ class TestStickEngine(unittest.TestCase):
         self.assertTrue(engine.is_calibrated)
 
     def test_deadzone_and_neutral(self):
-        # 中心付近 (偏差 2000 < deadzone 4000)
+        # 中心付近 (偏差 2000 < deadzone 2500)
         active, press, release, info = self.engine.process(32000, 32000)
         self.assertEqual(active, set())
         self.assertEqual(press, set())
@@ -37,29 +37,29 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(self.engine.states["right"], DirectionState.NEUTRAL)
 
     def test_walk_threshold_and_hysteresis_up(self):
-        # th_walk = 12000, th_run = 26000, hysteresis = 1500
+        # th_walk = 3000, th_run = 26000, hysteresis = 1500, deadzone = 2500
         # rotation=90: UP方向は raw_x
-        # 1. 偏差 11999 (raw_x = 41999, raw_y = 30000) -> NEUTRAL
-        active, press, release, _ = self.engine.process(41999, 30000)
+        # 1. 偏差 2999 (raw_x = 32999, raw_y = 30000) -> NEUTRAL
+        active, press, release, _ = self.engine.process(32999, 30000)
         self.assertEqual(active, set())
         self.assertEqual(self.engine.states["up"], DirectionState.NEUTRAL)
 
-        # 2. 偏差 12000 (raw_x = 42000, raw_y = 30000) -> WALK ('W' press)
-        active, press, release, _ = self.engine.process(42000, 30000)
+        # 2. 偏差 3000 (raw_x = 33000, raw_y = 30000) -> WALK ('W' press)
+        active, press, release, _ = self.engine.process(33000, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, {"W"})
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
-        # 3. 偏差 11000 (raw_x = 41000) -> 12000 - 1500 = 10500 以上なので WALK 維持 (ヒステリシス効果)
-        active, press, release, _ = self.engine.process(41000, 30000)
+        # 3. 偏差 2600 (raw_x = 32600) -> max(deadzone 2500, 3000 - 1500 = 1500) = 2500 以上なので WALK 維持 (ヒステリシス効果)
+        active, press, release, _ = self.engine.process(32600, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, set())
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.WALK)
 
-        # 4. 偏差 10499 (raw_x = 40499) -> 10500 未満なので NEUTRAL 復帰 ('W' release)
-        active, press, release, _ = self.engine.process(40499, 30000)
+        # 4. 偏差 2499 (raw_x = 32499) -> 2500 未満なので NEUTRAL 復帰 ('W' release)
+        active, press, release, _ = self.engine.process(32499, 30000)
         self.assertEqual(active, set())
         self.assertEqual(press, set())
         self.assertEqual(release, {"W"})
@@ -79,7 +79,7 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(release, set())
         self.assertEqual(self.engine.states["up"], DirectionState.RUN)
 
-        # 3. RUNから WALK に低下: 偏差 24400 (24500未満、かつ 10500 以上) -> WALK ('Shift' release, 'W' 維持)
+        # 3. RUNから WALK に低下: 偏差 24400 (24500未満、かつ 2500 以上) -> WALK ('Shift' release, 'W' 維持)
         active, press, release, _ = self.engine.process(54400, 30000)
         self.assertEqual(active, {"W"})
         self.assertEqual(press, set())

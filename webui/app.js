@@ -30,16 +30,16 @@ const DEFAULT_CONFIG = {
         buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
       },
       joystick: {
-        deadzone: 4000,
+        deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
         invert_y: false,
         rotation: 90,
         directions: {
-          up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
-          down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
-          left: { th_walk: 12000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
-          right: { th_walk: 12000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+          up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+          down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+          left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+          right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
         }
       }
     },
@@ -49,16 +49,16 @@ const DEFAULT_CONFIG = {
         buttons: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "LCtrl", "LAlt"]
       },
       joystick: {
-        deadzone: 4000,
+        deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
         invert_y: false,
         rotation: 90,
         directions: {
-          up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
-          down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
-          left: { th_walk: 12000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
-          right: { th_walk: 12000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+          up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+          down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+          left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+          right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
         }
       }
     },
@@ -72,16 +72,16 @@ const DEFAULT_CONFIG = {
         ]
       },
       joystick: {
-        deadzone: 4000,
+        deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
         invert_y: false,
         rotation: 90,
         directions: {
-          up: { th_walk: 12000, th_run: 26000, key_walk: "Up", key_run: ["Shift", "Up"] },
-          down: { th_walk: 12000, th_run: 26000, key_walk: "Down", key_run: ["Shift", "Down"] },
-          left: { th_walk: 12000, th_run: 26000, key_walk: "Left", key_run: ["Shift", "Left"] },
-          right: { th_walk: 12000, th_run: 26000, key_walk: "Right", key_run: ["Shift", "Right"] }
+          up: { th_walk: 3000, th_run: 26000, key_walk: "Up", key_run: ["Shift", "Up"] },
+          down: { th_walk: 3000, th_run: 26000, key_walk: "Down", key_run: ["Shift", "Down"] },
+          left: { th_walk: 3000, th_run: 26000, key_walk: "Left", key_run: ["Shift", "Left"] },
+          right: { th_walk: 3000, th_run: 26000, key_walk: "Right", key_run: ["Shift", "Right"] }
         }
       }
     }
@@ -90,16 +90,16 @@ const DEFAULT_CONFIG = {
     buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
   },
   joystick: {
-    deadzone: 4000,
+    deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
     invert_y: false,
     rotation: 90,
     directions: {
-      up: { th_walk: 12000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
-      down: { th_walk: 12000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
-      left: { th_walk: 12000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
-      right: { th_walk: 12000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+      down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+      left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+      right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
     }
   },
   pins: {
@@ -405,7 +405,7 @@ function updateFormFromConfig() {
   });
 
   // 一括設定スライダーの同期
-  const upWalk = currentConfig.joystick.directions.up ? currentConfig.joystick.directions.up.th_walk : 12000;
+  const upWalk = currentConfig.joystick.directions.up ? currentConfig.joystick.directions.up.th_walk : 3000;
   const upRun = currentConfig.joystick.directions.up ? currentConfig.joystick.directions.up.th_run : 26000;
   if (batchWalkInput) {
     batchWalkInput.value = upWalk;
