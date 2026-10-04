@@ -20,7 +20,71 @@ from serial_handler import SerialHandler
 IS_CIRCUITPYTHON = (getattr(sys, "implementation", None) is not None and 
                     getattr(sys.implementation, "name", "") == "circuitpython")
 
-KeyboardClass = None
+# --- 外部ライブラリ依存ゼロの内蔵ネイティブHIDキーボードドライバ ---
+class NativeKeyboard:
+    """
+    標準 8バイト USB HID キーボードレポートを直接送信する軽量ドライバ。
+    adafruit_hid フォルダが無くても CircuitPython 標準の usb_hid だけで動作します。
+    """
+    def __init__(self, devices=None):
+        if devices is None and IS_CIRCUITPYTHON:
+            devices = getattr(usb_hid, "devices", ())
+
+        self._device = None
+        if devices:
+            for dev in devices:
+                # Generic Desktop (0x01) / Keyboard (0x06)
+                if getattr(dev, "usage_page", None) == 0x01 and getattr(dev, "usage", None) == 0x06:
+                    self._device = dev
+                    break
+
+        if self._device is None and IS_CIRCUITPYTHON:
+            raise ValueError("キーボードデバイスが未検出です。USB抜差しが必要です。")
+
+        self.report = bytearray(8)
+        self._pressed_keys = set()
+
+    def press(self, *keycodes):
+        for k in keycodes:
+            self._pressed_keys.add(k)
+        self._send()
+
+    def release(self, *keycodes):
+        for k in keycodes:
+            self._pressed_keys.discard(k)
+        self._send()
+
+    def release_all(self):
+        self._pressed_keys.clear()
+        self._send()
+
+    def _send(self):
+        if self._device is None:
+            return
+
+        for i in range(8):
+            self.report[i] = 0
+
+        modifier_byte = 0
+        regular_keys = []
+
+        for code in self._pressed_keys:
+            if 0xE0 <= code <= 0xE7:
+                modifier_byte |= (1 << (code - 0xE0))
+            else:
+                regular_keys.append(code)
+
+        self.report[0] = modifier_byte
+        for idx, k in enumerate(regular_keys[:6]):
+            self.report[2 + idx] = k
+
+        try:
+            self._device.send_report(self.report)
+        except Exception:
+            pass
+
+
+KeyboardClass = NativeKeyboard
 
 # CircuitPython モジュールのインポート
 if IS_CIRCUITPYTHON:
@@ -29,30 +93,17 @@ if IS_CIRCUITPYTHON:
     import analogio
     import usb_hid
 
-    # ライブラリのパスを柔軟に検索 (lib直下、入れ子フォルダなど)
-    for p in ["/lib", "/lib/adafruit_hid", "/"]:
-        if p not in sys.path:
-            sys.path.append(p)
-
     try:
         import usb_cdc
     except ImportError:
         usb_cdc = None
 
-    # 1. adafruit_hid の読み込みを試行
+    # adafruit_hid が利用可能ならそちらを優先、なければ NativeKeyboard を使用
     try:
         from adafruit_hid.keyboard import Keyboard as _Kbd
         KeyboardClass = _Kbd
     except Exception:
-        pass
-
-    # 2. なければ外部ライブラリ依存ゼロの内蔵 NativeKeyboard に自動フォールバック
-    if KeyboardClass is None:
-        try:
-            from hid_keyboard import NativeKeyboard
-            KeyboardClass = NativeKeyboard
-        except Exception:
-            pass
+        KeyboardClass = NativeKeyboard
 
     try:
         import neopixel
@@ -60,8 +111,6 @@ if IS_CIRCUITPYTHON:
     except Exception:
         pixel = None
 else:
-    from hid_keyboard import NativeKeyboard
-    KeyboardClass = NativeKeyboard
     pixel = None
     usb_cdc = None
 
