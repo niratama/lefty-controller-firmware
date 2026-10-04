@@ -142,6 +142,44 @@ body {
   gap: 10px;
 }
 
+.stick-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #181d24;
+  border: 1px solid var(--card-border);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.stick-mode-badge .mode-badge-label {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.stick-mode-badge .mode-badge-text {
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+}
+
+.stick-mode-badge .mode-badge-extra {
+  font-family: monospace;
+  color: #34d399;
+  font-size: 0.75rem;
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.stick-mode-badge .mode-badge-extra:empty {
+  display: none;
+}
+
 #stickCanvas {
   background-color: #0b0d10;
   border: 1px solid var(--card-border);

@@ -48,6 +48,11 @@
         <h2>2軸アナログスティック モニタ & 閾値</h2>
         <div class="stick-grid">
           <div class="visualizer-container">
+            <div class="stick-mode-badge" id="stickModeBadge">
+              <span class="mode-badge-label">MODE:</span>
+              <span id="stickModeText" class="mode-badge-text">KEYBOARD (WASD)</span>
+              <span id="stickModeExtra" class="mode-badge-extra"></span>
+            </div>
             <canvas id="stickCanvas" width="300" height="300"></canvas>
             <div class="stick-coords">
               <span>RAW: (<span id="rawX">32768</span>, <span id="rawY">32768</span>)</span>
@@ -204,6 +209,6 @@
     </main>
   </div>
 
-  <script src="app.js?v=20261004i"></script>
+  <script src="app.js?v=20261004j"></script>
 </body>
 </html>

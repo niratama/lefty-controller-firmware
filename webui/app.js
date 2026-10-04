@@ -235,6 +235,36 @@ function ensureProfiles(cfg) {
   return cfg;
 }
 
+function updateModeDisplay() {
+  const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  const textEl = document.getElementById("stickModeText");
+  const extraEl = document.getElementById("stickModeExtra");
+  if (!textEl) return;
+
+  if (mode === "gamepad") {
+    textEl.textContent = "GAMEPAD (X/Y)";
+    if (extraEl) {
+      if (currentTelemetry && currentTelemetry.gamepad) {
+        extraEl.textContent = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
+      } else {
+        extraEl.textContent = "";
+      }
+    }
+  } else if (mode === "mouse") {
+    textEl.textContent = "MOUSE (POINTER)";
+    if (extraEl) {
+      if (currentTelemetry && currentTelemetry.mouse) {
+        extraEl.textContent = `dX: ${currentTelemetry.mouse[0]} / dY: ${currentTelemetry.mouse[1]}`;
+      } else {
+        extraEl.textContent = "";
+      }
+    }
+  } else {
+    textEl.textContent = "KEYBOARD (WASD)";
+    if (extraEl) extraEl.textContent = "";
+  }
+}
+
 function updateModeVisibility() {
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
   if (mouseSpeedRow) {
@@ -243,6 +273,7 @@ function updateModeVisibility() {
   if (kbdThresholdsGroup) {
     kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
   }
+  updateModeDisplay();
 }
 
 // ==========================================
@@ -804,22 +835,6 @@ function drawRadar() {
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5;
   ctx.stroke();
-
-  // モードバッジ
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "bold 11px Inter, sans-serif";
-  let modeBadge = "MODE: KEYBOARD (WASD)";
-  if (mode === "gamepad") modeBadge = "MODE: GAMEPAD (X/Y)";
-  if (mode === "mouse") modeBadge = "MODE: MOUSE (POINTER)";
-  ctx.fillText(modeBadge, 12, 20);
-
-  if (mode === "gamepad" && currentTelemetry.gamepad) {
-    ctx.font = "10px monospace";
-    ctx.fillText(`X:${currentTelemetry.gamepad[0]} Y:${currentTelemetry.gamepad[1]}`, 12, 34);
-  } else if (mode === "mouse" && currentTelemetry.mouse) {
-    ctx.font = "10px monospace";
-    ctx.fillText(`dX:${currentTelemetry.mouse[0]} dY:${currentTelemetry.mouse[1]}`, 12, 34);
-  }
 }
 
 // テレメトリ更新UI
@@ -832,6 +847,8 @@ function updateTelemetryUI(data) {
   currentTelemetry.mode = data.mode || "keyboard";
   currentTelemetry.gamepad = data.gamepad || [0, 0];
   currentTelemetry.mouse = data.mouse || [0, 0];
+
+  updateModeDisplay();
 
   rawXSpan.textContent = currentTelemetry.raw[0];
   rawYSpan.textContent = currentTelemetry.raw[1];
