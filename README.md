@@ -114,7 +114,18 @@ lefty-controller-firmware/
 
 2. **ファームウェアファイルのコピー:**
    * 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
-   * **注意:** `boot.py` の更新によりUSB複合デバイス（Keyboard + Mouse + Gamepad）が構成されるため、**書き込み後に一度USBケーブルを抜き差ししてください。**
+   * **注意:** `boot.py` の更新によりUSB複合デバイス（Keyboard + Mouse + Gamepad）およびドライブマウント制御が構成されるため、**書き込み後に一度USBケーブルを抜き差ししてください。**
+
+### 4.2 USBドライブ（CIRCUITPY）のマウント制御とメンテナンスモード
+
+本ファームウェアでは、日常利用時にエクスプローラーが開いたり誤ってファイルを変更したりすることを防ぐため、ドライブのマウントを制御しています。
+
+* **通常運用モード (前面ボタン1を押さずに接続):**
+  * `CIRCUITPY` ドライブは **PC にマウントされず非表示** になります。
+  * USB HID（キーボード／マウス／ゲームパッド）および WebUI 設定用シリアル通信（Web Serial API）のみがスマートに認識されます。
+* **メンテナンスモード (前面ボタン1 `[1]` を押しながら USB ケーブルを挿入):**
+  * PC に `CIRCUITPY` ドライブがマウントされます。
+  * `code.py` や `boot.py` などのスクリプトを直接編集・更新したい場合は、この方法で接続してください。
 
 ---
 

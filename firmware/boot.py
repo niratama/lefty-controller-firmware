@@ -1,8 +1,50 @@
 """
 boot.py: CircuitPython 起動時構成スクリプト
-USB HID Composite Device (Keyboard + Mouse + Gamepad) を有効化します。
+
+1. USB ドライブ (CIRCUITPY) のマウント制御 (メンテナンスモード判定):
+   - 通常起動 (ボタンを押さずに接続): PCへのマスストレージマウントを無効化し、マイコンからの書込を許可。
+   - メンテナンスモード (前面ボタン1 = GP0 を押しながら接続): CIRCUITPY ドライブをPCに表示。
+2. USB HID Composite Device (Keyboard + Mouse + Gamepad) の有効化。
 """
 
+# ==========================================
+# 1. USB マスストレージ (CIRCUITPY ドライブ) のマウント制御
+# ==========================================
+try:
+    import board
+    import digitalio
+    import storage
+
+    # 前面ボタン1 (GP0 / SW1 / ラベル "1") の押下状態を確認
+    # 回路仕様: 内部プルアップ / Active Low (押下時 GND / False)
+    service_pin = digitalio.DigitalInOut(board.GP0)
+    service_pin.direction = digitalio.Direction.INPUT
+    service_pin.pull = digitalio.Pull.UP
+
+    try:
+        is_maintenance = not service_pin.value
+    finally:
+        service_pin.deinit()
+
+    if not is_maintenance:
+        # 通常運用モード: ドライブを非表示にして余計なポップアップを防止
+        # マイコン自身の Python スクリプトからのファイル書込 (config.json) を許可
+        storage.disable_usb_drive()
+        try:
+            storage.remount("/", readonly=False)
+        except Exception as e_remount:
+            print(f"[boot.py] remount warning: {e_remount}")
+    else:
+        # メンテナンスモード: 前面ボタン1を押しながら接続した場合はドライブをPCに表示
+        print("[boot.py] メンテナンスモード: CIRCUITPY ドライブをマウントしました")
+
+except Exception as e_storage:
+    print(f"[boot.py storage INFO] {e_storage}")
+
+
+# ==========================================
+# 2. USB HID Composite Device 有効化
+# ==========================================
 try:
     import usb_hid
 
