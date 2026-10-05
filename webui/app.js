@@ -1115,6 +1115,11 @@ function updateModalPreview() {
 
 // UI初期化
 function initUI() {
+  const appVersionTag = document.getElementById("appVersionTag");
+  if (appVersionTag) {
+    appVersionTag.textContent = `WebUI v${WEBUI_VERSION}`;
+  }
+
   const cached = loadFromLocalStorage();
   if (cached) {
     currentConfig = cached;
