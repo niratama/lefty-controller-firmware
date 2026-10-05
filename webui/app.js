@@ -472,6 +472,9 @@ function ensureProfiles(cfg) {
       if (!p.joystick.mode) p.joystick.mode = "keyboard";
       if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
       if (!p.joystick.direction_mode) p.joystick.direction_mode = "8way";
+      if (p.joystick.rotation === undefined) p.joystick.rotation = 90;
+      if (p.joystick.invert_x === undefined) p.joystick.invert_x = false;
+      if (p.joystick.invert_y === undefined) p.joystick.invert_y = false;
     }
   });
   if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
@@ -1325,7 +1328,7 @@ function updateFormFromConfig() {
   hysteresisVal.textContent = currentConfig.joystick.hysteresis;
   invertX.checked = !!currentConfig.joystick.invert_x;
   invertY.checked = !!currentConfig.joystick.invert_y;
-  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 0);
+  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 90);
 
   // ボタン
   for (let i = 0; i < 13; i++) {
@@ -1405,6 +1408,9 @@ if (btnAddProfile) {
       keymap: JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
       joystick: JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
     };
+    newProfile.joystick.rotation = 90;
+    newProfile.joystick.invert_x = false;
+    newProfile.joystick.invert_y = false;
     currentConfig.profiles.push(newProfile);
     switchProfile(currentConfig.profiles.length - 1, true);
     log(`新しいプロファイル「${newProfile.name}」を作成しました`, "success");
