@@ -120,14 +120,18 @@ lefty-controller-firmware/
 
 ## 5. Web Serial API 設定ツールの使い方
 
-Google Chrome または Microsoft Edge 等の Web Serial API 対応ブラウザで使用できます。
+Google Chrome または Microsoft Edge 等の Web Serial API 対応ブラウザ（Chromium系）で使用できます。
 
 ### 起動方法
-ローカルでHTTPサーバーを起動します：
-```bash
-python3 -m http.server 8000 --directory webui
-```
-ブラウザで `http://localhost:8000` を開きます。
+
+* **Web上で直接利用（推奨・インストール不要）:**  
+  👉 **[https://niratama.github.io/lefty-controller-firmware/](https://niratama.github.io/lefty-controller-firmware/)**
+
+* **ローカルで起動する場合:**  
+  ```bash
+  python3 -m http.server 8000 --directory webui
+  ```
+  ブラウザで `http://localhost:8000` を開きます。
 
 ### 主な機能
 * **デバイスと接続:**
