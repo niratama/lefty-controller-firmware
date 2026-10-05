@@ -1937,6 +1937,13 @@ async function connectSerial() {
     return;
   }
 
+  // 既存の接続が残っている場合は確実にクリーンアップ
+  if (serialPort) {
+    try {
+      await disconnectSerial();
+    } catch (_) {}
+  }
+
   try {
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: 115200 });
@@ -1968,7 +1975,17 @@ async function connectSerial() {
     await requestConfigWithRetry(true);
 
   } catch (err) {
-    log(`接続エラー: ${err.message}`, "error");
+    if (reader) { try { reader.releaseLock(); } catch (_) {} reader = null; }
+    if (writer) { try { writer.releaseLock(); } catch (_) {} writer = null; }
+    if (serialPort) { try { await serialPort.close(); } catch (_) {} serialPort = null; }
+
+    if (err.name === "NotFoundError") {
+      log("シリアルポートの選択がキャンセルされました", "info");
+    } else if (err.message && err.message.includes("Failed to open serial port")) {
+      log(`接続エラー: ポートを開けませんでした。別のタブ（localhost の WebUI 等）や他のツール（シリアルモニタ等）がポートを開いたままになっていないか確認し、マイコンのUSBケーブルを一度抜き差ししてお試しください。`, "error");
+    } else {
+      log(`接続エラー: ${err.message}`, "error");
+    }
   }
 }
 
