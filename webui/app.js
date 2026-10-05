@@ -1322,13 +1322,17 @@ function updateFormFromConfig() {
   }
   updateModeVisibility();
 
-  deadzoneInput.value = currentConfig.joystick.deadzone;
-  deadzoneVal.textContent = currentConfig.joystick.deadzone;
-  hysteresisInput.value = currentConfig.joystick.hysteresis;
-  hysteresisVal.textContent = currentConfig.joystick.hysteresis;
-  invertX.checked = !!currentConfig.joystick.invert_x;
-  invertY.checked = !!currentConfig.joystick.invert_y;
-  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 90);
+  const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+  deadzoneInput.value = deadzone;
+  deadzoneVal.textContent = deadzone;
+
+  const hysteresis = (currentConfig.joystick && currentConfig.joystick.hysteresis !== undefined) ? currentConfig.joystick.hysteresis : 1500;
+  hysteresisInput.value = hysteresis;
+  hysteresisVal.textContent = hysteresis;
+
+  invertX.checked = !!(currentConfig.joystick && currentConfig.joystick.invert_x);
+  invertY.checked = !!(currentConfig.joystick && currentConfig.joystick.invert_y);
+  rotationSelect.value = String((currentConfig.joystick && currentConfig.joystick.rotation !== undefined) ? currentConfig.joystick.rotation : 90);
 
   // ボタン
   for (let i = 0; i < 13; i++) {
@@ -2202,8 +2206,6 @@ btnResetDefault.addEventListener("click", () => {
     renderButtonGrid();
     renderDirectionTable();
     updateFormFromConfig();
-    invertX.checked = false;
-    invertY.checked = false;
     saveToLocalStorage(currentConfig, "デフォルト初期化");
     if (serialPort && writer) {
       setDeviceOpLoading("reset", true, "", "マイコンFlash初期化中...");

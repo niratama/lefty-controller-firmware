@@ -106,18 +106,18 @@
             </div>
             <div class="param-row" id="mouseSpeedRow" style="display: none;">
               <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
-              <input type="range" id="mouseSpeedInput" min="2" max="30" step="1" value="12">
-              <span id="mouseSpeedVal" class="val-display">12</span>
+              <input type="range" id="mouseSpeedInput" min="2" max="30" step="1">
+              <span id="mouseSpeedVal" class="val-display">-</span>
             </div>
             <div class="param-row">
               <label for="deadzoneInput">デッドゾーン (遊び):</label>
-              <input type="range" id="deadzoneInput" min="500" max="10000" step="100" value="2500">
-              <span id="deadzoneVal" class="val-display">2500</span>
+              <input type="range" id="deadzoneInput" min="500" max="10000" step="100">
+              <span id="deadzoneVal" class="val-display">-</span>
             </div>
             <div class="param-row">
               <label for="hysteresisInput">ヒステリシス (チャタリング防止):</label>
-              <input type="range" id="hysteresisInput" min="200" max="5000" step="100" value="1500">
-              <span id="hysteresisVal" class="val-display">1500</span>
+              <input type="range" id="hysteresisInput" min="200" max="5000" step="100">
+              <span id="hysteresisVal" class="val-display">-</span>
             </div>
             <div class="param-row-checkbox">
               <label><input type="checkbox" id="invertX"> X軸反転</label>
@@ -127,7 +127,7 @@
               <label for="rotationSelect">取付回転補正:</label>
               <select id="rotationSelect" class="btn-input" style="width: 100%;">
                 <option value="0">0°</option>
-                <option value="90" selected>90° (標準取付補正)</option>
+                <option value="90">90° (標準取付補正)</option>
                 <option value="180">180°</option>
                 <option value="270">270° (逆向き取付補正)</option>
               </select>
@@ -137,13 +137,13 @@
               <h3 style="margin-top: 15px;">Walk / Run 閾値一括設定 (全方向)</h3>
               <div class="param-row">
                 <label for="batchWalkInput">Walk (歩き) 閾値:</label>
-                <input type="range" id="batchWalkInput" min="1000" max="32000" step="500" value="3000">
-                <span id="batchWalkVal" class="val-display">3000</span>
+                <input type="range" id="batchWalkInput" min="1000" max="32000" step="500">
+                <span id="batchWalkVal" class="val-display">-</span>
               </div>
               <div class="param-row">
                 <label for="batchRunInput">Run (走り) 閾値:</label>
-                <input type="range" id="batchRunInput" min="1000" max="32000" step="500" value="26000">
-                <span id="batchRunVal" class="val-display">26000</span>
+                <input type="range" id="batchRunInput" min="1000" max="32000" step="500">
+                <span id="batchRunVal" class="val-display">-</span>
               </div>
 
               <h3 style="margin-top: 15px;">方向別 個別設定 (微調整・キー割当)</h3>
@@ -289,6 +289,6 @@
     </datalist>
   </div>
 
-  <script src="app.js?v=1.2.0-rot90"></script>
+  <script src="app.js?v=1.2.0-clean-defaults"></script>
 </body>
 </html>
