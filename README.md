@@ -65,7 +65,8 @@ lefty-controller-firmware/
 │   ├── test_hid_gamepad.py    # ゲームパッドレポート生成検証
 │   └── test_serial_handler.py # シリアル通信プロトコル検証
 ├── docs/
-│   └── handover_spec.md       # 引き継ぎ仕様書ドキュメント
+│   ├── handover_spec.md       # 引き継ぎ仕様書ドキュメント
+│   └── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.2.0〜)
 └── README.md
 ```
 
@@ -96,6 +97,9 @@ lefty-controller-firmware/
 * **プロファイル 3 (マウス & 作業用):**
   - スティック: マウス (カーソル移動)
   - ボタン: `Mouse_Left`, `Mouse_Right`, `Mouse_Middle`, `Wheel_Up`, `Wheel_Down`, `LCtrl, z`, `LCtrl, c`, `LCtrl, v` 等
+
+> [!NOTE]
+> プロファイルの JSON フォーマット詳細、13ボタン配列と物理ピンの対応、全対応キー・アクション識別子一覧については [docs/profile_spec.md](docs/profile_spec.md) を参照してください。
 
 ---
 
