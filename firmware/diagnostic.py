@@ -24,9 +24,9 @@ PIN_MAPPINGS = {
     6: "SW7 (GP6)",
     7: "SW8 (GP7)",
     8: "SW9 (GP8)",
-    9: "SW10/Trigger1 (GP9)",
-    10: "SW11/Trigger2 (GP10)",
-    11: "SW12/Trigger3 (GP11)",
+    11: "SW10/Trigger1 (GP11: 側面上)",
+    9: "SW11/Trigger2 (GP9: 側面中)",
+    10: "SW12/Trigger3 (GP10: 側面下)",
     12: "SW_STK/StickClick (GP12)",
 }
 
@@ -52,9 +52,9 @@ class HardwareTester:
                     dio.pull = digitalio.Pull.UP
                     self.buttons[p] = dio
 
-            # アナログスティック初期化
-            pin_x = get_pin_object(26)
-            pin_y = get_pin_object(27)
+            # アナログスティック初期化 (GP27: X, GP26: Y)
+            pin_x = get_pin_object(27)
+            pin_y = get_pin_object(26)
             if pin_x and pin_y:
                 self.adc_x = analogio.AnalogIn(pin_x)
                 self.adc_y = analogio.AnalogIn(pin_y)

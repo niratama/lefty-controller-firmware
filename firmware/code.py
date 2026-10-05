@@ -137,9 +137,9 @@ DEFAULT_CONFIG = {
         }
     },
     "pins": {
-        "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        "adc_x": 26,
-        "adc_y": 27
+        "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
+        "adc_x": 27,
+        "adc_y": 26
     }
 }
 
@@ -250,9 +250,9 @@ class LeftyController:
                 except Exception as ex:
                     print(f"[WARN] ボタン {pin_name} 初期化失敗: {ex}")
 
-        # 3. アナログスティックADC初期化 (GP26, GP27)
-        adc_x_num = self.config.get("pins", {}).get("adc_x", 26)
-        adc_y_num = self.config.get("pins", {}).get("adc_y", 27)
+        # 3. アナログスティックADC初期化 (GP27: X, GP26: Y)
+        adc_x_num = self.config.get("pins", {}).get("adc_x", 27)
+        adc_y_num = self.config.get("pins", {}).get("adc_y", 26)
         px = getattr(board, f"GP{adc_x_num}", None)
         py = getattr(board, f"GP{adc_y_num}", None)
         if px and py:
