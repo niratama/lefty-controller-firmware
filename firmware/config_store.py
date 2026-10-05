@@ -127,7 +127,7 @@ def save_config(config_dict, config_path="config.json"):
 
     try:
         with open(config_path, "w") as f:
-            json.dump(config_dict, f, indent=2)
+            json.dump(config_dict, f)
         saved_to_file = True
     except OSError as e:
         # USB接続中でRead-onlyストレージの場合

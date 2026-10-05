@@ -98,5 +98,21 @@ class TestConfigStore(unittest.TestCase):
         self.assertNotIn("pins", nvm_reloaded)
         self.assertEqual(nvm_reloaded["profiles"][0]["name"], "P1")
 
+    def test_save_config_to_file(self):
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
+            temp_path = tf.name
+        try:
+            saved_file, saved_nvm, warn = config_store.save_config(self.test_cfg, temp_path)
+            self.assertTrue(saved_file)
+            self.assertTrue(saved_nvm)
+            self.assertIsNone(warn)
+
+            with open(temp_path, "r") as f:
+                loaded = json.load(f)
+            self.assertEqual(loaded["joystick"]["deadzone"], 4500)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
 if __name__ == '__main__':
     unittest.main()
