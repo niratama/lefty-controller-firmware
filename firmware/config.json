@@ -15,8 +15,8 @@
         "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": false,
-        "invert_y": false,
-        "rotation": 90,
+        "invert_y": true,
+        "rotation": 0,
         "direction_mode": "8way",
         "directions": {
           "up": {
@@ -61,8 +61,8 @@
         "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": false,
-        "invert_y": false,
-        "rotation": 90,
+        "invert_y": true,
+        "rotation": 0,
         "direction_mode": "8way",
         "directions": {
           "up": {
@@ -107,8 +107,8 @@
         "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": false,
-        "invert_y": false,
-        "rotation": 90,
+        "invert_y": true,
+        "rotation": 0,
         "direction_mode": "8way",
         "directions": {
           "up": {
@@ -151,8 +151,8 @@
     "deadzone": 2500,
     "hysteresis": 1500,
     "invert_x": false,
-    "invert_y": false,
-    "rotation": 90,
+    "invert_y": true,
+    "rotation": 0,
     "direction_mode": "8way",
     "directions": {
       "up": {

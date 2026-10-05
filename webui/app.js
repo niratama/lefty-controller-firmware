@@ -258,8 +258,8 @@ const DEFAULT_CONFIG = {
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
-        invert_y: false,
-        rotation: 90,
+        invert_y: true,
+        rotation: 0,
         directions: {
           up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
           down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
@@ -284,8 +284,8 @@ const DEFAULT_CONFIG = {
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
-        invert_y: false,
-        rotation: 90,
+        invert_y: true,
+        rotation: 0,
         directions: {
           up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
           down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
@@ -310,8 +310,8 @@ const DEFAULT_CONFIG = {
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
-        invert_y: false,
-        rotation: 90,
+        invert_y: true,
+        rotation: 0,
         directions: {
           up: { th_walk: 3000, th_run: 26000, key_walk: "Up", key_run: ["Shift", "Up"] },
           down: { th_walk: 3000, th_run: 26000, key_walk: "Down", key_run: ["Shift", "Down"] },
@@ -331,8 +331,8 @@ const DEFAULT_CONFIG = {
     deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
-    invert_y: false,
-    rotation: 90,
+    invert_y: true,
+    rotation: 0,
     directions: {
       up: { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
       down: { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
@@ -1304,7 +1304,7 @@ function updateFormFromConfig() {
   hysteresisVal.textContent = currentConfig.joystick.hysteresis;
   invertX.checked = !!currentConfig.joystick.invert_x;
   invertY.checked = !!currentConfig.joystick.invert_y;
-  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 90);
+  rotationSelect.value = String(currentConfig.joystick.rotation !== undefined ? currentConfig.joystick.rotation : 0);
 
   // ボタン
   for (let i = 0; i < 13; i++) {
@@ -2089,8 +2089,6 @@ function handleReceivedLine(line) {
       renderButtonGrid();
       renderDirectionTable();
       updateFormFromConfig();
-      invertX.checked = false;
-      invertY.checked = false;
       saveToLocalStorage(currentConfig, "デバイスリセット同期");
       setDeviceOpLoading("reset", false, "初期化完了!");
       log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");

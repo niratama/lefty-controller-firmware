@@ -29,8 +29,8 @@ class StickEngine:
         self.deadzone = 2500
         self.hysteresis = 1500
         self.invert_x = False
-        self.invert_y = False # デフォルトはXYともに反転なし
-        self.rotation = 90    # 取付角度回転補正 (度数: 0, 90, 180, 270)
+        self.invert_y = True  # デフォルト: Y軸反転
+        self.rotation = 0     # 取付角度回転補正 (度数: 0, 90, 180, 270)
 
         self.dir_configs = {
             "up": {

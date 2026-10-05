@@ -158,8 +158,8 @@ class SerialHandler:
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
-                        "invert_y": False,
-                        "rotation": 90,
+                        "invert_y": True,
+                        "rotation": 0,
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
@@ -183,8 +183,8 @@ class SerialHandler:
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
-                        "invert_y": False,
-                        "rotation": 90,
+                        "invert_y": True,
+                        "rotation": 0,
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
@@ -208,8 +208,8 @@ class SerialHandler:
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
-                        "invert_y": False,
-                        "rotation": 90,
+                        "invert_y": True,
+                        "rotation": 0,
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
@@ -228,8 +228,8 @@ class SerialHandler:
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
-                "invert_y": False,
-                "rotation": 90,
+                "invert_y": True,
+                "rotation": 0,
                 "directions": {
                     "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                     "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
