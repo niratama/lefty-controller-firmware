@@ -8,7 +8,7 @@ import sys
 import json
 import config_store
 
-FIRMWARE_VERSION = "1.1.0"
+FIRMWARE_VERSION = "1.2.0"
 
 class SerialHandler:
     def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None):
@@ -145,6 +145,7 @@ class SerialHandler:
     def _cmd_reset_config(self):
         config_store.clear_nvm()
         default_cfg = {
+            "version": FIRMWARE_VERSION,
             "active_profile": 0,
             "profiles": [
                 {
@@ -236,11 +237,6 @@ class SerialHandler:
                     "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
                     "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
                 }
-            },
-            "pins": {
-                "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
-                "adc_x": 27,
-                "adc_y": 26
             }
         }
         if self.on_config_updated:

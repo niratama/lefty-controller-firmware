@@ -52,9 +52,10 @@ class TestConfigStore(unittest.TestCase):
         self.assertTrue(saved_nvm)  # NVMには保存成功
         self.assertIn("NVM", warn)
 
-    def test_migrate_config_old_pins(self):
-        # 旧配線のピン設定を持つ設定データ
+    def test_sanitize_config_strips_pins(self):
+        # 旧形式のピン情報が含まれる設定データ
         old_cfg = {
+            "version": "1.1.0",
             "profiles": [
                 {
                     "name": "Custom Profile",
@@ -67,17 +68,16 @@ class TestConfigStore(unittest.TestCase):
                 "adc_y": 27
             }
         }
-        migrated_cfg, migrated = config_store.migrate_config(old_cfg)
-        self.assertTrue(migrated)
-        self.assertEqual(migrated_cfg["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
-        self.assertEqual(migrated_cfg["pins"]["adc_x"], 27)
-        self.assertEqual(migrated_cfg["pins"]["adc_y"], 26)
-        # ユーザーの既存キー設定が維持されていること
-        self.assertEqual(migrated_cfg["profiles"][0]["keymap"]["buttons"], ["Space", "z", "LCtrl"])
+        sanitized_cfg, had_pins = config_store.sanitize_config(old_cfg)
+        self.assertTrue(had_pins)
+        self.assertNotIn("pins", sanitized_cfg)
+        # ユーザーの既存プロファイル設定は完全に維持
+        self.assertEqual(sanitized_cfg["profiles"][0]["keymap"]["buttons"], ["Space", "z", "LCtrl"])
 
-    def test_load_config_auto_migrates_nvm(self):
-        # NVMに旧設定が保存されている状態
+    def test_load_config_strips_pins_and_cleans_nvm(self):
+        # NVMに旧設定（pins入り）が保存されている状態
         old_cfg = {
+            "version": "1.1.0",
             "profiles": [{"name": "P1"}],
             "pins": {
                 "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -90,13 +90,13 @@ class TestConfigStore(unittest.TestCase):
         # load_config 実行
         loaded = config_store.load_config(config_path="/nonexistent_file.json")
         self.assertIsNotNone(loaded)
-        self.assertEqual(loaded["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
-        self.assertEqual(loaded["pins"]["adc_x"], 27)
-        self.assertEqual(loaded["pins"]["adc_y"], 26)
+        self.assertNotIn("pins", loaded)
+        self.assertEqual(loaded["profiles"][0]["name"], "P1")
 
-        # NVMにマイグレーション結果が書き戻されていること
+        # NVM内からも pins が除去されて再保存されていること
         nvm_reloaded = config_store.load_from_nvm()
-        self.assertEqual(nvm_reloaded["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
+        self.assertNotIn("pins", nvm_reloaded)
+        self.assertEqual(nvm_reloaded["profiles"][0]["name"], "P1")
 
 if __name__ == '__main__':
     unittest.main()

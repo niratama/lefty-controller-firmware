@@ -1,7 +1,14 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.1.0";
-const MIN_RECOMMENDED_FW_VERSION = "1.1.0";
+const WEBUI_VERSION = "1.2.0";
+const MIN_RECOMMENDED_FW_VERSION = "1.2.0";
+
+// ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
+const HARDWARE_PINS = {
+  buttons: [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
+  adc_x: 27,
+  adc_y: 26
+};
 
 const PIN_NAMES = [
   "SW1 (1)",
@@ -244,6 +251,7 @@ function updateValidationBadge(input, badge) {
 let lastFocusedInput = null;
 
 const DEFAULT_CONFIG = {
+  version: "1.2.0",
   active_profile: 0,
   profiles: [
     {
@@ -339,11 +347,6 @@ const DEFAULT_CONFIG = {
       left: { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
       right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
     }
-  },
-  pins: {
-    buttons: [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
-    adc_x: 27,
-    adc_y: 26
   }
 };
 
@@ -437,52 +440,24 @@ btnClearLog.addEventListener("click", () => {
   logArea.textContent = "";
 });
 
-// ハードウェア配線のマイグレーション（旧ピン定義を最新配線仕様に自動補正）
-function migrateConfig(cfg) {
+// プロファイルデータからハードウェア配線情報 (pins) を完全分離・除去
+function sanitizeConfig(cfg) {
   if (!cfg || typeof cfg !== "object") return cfg;
-  let migrated = false;
-
-  if (!cfg.pins || typeof cfg.pins !== "object") {
-    cfg.pins = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins));
-    migrated = true;
-  } else {
-    if (!Array.isArray(cfg.pins.buttons) || cfg.pins.buttons.length !== 13) {
-      cfg.pins.buttons = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins.buttons));
-      migrated = true;
-    } else {
-      // 旧側面ボタン配線 (GP9=上, GP10=中, GP11=下) の検出と自動補正
-      if (cfg.pins.buttons[9] === 9 && cfg.pins.buttons[10] === 10 && cfg.pins.buttons[11] === 11) {
-        cfg.pins.buttons[9] = 11;  // SW10 (側面上) -> GP11
-        cfg.pins.buttons[10] = 9;  // SW11 (側面中) -> GP9
-        cfg.pins.buttons[11] = 10; // SW12 (側面下) -> GP10
-        migrated = true;
-      }
-    }
-
-    // スティックADCピンの旧配線 (GP26=X, GP27=Y) 検出と自動補正
-    if (cfg.pins.adc_x === 26 && cfg.pins.adc_y === 27) {
-      cfg.pins.adc_x = 27;
-      cfg.pins.adc_y = 26;
-      migrated = true;
-    } else if (cfg.pins.adc_x === undefined || cfg.pins.adc_y === undefined) {
-      cfg.pins.adc_x = DEFAULT_CONFIG.pins.adc_x;
-      cfg.pins.adc_y = DEFAULT_CONFIG.pins.adc_y;
-      migrated = true;
-    }
-  }
-
-  if (migrated) {
-    log("ハードウェアピン設定を最新配線仕様（GP11=側面上, GP9=側面中, GP10=側面下, ADC_X=27, ADC_Y=26）に自動更新しました", "info");
+  if ("pins" in cfg) {
+    delete cfg.pins;
   }
   return cfg;
 }
 
-// プロファイル構造の保証 (後方互換性 & マイグレーション)
+// プロファイル構造の保証 (後方互換性 & ハードウェアピン分離)
 function ensureProfiles(cfg) {
   if (!cfg || typeof cfg !== "object") {
     cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   }
-  cfg = migrateConfig(cfg);
+  cfg = sanitizeConfig(cfg);
+  if (!cfg.version) {
+    cfg.version = WEBUI_VERSION;
+  }
   if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
     cfg.profiles = [
       {
@@ -755,8 +730,7 @@ function renderProfileSelect() {
 function renderHwButtonGrid() {
   if (!hwBtnGrid) return;
   hwBtnGrid.innerHTML = "";
-  const pins = (currentConfig.pins && currentConfig.pins.buttons) ? currentConfig.pins.buttons : Array.from({length: 13}, (_, i) => i);
-  pins.forEach((pin, i) => {
+  HARDWARE_PINS.buttons.forEach((pin, i) => {
     const pill = document.createElement("div");
     pill.className = "hw-btn-pill";
     pill.id = `hw_btn_${pin}`;
@@ -1188,7 +1162,7 @@ function renderButtonGrid() {
 
     const pinInfo = document.createElement("span");
     pinInfo.className = "btn-pin";
-    pinInfo.textContent = `GP${currentConfig.pins.buttons[i]}`;
+    pinInfo.textContent = `GP${HARDWARE_PINS.buttons[i]}`;
 
     titleGroup.appendChild(label);
     titleGroup.appendChild(pinInfo);
@@ -1758,7 +1732,7 @@ function updateTelemetryUI(data) {
   // ボタンの物理押下表示 (13ボタンカード & テスト入力エリアのハードウェアインジケータ)
   const pressedPins = currentTelemetry.btns;
   for (let i = 0; i < 13; i++) {
-    const pin = currentConfig.pins.buttons[i];
+    const pin = HARDWARE_PINS.buttons[i];
     const card = document.getElementById(`btnCard_${i}`);
     if (card) {
       card.classList.toggle("physically-pressed", pressedPins.includes(pin));

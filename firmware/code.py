@@ -38,6 +38,7 @@ except ImportError:
 CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
+    "version": "1.2.0",
     "active_profile": 0,
     "profiles": [
         {
@@ -135,18 +136,20 @@ DEFAULT_CONFIG = {
             "left":  {"th_walk": 3000, "th_run": 26000, "key_walk": "A", "key_run": ["Shift", "A"]},
             "right": {"th_walk": 3000, "th_run": 26000, "key_walk": "D", "key_run": ["Shift", "D"]}
         }
-    },
-    "pins": {
-        "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
-        "adc_x": 27,
-        "adc_y": 26
     }
 }
+
+# ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
+HARDWARE_BUTTON_PINS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12]
+HARDWARE_ADC_X = 27
+HARDWARE_ADC_Y = 26
 
 class LeftyController:
     def __init__(self):
         self.config = self.load_config()
-        self.button_pins_def = self.config.get("pins", {}).get("buttons", list(range(13)))
+        self.button_pins_def = HARDWARE_BUTTON_PINS
+        self.adc_x_num = HARDWARE_ADC_X
+        self.adc_y_num = HARDWARE_ADC_Y
         self.button_keymap = []
 
         # モジュール初期化
@@ -176,50 +179,11 @@ class LeftyController:
         self.init_hardware()
 
     def apply_config(self, cfg):
-        """プロファイルおよび各種設定を反映"""
-        cfg, _ = config_store.migrate_config(cfg)
+        """プロファイルおよび各種設定を反映（ピン定義等のハードウェア情報はプロファイルから分離・固定）"""
+        cfg, _ = config_store.sanitize_config(cfg)
         self.config = cfg
 
-        # 1. ボタンピン定義の動的反映
-        new_pins = cfg.get("pins", {}).get("buttons")
-        if new_pins and isinstance(new_pins, list) and new_pins != self.button_pins_def:
-            self.button_pins_def = new_pins
-            self.button_manager.set_pins(self.button_pins_def)
-            if IS_CIRCUITPYTHON:
-                for p in self.button_pins_def:
-                    if p not in self.buttons_io:
-                        pin_name = f"GP{p}"
-                        pin_obj = getattr(board, pin_name, None)
-                        if pin_obj:
-                            try:
-                                dio = digitalio.DigitalInOut(pin_obj)
-                                dio.direction = digitalio.Direction.INPUT
-                                dio.pull = digitalio.Pull.UP
-                                self.buttons_io[p] = dio
-                            except Exception as ex:
-                                print(f"[WARN] ボタン {pin_name} 動的初期化失敗: {ex}")
-
-        # 2. アナログスティックADCピン定義の動的反映
-        new_adc_x = cfg.get("pins", {}).get("adc_x", 27)
-        new_adc_y = cfg.get("pins", {}).get("adc_y", 26)
-        if IS_CIRCUITPYTHON and hasattr(self, "adc_x_num") and (new_adc_x != self.adc_x_num or new_adc_y != self.adc_y_num):
-            self.adc_x_num = new_adc_x
-            self.adc_y_num = new_adc_y
-            px = getattr(board, f"GP{new_adc_x}", None)
-            py = getattr(board, f"GP{new_adc_y}", None)
-            if px and py:
-                try:
-                    if self.adc_x_io:
-                        self.adc_x_io.deinit()
-                    if self.adc_y_io:
-                        self.adc_y_io.deinit()
-                    self.adc_x_io = analogio.AnalogIn(px)
-                    self.adc_y_io = analogio.AnalogIn(py)
-                    self.auto_calibrate(num_samples=20, delay=0.002)
-                except Exception as ex:
-                    print(f"[WARN] ADC動的再初期化失敗: {ex}")
-
-        # 3. プロファイル / スティックエンジン反映
+        # プロファイル / スティックエンジン反映
         if "profiles" in cfg and isinstance(cfg["profiles"], list) and len(cfg["profiles"]) > 0:
             act_idx = cfg.get("active_profile", 0)
             if not isinstance(act_idx, int) or act_idx < 0 or act_idx >= len(cfg["profiles"]):
@@ -293,8 +257,6 @@ class LeftyController:
                     print(f"[WARN] ボタン {pin_name} 初期化失敗: {ex}")
 
         # 3. アナログスティックADC初期化 (GP27: X, GP26: Y)
-        self.adc_x_num = self.config.get("pins", {}).get("adc_x", 27)
-        self.adc_y_num = self.config.get("pins", {}).get("adc_y", 26)
         px = getattr(board, f"GP{self.adc_x_num}", None)
         py = getattr(board, f"GP{self.adc_y_num}", None)
         if px and py:

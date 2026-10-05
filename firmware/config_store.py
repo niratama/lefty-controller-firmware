@@ -68,70 +68,26 @@ def load_from_nvm():
         print(f"[WARN] NVM読出エラー: {e}")
         return None
 
-DEFAULT_HARDWARE_PINS = {
-    "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12],
-    "adc_x": 27,
-    "adc_y": 26
-}
-
-def migrate_config(cfg):
+def sanitize_config(cfg):
     """
-    旧ハードウェア配線から新配線への自動マイグレーション。
-    - 旧側面ボタン配線: GP9=上, GP10=中, GP11=下 (buttons: [0..12])
-      -> 新側面ボタン配線: GP11=上, GP9=中, GP10=下 (buttons: [0..8, 11, 9, 10, 12])
-    - 旧スティックADC配線: GP26=X, GP27=Y
-      -> 新スティックADC配線: GP27=X, GP26=Y
-    ユーザーのプロファイル・キー設定を維持したまま、ピン配線情報のみを補正します。
+    設定データからハードウェア配線情報 (pins) を完全分離・除去。
+    プロファイルには純粋な論理キーマップおよびスティック設定のみを保持します。
     """
     if not isinstance(cfg, dict):
         return cfg, False
 
-    migrated = False
+    had_pins = "pins" in cfg
+    if had_pins:
+        cfg.pop("pins", None)
 
-    pins = cfg.get("pins")
-    if not isinstance(pins, dict):
-        cfg["pins"] = {
-            "buttons": list(DEFAULT_HARDWARE_PINS["buttons"]),
-            "adc_x": DEFAULT_HARDWARE_PINS["adc_x"],
-            "adc_y": DEFAULT_HARDWARE_PINS["adc_y"]
-        }
-        migrated = True
-    else:
-        btns = pins.get("buttons")
-        if isinstance(btns, list):
-            # 旧配線 [0, 1, ..., 8, 9, 10, 11, 12] の検知 (GP9=上, GP10=中, GP11=下)
-            if len(btns) == 13 and btns[9] == 9 and btns[10] == 10 and btns[11] == 11:
-                btns[9] = 11  # 側面上 -> GP11
-                btns[10] = 9  # 側面中 -> GP9
-                btns[11] = 10 # 側面下 -> GP10
-                migrated = True
-                print("[MIGRATION] 側面ボタン配線を新仕様(GP11=上, GP9=中, GP10=下)へ自動移行しました")
-            elif len(btns) != 13:
-                pins["buttons"] = list(DEFAULT_HARDWARE_PINS["buttons"])
-                migrated = True
-        else:
-            pins["buttons"] = list(DEFAULT_HARDWARE_PINS["buttons"])
-            migrated = True
-
-        # 旧ADC配線の検知 (GP26=X, GP27=Y)
-        if pins.get("adc_x") == 26 and pins.get("adc_y") == 27:
-            pins["adc_x"] = 27
-            pins["adc_y"] = 26
-            migrated = True
-            print("[MIGRATION] スティックADC配線を新仕様(GP27=X, GP26=Y)へ自動移行しました")
-        elif "adc_x" not in pins or "adc_y" not in pins:
-            pins["adc_x"] = DEFAULT_HARDWARE_PINS["adc_x"]
-            pins["adc_y"] = DEFAULT_HARDWARE_PINS["adc_y"]
-            migrated = True
-
-    return cfg, migrated
+    return cfg, had_pins
 
 def load_config(config_path="config.json", default_config=None):
     """
     設定を読み込む。
     1. config.json から基本設定を読み込み
     2. NVM (内蔵Flash) に新しい保存データがあればそれを優先適用
-    3. 旧配線設定が含まれる場合は最新の配線仕様へ自動マイグレーション
+    3. ピン定義等のハードウェア情報はプロファイルから分離・除外
     """
     cfg = None
 
@@ -148,9 +104,9 @@ def load_config(config_path="config.json", default_config=None):
         cfg = nvm_cfg
 
     if cfg:
-        cfg, migrated = migrate_config(cfg)
-        if migrated:
-            # マイグレーションされた設定をNVMに書き戻し (次回以降も新配線で起動)
+        cfg, had_pins = sanitize_config(cfg)
+        if had_pins:
+            # 旧バージョンの pins が含まれていた場合は除去した設定をNVMに書き戻しクリーン化
             save_to_nvm(cfg)
 
     return cfg
@@ -163,7 +119,7 @@ def save_config(config_dict, config_path="config.json"):
     戻り値: (saved_to_file, saved_to_nvm, warning_msg)
     """
     if isinstance(config_dict, dict):
-        config_dict, _ = migrate_config(config_dict)
+        config_dict, _ = sanitize_config(config_dict)
 
     saved_to_nvm = save_to_nvm(config_dict)
     saved_to_file = False
