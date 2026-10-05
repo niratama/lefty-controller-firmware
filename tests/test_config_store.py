@@ -52,5 +52,51 @@ class TestConfigStore(unittest.TestCase):
         self.assertTrue(saved_nvm)  # NVMには保存成功
         self.assertIn("NVM", warn)
 
+    def test_migrate_config_old_pins(self):
+        # 旧配線のピン設定を持つ設定データ
+        old_cfg = {
+            "profiles": [
+                {
+                    "name": "Custom Profile",
+                    "keymap": {"buttons": ["Space", "z", "LCtrl"]}
+                }
+            ],
+            "pins": {
+                "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                "adc_x": 26,
+                "adc_y": 27
+            }
+        }
+        migrated_cfg, migrated = config_store.migrate_config(old_cfg)
+        self.assertTrue(migrated)
+        self.assertEqual(migrated_cfg["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
+        self.assertEqual(migrated_cfg["pins"]["adc_x"], 27)
+        self.assertEqual(migrated_cfg["pins"]["adc_y"], 26)
+        # ユーザーの既存キー設定が維持されていること
+        self.assertEqual(migrated_cfg["profiles"][0]["keymap"]["buttons"], ["Space", "z", "LCtrl"])
+
+    def test_load_config_auto_migrates_nvm(self):
+        # NVMに旧設定が保存されている状態
+        old_cfg = {
+            "profiles": [{"name": "P1"}],
+            "pins": {
+                "buttons": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                "adc_x": 26,
+                "adc_y": 27
+            }
+        }
+        config_store.save_to_nvm(old_cfg)
+
+        # load_config 実行
+        loaded = config_store.load_config(config_path="/nonexistent_file.json")
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
+        self.assertEqual(loaded["pins"]["adc_x"], 27)
+        self.assertEqual(loaded["pins"]["adc_y"], 26)
+
+        # NVMにマイグレーション結果が書き戻されていること
+        nvm_reloaded = config_store.load_from_nvm()
+        self.assertEqual(nvm_reloaded["pins"]["buttons"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 9, 10, 12])
+
 if __name__ == '__main__':
     unittest.main()

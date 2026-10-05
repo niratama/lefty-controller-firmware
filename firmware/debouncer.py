@@ -45,8 +45,16 @@ class DebouncedPin:
 class ButtonManager:
     """13個のボタンを一括管理するマネージャ"""
     def __init__(self, pin_ids, debounce_ms=10):
+        self.debounce_ms = debounce_ms
         self.pin_ids = pin_ids
         self.buttons = {pid: DebouncedPin(pid, debounce_ms) for pid in pin_ids}
+
+    def set_pins(self, pin_ids):
+        """管理ピン一覧を更新（新規ピンは追加登録）"""
+        self.pin_ids = pin_ids
+        for pid in pin_ids:
+            if pid not in self.buttons:
+                self.buttons[pid] = DebouncedPin(pid, self.debounce_ms)
 
     def update(self, pin_values_dict, current_time_ms=None):
         """

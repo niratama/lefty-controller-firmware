@@ -437,11 +437,52 @@ btnClearLog.addEventListener("click", () => {
   logArea.textContent = "";
 });
 
-// プロファイル構造の保証 (後方互換性)
+// ハードウェア配線のマイグレーション（旧ピン定義を最新配線仕様に自動補正）
+function migrateConfig(cfg) {
+  if (!cfg || typeof cfg !== "object") return cfg;
+  let migrated = false;
+
+  if (!cfg.pins || typeof cfg.pins !== "object") {
+    cfg.pins = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins));
+    migrated = true;
+  } else {
+    if (!Array.isArray(cfg.pins.buttons) || cfg.pins.buttons.length !== 13) {
+      cfg.pins.buttons = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins.buttons));
+      migrated = true;
+    } else {
+      // 旧側面ボタン配線 (GP9=上, GP10=中, GP11=下) の検出と自動補正
+      if (cfg.pins.buttons[9] === 9 && cfg.pins.buttons[10] === 10 && cfg.pins.buttons[11] === 11) {
+        cfg.pins.buttons[9] = 11;  // SW10 (側面上) -> GP11
+        cfg.pins.buttons[10] = 9;  // SW11 (側面中) -> GP9
+        cfg.pins.buttons[11] = 10; // SW12 (側面下) -> GP10
+        migrated = true;
+      }
+    }
+
+    // スティックADCピンの旧配線 (GP26=X, GP27=Y) 検出と自動補正
+    if (cfg.pins.adc_x === 26 && cfg.pins.adc_y === 27) {
+      cfg.pins.adc_x = 27;
+      cfg.pins.adc_y = 26;
+      migrated = true;
+    } else if (cfg.pins.adc_x === undefined || cfg.pins.adc_y === undefined) {
+      cfg.pins.adc_x = DEFAULT_CONFIG.pins.adc_x;
+      cfg.pins.adc_y = DEFAULT_CONFIG.pins.adc_y;
+      migrated = true;
+    }
+  }
+
+  if (migrated) {
+    log("ハードウェアピン設定を最新配線仕様（GP11=側面上, GP9=側面中, GP10=側面下, ADC_X=27, ADC_Y=26）に自動更新しました", "info");
+  }
+  return cfg;
+}
+
+// プロファイル構造の保証 (後方互換性 & マイグレーション)
 function ensureProfiles(cfg) {
   if (!cfg || typeof cfg !== "object") {
     cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   }
+  cfg = migrateConfig(cfg);
   if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
     cfg.profiles = [
       {
@@ -640,10 +681,11 @@ function loadFromLocalStorage() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
-        if (!parsed.pins) {
-          parsed.pins = JSON.parse(JSON.stringify(DEFAULT_CONFIG.pins));
+        const ensured = ensureProfiles(parsed);
+        if (JSON.stringify(ensured) !== raw) {
+          saveToLocalStorage(ensured, "最新配線同期");
         }
-        return ensureProfiles(parsed);
+        return ensured;
       }
     }
   } catch (e) {
