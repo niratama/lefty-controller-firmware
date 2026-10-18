@@ -4,7 +4,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'firmware')))
 
-from key_mapper import parse_key, parse_keys, parse_action, parse_actions, Keycode
+from key_mapper import parse_key, parse_keys, parse_action, parse_actions, parse_button_def, parse_combos, Keycode
 
 class TestKeyMapper(unittest.TestCase):
     def test_parse_single_keys(self):
@@ -63,6 +63,48 @@ class TestKeyMapper(unittest.TestCase):
 
         res = parse_actions(["profile_next", "profile_switch:custom_id"])
         self.assertEqual(res["profile_actions"], ["next", "switch:custom_id"])
+
+    def test_parse_layer_actions(self):
+        self.assertEqual(parse_action("fn"), ("layer_action", "fn"))
+        self.assertEqual(parse_action("layer:fn"), ("layer_action", "fn"))
+        self.assertEqual(parse_action("layer_hold:fn"), ("layer_action", "fn"))
+        res = parse_actions("fn")
+        self.assertEqual(res["layer_actions"], ["fn"])
+
+    def test_parse_button_def(self):
+        # 1. 通常
+        b1 = parse_button_def("Space")
+        self.assertFalse(b1["is_tap_hold"])
+        self.assertEqual(b1["actions"]["keyboard"], [Keycode.SPACE])
+
+        # 2. Tap-Hold 文字列
+        b2 = parse_button_def("tap:E|hold:F|ms:350")
+        self.assertTrue(b2["is_tap_hold"])
+        self.assertEqual(b2["hold_ms"], 350)
+        self.assertEqual(b2["tap_actions"]["keyboard"], [Keycode.E])
+        self.assertEqual(b2["hold_actions"]["keyboard"], [Keycode.F])
+
+        # 3. Tap-Hold 辞書
+        b3 = parse_button_def({"tap": "LAlt", "hold": "profile_next", "hold_ms": 500})
+        self.assertTrue(b3["is_tap_hold"])
+        self.assertEqual(b3["hold_ms"], 500)
+        self.assertEqual(b3["tap_actions"]["keyboard"], [Keycode.LEFT_ALT])
+        self.assertEqual(b3["hold_actions"]["profile_actions"], ["next"])
+
+    def test_parse_combos(self):
+        combos = [
+            {"buttons": [9, 11], "action": "profile_next", "hold_ms": 600},
+            {"buttons": [1, 0], "action": "Escape", "hold_ms": 0}
+        ]
+        parsed = parse_combos(combos)
+        self.assertEqual(len(parsed), 2)
+        self.assertEqual(parsed[0]["buttons"], [9, 11])
+        self.assertEqual(parsed[0]["hold_ms"], 600)
+        self.assertEqual(parsed[0]["actions"]["profile_actions"], ["next"])
+
+        self.assertEqual(parsed[1]["buttons"], [0, 1])
+        self.assertEqual(parsed[1]["hold_ms"], 0)
+        self.assertEqual(parsed[1]["actions"]["keyboard"], [Keycode.ESCAPE])
 
 if __name__ == '__main__':
     unittest.main()

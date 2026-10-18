@@ -12,7 +12,7 @@ import sys
 # 自作モジュール
 from stick_engine import StickEngine
 from debouncer import ButtonManager
-from key_mapper import parse_keys, parse_key, parse_actions
+from key_mapper import parse_keys, parse_key, parse_actions, parse_button_def, parse_combos
 from serial_handler import SerialHandler
 from led_indicator import LedIndicator
 import config_store
@@ -49,6 +49,9 @@ DEFAULT_CONFIG = {
                 "buttons": [
                     "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
                     "Space", "z", "LCtrl", "LAlt"
+                ],
+                "combos": [
+                    {"buttons": [9, 11], "action": "profile_next", "hold_ms": 600}
                 ]
             },
             "joystick": {
@@ -171,6 +174,11 @@ class LeftyController:
         self.adc_x_num = HARDWARE_ADC_X
         self.adc_y_num = HARDWARE_ADC_Y
         self.button_keymap = []
+        self.button_defs = []
+        self.fn_button_defs = []
+        self.combos = []
+        self.tap_hold_states = {}
+        self.combo_states = {}
 
         # モジュール初期化
         self.stick_engine = StickEngine()
@@ -210,15 +218,34 @@ class LeftyController:
             if not isinstance(act_idx, int) or act_idx < 0 or act_idx >= len(cfg["profiles"]):
                 act_idx = 0
             cur_prof = cfg["profiles"][act_idx]
-            self.button_keymap = cur_prof.get("keymap", {}).get("buttons", [])
+            raw_buttons = cur_prof.get("keymap", {}).get("buttons", [])
+            raw_fn = cur_prof.get("keymap", {}).get("fn_buttons", [])
+            raw_combos = cur_prof.get("keymap", {}).get("combos", [])
+
+            self.button_keymap = raw_buttons
+            self.button_defs = [parse_button_def(b) for b in raw_buttons]
+            self.fn_button_defs = [parse_button_def(b) for b in raw_fn]
+            self.combos = parse_combos(raw_combos)
+
             self.stick_engine.load_config(cur_prof.get("joystick", {}))
             if hasattr(self, "led") and self.led:
                 self.led.set_profile(act_idx, cur_prof.get("color"), flash=True)
         else:
-            self.button_keymap = cfg.get("keymap", {}).get("buttons", [])
+            raw_buttons = cfg.get("keymap", {}).get("buttons", [])
+            raw_fn = cfg.get("keymap", {}).get("fn_buttons", [])
+            raw_combos = cfg.get("keymap", {}).get("combos", [])
+
+            self.button_keymap = raw_buttons
+            self.button_defs = [parse_button_def(b) for b in raw_buttons]
+            self.fn_button_defs = [parse_button_def(b) for b in raw_fn]
+            self.combos = parse_combos(raw_combos)
+
             self.stick_engine.load_config(cfg.get("joystick", {}))
             if hasattr(self, "led") and self.led:
                 self.led.set_profile(0, flash=True)
+
+        self.tap_hold_states.clear()
+        self.combo_states.clear()
 
         # プロファイル切替時の残存キー・ボタンを安全に全解放
         if self.keyboard:
@@ -461,26 +488,137 @@ class LeftyController:
                     if 1 <= b_num <= 16:
                         desired_gamepad_buttons |= (1 << (b_num - 1))
 
-        # ボタン入力のパース
-        for idx, pin in enumerate(self.button_pins_def):
-            if idx >= len(self.button_keymap):
+        # 5. 高度入力エンジン (Combo / Fnレイヤー / Tap-Hold / 通常入力)
+        masked_pins = set()
+
+        # 5.1 Combo (同時押し) の判定
+        for c_idx, combo in enumerate(self.combos):
+            combo_pins = [self.button_pins_def[b] for b in combo["buttons"] if b < len(self.button_pins_def)]
+            if len(combo_pins) < 2:
                 continue
-            key_def = self.button_keymap[idx]
-            actions = parse_actions(key_def)
 
-            # プロファイル切替アクションは押された瞬間 (just_pressed) のみ1度だけ実行
-            if pin in just_pressed:
-                for pact in actions.get("profile_actions", []):
-                    self.handle_profile_action(pact)
+            all_pressed = all(p in pressed_pins for p in combo_pins)
+            state = self.combo_states.get(c_idx, {"start": None, "triggered": False})
 
-            if pin in pressed_pins:
-                for c in actions["keyboard"]:
-                    desired_keycodes.add(c)
-                desired_mouse_buttons |= actions["mouse_buttons"]
-                desired_mouse_wheel += actions["mouse_wheel"]
-                for b_num in actions["gamepad_buttons"]:
-                    if 1 <= b_num <= 16:
-                        desired_gamepad_buttons |= (1 << (b_num - 1))
+            if all_pressed:
+                if state["start"] is None:
+                    state["start"] = now
+                    state["triggered"] = False
+
+                duration_ms = (now - state["start"]) * 1000.0
+                if duration_ms >= combo["hold_ms"]:
+                    if not state["triggered"]:
+                        state["triggered"] = True
+                        for pact in combo["actions"].get("profile_actions", []):
+                            self.handle_profile_action(pact)
+
+                    for c in combo["actions"]["keyboard"]:
+                        desired_keycodes.add(c)
+                    desired_mouse_buttons |= combo["actions"]["mouse_buttons"]
+                    desired_mouse_wheel += combo["actions"]["mouse_wheel"]
+                    for b_num in combo["actions"]["gamepad_buttons"]:
+                        if 1 <= b_num <= 16:
+                            desired_gamepad_buttons |= (1 << (b_num - 1))
+
+                # コンボ構成ピンの通常入力をマスク (誤爆防止)
+                for p in combo_pins:
+                    masked_pins.add(p)
+
+                self.combo_states[c_idx] = state
+            else:
+                if c_idx in self.combo_states:
+                    del self.combo_states[c_idx]
+
+        # 5.2 Fn レイヤー (Layer) の判定
+        is_fn_active = False
+        for idx, pin in enumerate(self.button_pins_def):
+            if pin in pressed_pins and pin not in masked_pins and idx < len(self.button_defs):
+                b_def = self.button_defs[idx]
+                layers = b_def["actions"].get("layer_actions", [])
+                if "fn" in layers:
+                    is_fn_active = True
+                    masked_pins.add(pin)
+
+        active_defs = self.fn_button_defs if (is_fn_active and self.fn_button_defs) else self.button_defs
+
+        # 5.3 各ボタンの Tap-Hold & 通常入力のパース
+        for idx, pin in enumerate(self.button_pins_def):
+            if pin in masked_pins or idx >= len(active_defs):
+                if pin in just_released and pin in self.tap_hold_states:
+                    del self.tap_hold_states[pin]
+                continue
+
+            b_def = active_defs[idx]
+
+            if not b_def["is_tap_hold"]:
+                # --- 通常入力 (レイテンシ 0ms) ---
+                if pin in just_pressed:
+                    for pact in b_def["actions"].get("profile_actions", []):
+                        self.handle_profile_action(pact)
+
+                if pin in pressed_pins:
+                    for c in b_def["actions"]["keyboard"]:
+                        desired_keycodes.add(c)
+                    desired_mouse_buttons |= b_def["actions"]["mouse_buttons"]
+                    desired_mouse_wheel += b_def["actions"]["mouse_wheel"]
+                    for b_num in b_def["actions"]["gamepad_buttons"]:
+                        if 1 <= b_num <= 16:
+                            desired_gamepad_buttons |= (1 << (b_num - 1))
+            else:
+                # --- Tap-Hold (短押し vs 長押し) ---
+                th_state = self.tap_hold_states.get(pin, {"start": None, "held": False})
+
+                if pin in just_pressed:
+                    th_state["start"] = now
+                    th_state["held"] = False
+                    self.tap_hold_states[pin] = th_state
+
+                if pin in pressed_pins and th_state["start"] is not None:
+                    duration_ms = (now - th_state["start"]) * 1000.0
+                    if duration_ms >= b_def["hold_ms"]:
+                        if not th_state["held"]:
+                            th_state["held"] = True
+                            for pact in b_def["hold_actions"].get("profile_actions", []):
+                                self.handle_profile_action(pact)
+
+                        for c in b_def["hold_actions"]["keyboard"]:
+                            desired_keycodes.add(c)
+                        desired_mouse_buttons |= b_def["hold_actions"]["mouse_buttons"]
+                        desired_mouse_wheel += b_def["hold_actions"]["mouse_wheel"]
+                        for b_num in b_def["hold_actions"]["gamepad_buttons"]:
+                            if 1 <= b_num <= 16:
+                                desired_gamepad_buttons |= (1 << (b_num - 1))
+
+                if pin in just_released:
+                    if th_state["start"] is not None and not th_state["held"]:
+                        # 短押し (Tap) 成立！
+                        for pact in b_def["tap_actions"].get("profile_actions", []):
+                            self.handle_profile_action(pact)
+
+                        tap_k = b_def["tap_actions"]["keyboard"]
+                        if tap_k and self.keyboard:
+                            try:
+                                self.keyboard.press(*tap_k)
+                                time.sleep(0.008)
+                                self.keyboard.release(*tap_k)
+                            except Exception:
+                                pass
+                        tap_m = b_def["tap_actions"]["mouse_buttons"]
+                        if tap_m and self.mouse:
+                            try:
+                                self.mouse.press(tap_m)
+                                time.sleep(0.008)
+                                self.mouse.release(tap_m)
+                            except Exception:
+                                pass
+                        if b_def["tap_actions"]["mouse_wheel"] and self.mouse:
+                            try:
+                                self.mouse.move(wheel=b_def["tap_actions"]["mouse_wheel"])
+                            except Exception:
+                                pass
+
+                    if pin in self.tap_hold_states:
+                        del self.tap_hold_states[pin]
 
         # 6. USB HID レポート送信
         # 6.1 キーボード送信

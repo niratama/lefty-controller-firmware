@@ -197,6 +197,14 @@ const SUPPORTED_KEY_CATALOG = [
       { id: "profile_prev", label: "前のプロファイル", desc: "デバイス内の前のプロファイルへ循環切替" },
       { id: "profile_default", label: "デフォルトへ復帰", desc: "初期プロファイル (#1) へ即座に切り替え" },
     ]
+  },
+  {
+    category: "layer",
+    name: "レイヤー (Fn)",
+    icon: "📑",
+    keys: [
+      { id: "layer:fn", label: "Fnキー (押下中レイヤー切替)", desc: "このボタンを押している間だけFn裏面レイヤーのキーマップが有効になります" },
+    ]
   }
 ];
 
@@ -213,7 +221,7 @@ SUPPORTED_KEY_CATALOG.forEach(cat => {
   "mouse_wheel_up", "mouse_wheel_down", "gamepad_l1", "gamepad_r1", "gamepad_l2", "gamepad_r2",
   "gamepad_back", "gamepad_ls", "gamepad_rs", "minus", "equals", "leftbracket", "rightbracket",
   "backslash", "semicolon", "quote", "grave", "comma", "period", "slash",
-  "profile_reset"
+  "profile_reset", "fn", "layer:fn", "layer_hold:fn"
 ].forEach(a => ALL_VALID_KEYS_SET.add(a));
 
 function isValidActionName(name) {
@@ -227,11 +235,32 @@ function isValidActionName(name) {
   if (/^profile_switch:[a-zA-Z0-9_\-]+$/.test(lower)) {
     return true;
   }
+  if (/^layer(_hold)?:[a-zA-Z0-9_\-]+$/.test(lower)) {
+    return true;
+  }
   return false;
 }
 
 function validateKeyString(str) {
   if (!str || !str.trim()) return { valid: true, empty: true };
+  const trimmed = str.trim();
+
+  // Tap-Hold 表記 (例: "tap:E|hold:F|ms:300")
+  if (trimmed.includes("tap:") || trimmed.includes("hold:")) {
+    const parts = trimmed.split("|").map(s => s.trim());
+    for (const part of parts) {
+      if (part.startsWith("tap:") || part.startsWith("hold:")) {
+        const act = part.slice(part.indexOf(":") + 1).trim();
+        const subRes = validateKeyString(act);
+        if (!subRes.valid) return subRes;
+      } else if (part.startsWith("ms:")) {
+        const ms = parseInt(part.slice(3).trim(), 10);
+        if (isNaN(ms) || ms < 50 || ms > 2000) return { valid: false, invalidPart: part };
+      }
+    }
+    return { valid: true, isTapHold: true };
+  }
+
   const parts = str.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return { valid: true, empty: true };
   for (const part of parts) {
@@ -280,7 +309,11 @@ const DEFAULT_CONFIG = {
       id: "prof_fps_default",
       name: "プロファイル 1 (FPS/汎用)",
       keymap: {
-        buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+        buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"],
+        fn_buttons: ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"],
+        combos: [
+          { buttons: [9, 11], action: "profile_next", hold_ms: 600 }
+        ]
       },
       joystick: {
         mode: "keyboard",
@@ -367,7 +400,11 @@ const DEFAULT_CONFIG = {
     }
   ],
   keymap: {
-    buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+    buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"],
+    fn_buttons: ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"],
+    combos: [
+      { buttons: [9, 11], action: "profile_next", hold_ms: 600 }
+    ]
   },
   joystick: {
     mode: "keyboard",
@@ -574,6 +611,10 @@ let currentTelemetry = {
   btns: []
 };
 
+// 拡張入力編集ステート (通常/Fnレイヤー & Tap-Hold)
+let currentEditingLayer = "base"; // "base" | "fn"
+let currentTapHoldTarget = { input: null, buttonIndex: null };
+
 // DOM要素取得
 const connStatus = document.getElementById("connStatus");
 const fwVersionBadge = document.getElementById("fwVersionBadge");
@@ -711,7 +752,7 @@ function getConfigJsonByteLength(cfg) {
 
 let latestNvmStatus = null;
 
-// プロファイル間の依存関係 (profile_switch:<id>) をアクティブプロファイルから再帰追跡
+// プロファイル間の依存関係 (profile_switch:<id>) をアクティブプロファイルから再帰追跡 (Combo / Fn / Tap-Hold対応)
 function getDependentProfileIds(activeProfile, allProfiles) {
   const dependentIds = new Set();
   if (!activeProfile || !Array.isArray(allProfiles)) return dependentIds;
@@ -720,17 +761,15 @@ function getDependentProfileIds(activeProfile, allProfiles) {
   const visited = new Set();
   if (activeProfile.id) visited.add(activeProfile.id);
 
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    const buttons = cur.keymap?.buttons || [];
-    for (const b of buttons) {
-      if (!b || typeof b !== "string") continue;
-      const parts = b.split(",").map(s => s.trim());
-      for (const part of parts) {
-        const lower = part.toLowerCase();
-        if (lower.startsWith("profile_switch:")) {
-          const target = part.split(":")[1].trim();
-          // target は id または name
+  function scanActionString(str) {
+    if (!str || typeof str !== "string") return;
+    const parts = str.replace(/[|;,]/g, " ").split(/\s+/).filter(Boolean);
+    for (let part of parts) {
+      if (part.toLowerCase().startsWith("tap:")) part = part.slice(4);
+      if (part.toLowerCase().startsWith("hold:")) part = part.slice(5);
+      if (part.toLowerCase().startsWith("profile_switch:")) {
+        const target = part.split(":")[1]?.trim();
+        if (target) {
           const found = allProfiles.find(p => (p.id && p.id.toLowerCase() === target.toLowerCase()) || (p.name && p.name.toLowerCase() === target.toLowerCase()));
           if (found && found.id && !visited.has(found.id)) {
             visited.add(found.id);
@@ -739,6 +778,37 @@ function getDependentProfileIds(activeProfile, allProfiles) {
           }
         }
       }
+    }
+  }
+
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    const km = cur.keymap || {};
+
+    // 1. 通常ボタン
+    const buttons = km.buttons || [];
+    for (const b of buttons) {
+      if (typeof b === "string") scanActionString(b);
+      else if (b && typeof b === "object") {
+        scanActionString(b.tap);
+        scanActionString(b.hold);
+      }
+    }
+
+    // 2. Fn レイヤーボタン
+    const fnButtons = km.fn_buttons || [];
+    for (const b of fnButtons) {
+      if (typeof b === "string") scanActionString(b);
+      else if (b && typeof b === "object") {
+        scanActionString(b.tap);
+        scanActionString(b.hold);
+      }
+    }
+
+    // 3. コンボ設定
+    const combos = km.combos || [];
+    for (const c of combos) {
+      if (c && c.action) scanActionString(c.action);
     }
   }
 
@@ -992,6 +1062,25 @@ function ensureProfiles(cfg) {
     // device_sync 未定義の場合は true (アクティブまたは先頭数個をデフォルト同期)
     if (p.device_sync === undefined) {
       p.device_sync = true;
+    }
+
+    if (!p.keymap || typeof p.keymap !== "object") {
+      p.keymap = {};
+    }
+    if (!Array.isArray(p.keymap.buttons)) {
+      p.keymap.buttons = ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"];
+    }
+    while (p.keymap.buttons.length < 13) {
+      p.keymap.buttons.push("");
+    }
+    if (!Array.isArray(p.keymap.fn_buttons)) {
+      p.keymap.fn_buttons = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"];
+    }
+    while (p.keymap.fn_buttons.length < 13) {
+      p.keymap.fn_buttons.push("");
+    }
+    if (!Array.isArray(p.keymap.combos)) {
+      p.keymap.combos = [];
     }
 
     if (p.joystick) {
@@ -1757,12 +1846,21 @@ function importSingleProfile(file) {
           : generateProfileId(),
         name: targetProfile.name || `インポート: ${file.name.replace(/\.[^/.]+$/, "")}`,
         keymap: {
-          buttons: targetProfile.keymap.buttons.slice(0, 13)
+          buttons: targetProfile.keymap.buttons.slice(0, 13),
+          fn_buttons: (targetProfile.keymap && Array.isArray(targetProfile.keymap.fn_buttons))
+            ? targetProfile.keymap.fn_buttons.slice(0, 13)
+            : ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"],
+          combos: (targetProfile.keymap && Array.isArray(targetProfile.keymap.combos))
+            ? JSON.parse(JSON.stringify(targetProfile.keymap.combos))
+            : []
         },
         joystick: JSON.parse(JSON.stringify(targetProfile.joystick || DEFAULT_CONFIG.joystick))
       };
       while (newProfile.keymap.buttons.length < 13) {
         newProfile.keymap.buttons.push("");
+      }
+      while (newProfile.keymap.fn_buttons.length < 13) {
+        newProfile.keymap.fn_buttons.push("");
       }
 
       syncCurrentToProfile();
@@ -2044,9 +2142,20 @@ function applySharedProfile() {
       ? profile.id
       : generateProfileId(),
     name: profile.name || "共有プロファイル",
-    keymap: { buttons },
+    keymap: {
+      buttons,
+      fn_buttons: (profile.keymap && Array.isArray(profile.keymap.fn_buttons))
+        ? profile.keymap.fn_buttons.slice(0, 13)
+        : ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"],
+      combos: (profile.keymap && Array.isArray(profile.keymap.combos))
+        ? JSON.parse(JSON.stringify(profile.keymap.combos))
+        : []
+    },
     joystick: JSON.parse(JSON.stringify(profile.joystick || DEFAULT_CONFIG.joystick))
   };
+  while (newProfile.keymap.fn_buttons.length < 13) {
+    newProfile.keymap.fn_buttons.push("");
+  }
 
   syncCurrentToProfile();
   currentConfig.profiles.push(newProfile);
@@ -2658,6 +2767,7 @@ function initUI() {
     });
   }
   initNvmEvents();
+  initAdvancedInputEvents();
   renderProfileSelect();
   renderHwButtonGrid();
   renderButtonGrid();
@@ -2690,6 +2800,13 @@ function renderButtonGrid() {
   if (!container) return;
   container.innerHTML = "";
 
+  if (!currentConfig.keymap) currentConfig.keymap = {};
+  if (!Array.isArray(currentConfig.keymap.buttons)) currentConfig.keymap.buttons = Array(13).fill("");
+  if (!Array.isArray(currentConfig.keymap.fn_buttons)) currentConfig.keymap.fn_buttons = Array(13).fill("");
+
+  const isFn = (currentEditingLayer === "fn");
+  const buttonsArray = isFn ? currentConfig.keymap.fn_buttons : currentConfig.keymap.buttons;
+
   for (let i = 0; i < 13; i++) {
     const card = document.createElement("div");
     card.className = "btn-card";
@@ -2712,6 +2829,22 @@ function renderButtonGrid() {
     titleGroup.appendChild(label);
     titleGroup.appendChild(pinInfo);
 
+    const keyVal = buttonsArray[i];
+
+    if (typeof keyVal === "string" && keyVal.startsWith("tap:")) {
+      const thBadge = document.createElement("span");
+      thBadge.className = "btn-card-extra-badge badge-taphold-card";
+      thBadge.textContent = "⏱️ 短/長";
+      thBadge.title = keyVal;
+      titleGroup.appendChild(thBadge);
+    } else if (keyVal === "layer:fn" || keyVal === "fn") {
+      const fnBadge = document.createElement("span");
+      fnBadge.className = "btn-card-extra-badge badge-fn-card";
+      fnBadge.textContent = "⚡ Fn";
+      fnBadge.title = "Fnレイヤー切り替えキー";
+      titleGroup.appendChild(fnBadge);
+    }
+
     const toolsGroup = document.createElement("div");
     toolsGroup.className = "btn-card-tools";
 
@@ -2727,8 +2860,15 @@ function renderButtonGrid() {
     btnCapture.textContent = "⌨️ 検出";
     btnCapture.title = "PCキーボードのキーを押して自動入力";
 
+    const btnTapHold = document.createElement("button");
+    btnTapHold.type = "button";
+    btnTapHold.className = "btn-tool-sm";
+    btnTapHold.textContent = "⏱️ 長押し";
+    btnTapHold.title = "短押し / 長押しの個別割当";
+
     toolsGroup.appendChild(btnPick);
     toolsGroup.appendChild(btnCapture);
+    toolsGroup.appendChild(btnTapHold);
 
     header.appendChild(titleGroup);
     header.appendChild(toolsGroup);
@@ -2741,9 +2881,8 @@ function renderButtonGrid() {
     input.className = "btn-input";
     input.id = `btnInput_${i}`;
     input.setAttribute("list", "allKeysList");
-    const keyVal = currentConfig.keymap.buttons[i];
     input.value = Array.isArray(keyVal) ? keyVal.join(', ') : (keyVal || "");
-    input.placeholder = "例: 1, Space, LCtrl, c";
+    input.placeholder = isFn ? "例: F1, profile_next, Escape" : "例: 1, Space, LCtrl, c";
 
     const badge = document.createElement("span");
     badge.className = "key-valid-badge";
@@ -2760,19 +2899,27 @@ function renderButtonGrid() {
     input.addEventListener("change", (e) => {
       const parts = e.target.value.split(',').map(s => s.trim()).filter(s => s);
       const finalVal = parts.length > 1 ? parts : (parts[0] || "");
-      currentConfig.keymap.buttons[i] = finalVal;
+      buttonsArray[i] = finalVal;
       syncCurrentToProfile();
+      updateProfilesSyncSummary();
       updateValidationBadge(input, badge);
+      renderButtonGrid();
     });
 
     btnPick.addEventListener("click", () => {
       lastFocusedInput = input;
-      openKeyPicker(input, `${PIN_NAMES[i]} のキー設定`);
+      const layerTitle = isFn ? "Fnレイヤー" : "通常";
+      openKeyPicker(input, `${PIN_NAMES[i]} (${layerTitle}) のキー設定`);
     });
 
     btnCapture.addEventListener("click", () => {
       lastFocusedInput = input;
       startKeyCapture(input, btnCapture);
+    });
+
+    btnTapHold.addEventListener("click", () => {
+      lastFocusedInput = input;
+      openTapHoldModal(i, input);
     });
 
     updateValidationBadge(input, badge);
@@ -2784,6 +2931,351 @@ function renderButtonGrid() {
     card.appendChild(wrapper);
     container.appendChild(card);
   }
+
+  renderCombosList();
+}
+
+// ==========================================
+// 短押し / 長押し (Tap-Hold) モーダル
+// ==========================================
+function openTapHoldModal(buttonIndex, inputEl) {
+  currentTapHoldTarget = { input: inputEl, buttonIndex };
+  const modal = document.getElementById("tapHoldModal");
+  if (!modal) return;
+
+  const isFn = (currentEditingLayer === "fn");
+  const buttonsArray = isFn ? currentConfig.keymap.fn_buttons : currentConfig.keymap.buttons;
+  const currentVal = buttonsArray[buttonIndex] || "";
+
+  const titleEl = document.getElementById("tapHoldModalTitle");
+  if (titleEl) {
+    const layerName = isFn ? "Fnレイヤー" : "通常レイヤー";
+    titleEl.textContent = `⏱️ ${PIN_NAMES[buttonIndex]} (${layerName}) 短押し / 長押し設定`;
+  }
+
+  const tapInput = document.getElementById("tapHoldInputTap");
+  const holdInput = document.getElementById("tapHoldInputHold");
+  const msInput = document.getElementById("tapHoldInputMs");
+  const previewEl = document.getElementById("tapHoldPreviewText");
+
+  let tapVal = "";
+  let holdVal = "";
+  let msVal = 300;
+
+  if (typeof currentVal === "string" && currentVal.startsWith("tap:")) {
+    const match = currentVal.match(/^tap:(.*?)\|hold:(.*?)\|ms:(\d+)$/);
+    if (match) {
+      tapVal = match[1];
+      holdVal = match[2];
+      msVal = parseInt(match[3], 10) || 300;
+    } else {
+      tapVal = currentVal;
+      holdVal = "profile_next";
+    }
+  } else if (Array.isArray(currentVal)) {
+    tapVal = currentVal.join(", ");
+    holdVal = "profile_next";
+  } else {
+    tapVal = currentVal || "";
+    holdVal = "profile_next";
+  }
+
+  if (tapInput) tapInput.value = tapVal;
+  if (holdInput) holdInput.value = holdVal;
+  if (msInput) msInput.value = msVal;
+
+  function updatePreview() {
+    const t = tapInput ? tapInput.value.trim() : "";
+    const h = holdInput ? holdInput.value.trim() : "";
+    const m = msInput ? parseInt(msInput.value, 10) || 300 : 300;
+    if (previewEl) {
+      previewEl.textContent = `tap:${t}|hold:${h}|ms:${m}`;
+    }
+  }
+
+  updatePreview();
+  if (tapInput) tapInput.oninput = updatePreview;
+  if (holdInput) holdInput.oninput = updatePreview;
+  if (msInput) msInput.oninput = updatePreview;
+
+  modal.style.display = "flex";
+}
+
+function initTapHoldModalEvents() {
+  const modal = document.getElementById("tapHoldModal");
+  const btnClose = document.getElementById("btnTapHoldClose");
+  const btnApply = document.getElementById("btnTapHoldApply");
+  const btnClear = document.getElementById("btnTapHoldClear");
+  const btnPickTap = document.getElementById("btnTapHoldPickTap");
+  const btnPickHold = document.getElementById("btnTapHoldPickHold");
+  const tapInput = document.getElementById("tapHoldInputTap");
+  const holdInput = document.getElementById("tapHoldInputHold");
+  const msInput = document.getElementById("tapHoldInputMs");
+
+  if (!modal) return;
+
+  function closeModal() {
+    modal.style.display = "none";
+  }
+
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  if (btnPickTap && tapInput) {
+    btnPickTap.addEventListener("click", () => {
+      openKeyPicker(tapInput, "短押し (Tap) のキー選択");
+    });
+  }
+
+  if (btnPickHold && holdInput) {
+    btnPickHold.addEventListener("click", () => {
+      openKeyPicker(holdInput, "長押し (Hold) のキー選択");
+    });
+  }
+
+  if (btnApply) {
+    btnApply.addEventListener("click", () => {
+      if (currentTapHoldTarget.buttonIndex === null) {
+        closeModal();
+        return;
+      }
+      const t = tapInput ? tapInput.value.trim() : "";
+      const h = holdInput ? holdInput.value.trim() : "";
+      const m = msInput ? parseInt(msInput.value, 10) || 300 : 300;
+
+      if (!t) {
+        showToast("⚠️ 短押し (Tap) のキーを入力してください");
+        return;
+      }
+      if (!h) {
+        showToast("⚠️ 長押し (Hold) のキーを入力してください");
+        return;
+      }
+
+      const formatted = `tap:${t}|hold:${h}|ms:${m}`;
+      const isFn = (currentEditingLayer === "fn");
+      const buttonsArray = isFn ? currentConfig.keymap.fn_buttons : currentConfig.keymap.buttons;
+      buttonsArray[currentTapHoldTarget.buttonIndex] = formatted;
+
+      syncCurrentToProfile();
+      updateProfilesSyncSummary();
+      closeModal();
+      renderButtonGrid();
+      showToast(`⏱️ ${PIN_NAMES[currentTapHoldTarget.buttonIndex]} に短押し/長押しを設定しました`);
+    });
+  }
+
+  if (btnClear) {
+    btnClear.addEventListener("click", () => {
+      if (currentTapHoldTarget.buttonIndex === null) {
+        closeModal();
+        return;
+      }
+      const t = tapInput ? tapInput.value.trim() : "";
+      const isFn = (currentEditingLayer === "fn");
+      const buttonsArray = isFn ? currentConfig.keymap.fn_buttons : currentConfig.keymap.buttons;
+      buttonsArray[currentTapHoldTarget.buttonIndex] = t;
+
+      syncCurrentToProfile();
+      updateProfilesSyncSummary();
+      closeModal();
+      renderButtonGrid();
+      showToast(`通常の単一キー「${t || 'なし'}」に戻しました`);
+    });
+  }
+}
+
+// ==========================================
+// 2ボタン同時押し (コンボ) リスト描画
+// ==========================================
+function renderCombosList() {
+  const container = document.getElementById("combosListContainer");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (!currentConfig.keymap) currentConfig.keymap = {};
+  if (!Array.isArray(currentConfig.keymap.combos)) {
+    currentConfig.keymap.combos = [];
+  }
+
+  const combos = currentConfig.keymap.combos;
+
+  if (combos.length === 0) {
+    const emptyDiv = document.createElement("div");
+    emptyDiv.className = "combos-empty-hint";
+    emptyDiv.textContent = "設定されたコンボはありません。「＋ コンボを追加」から側面ボタンの同時長押しによるプロファイル切り替え（例: 側面上 ＋ 側面下 600ms）などを登録できます。";
+    container.appendChild(emptyDiv);
+    return;
+  }
+
+  combos.forEach((combo, idx) => {
+    const row = document.createElement("div");
+    row.className = "combo-row";
+    row.dataset.index = idx;
+
+    // Button 1 & Button 2 dropdowns
+    const btnsWrapper = document.createElement("div");
+    btnsWrapper.className = "combo-btns-select";
+
+    const sel1 = document.createElement("select");
+    sel1.className = "combo-btn-select";
+    const sel2 = document.createElement("select");
+    sel2.className = "combo-btn-select";
+
+    for (let b = 0; b < 13; b++) {
+      const opt1 = document.createElement("option");
+      opt1.value = b;
+      opt1.textContent = `${PIN_NAMES[b]} (GP${HARDWARE_PINS.buttons[b]})`;
+      if (combo.buttons && combo.buttons[0] === b) opt1.selected = true;
+      sel1.appendChild(opt1);
+
+      const opt2 = document.createElement("option");
+      opt2.value = b;
+      opt2.textContent = `${PIN_NAMES[b]} (GP${HARDWARE_PINS.buttons[b]})`;
+      if (combo.buttons && combo.buttons[1] === b) opt2.selected = true;
+      sel2.appendChild(opt2);
+    }
+
+    const plus = document.createElement("span");
+    plus.className = "combo-plus";
+    plus.textContent = "＋";
+
+    btnsWrapper.appendChild(sel1);
+    btnsWrapper.appendChild(plus);
+    btnsWrapper.appendChild(sel2);
+
+    const arrow = document.createElement("span");
+    arrow.className = "combo-arrow";
+    arrow.textContent = "──►";
+
+    // Action input & pick button
+    const actionWrapper = document.createElement("div");
+    actionWrapper.className = "combo-action-wrapper";
+
+    const actInput = document.createElement("input");
+    actInput.type = "text";
+    actInput.className = "combo-action-input";
+    actInput.placeholder = "例: profile_next, Escape";
+    actInput.setAttribute("list", "allKeysList");
+    actInput.value = combo.action || "profile_next";
+
+    const btnPick = document.createElement("button");
+    btnPick.type = "button";
+    btnPick.className = "btn-tool-sm";
+    btnPick.textContent = "📋 選択";
+    btnPick.title = "アクションを選択";
+
+    btnPick.addEventListener("click", () => {
+      openKeyPicker(actInput, `コンボ ${idx + 1} の発動アクション選択`);
+    });
+
+    actionWrapper.appendChild(actInput);
+    actionWrapper.appendChild(btnPick);
+
+    // Hold MS input
+    const msWrapper = document.createElement("div");
+    msWrapper.className = "combo-ms-wrapper";
+
+    const msLabel = document.createElement("span");
+    msLabel.textContent = "長押し:";
+
+    const msInput = document.createElement("input");
+    msInput.type = "number";
+    msInput.className = "combo-ms-input";
+    msInput.min = "100";
+    msInput.max = "2000";
+    msInput.step = "50";
+    msInput.value = combo.hold_ms || 600;
+
+    const msUnit = document.createElement("span");
+    msUnit.className = "combo-ms-unit";
+    msUnit.textContent = "ms";
+
+    msWrapper.appendChild(msLabel);
+    msWrapper.appendChild(msInput);
+    msWrapper.appendChild(msUnit);
+
+    // Delete button
+    const btnDel = document.createElement("button");
+    btnDel.type = "button";
+    btnDel.className = "combo-btn-del";
+    btnDel.innerHTML = "🗑️ 削除";
+    btnDel.title = "このコンボを削除";
+
+    function saveCombo() {
+      combo.buttons = [parseInt(sel1.value, 10), parseInt(sel2.value, 10)];
+      combo.action = actInput.value.trim();
+      combo.hold_ms = parseInt(msInput.value, 10) || 600;
+      syncCurrentToProfile();
+      updateProfilesSyncSummary();
+    }
+
+    sel1.addEventListener("change", saveCombo);
+    sel2.addEventListener("change", saveCombo);
+    actInput.addEventListener("change", saveCombo);
+    msInput.addEventListener("change", saveCombo);
+
+    btnDel.addEventListener("click", () => {
+      combos.splice(idx, 1);
+      syncCurrentToProfile();
+      updateProfilesSyncSummary();
+      renderCombosList();
+      showToast("🗑️ コンボを削除しました");
+    });
+
+    row.appendChild(btnsWrapper);
+    row.appendChild(arrow);
+    row.appendChild(actionWrapper);
+    row.appendChild(msWrapper);
+    row.appendChild(btnDel);
+
+    container.appendChild(row);
+  });
+}
+
+function initAdvancedInputEvents() {
+  const btnLayerBase = document.getElementById("btnLayerBase");
+  const btnLayerFn = document.getElementById("btnLayerFn");
+
+  if (btnLayerBase && btnLayerFn) {
+    btnLayerBase.addEventListener("click", () => {
+      if (currentEditingLayer === "base") return;
+      currentEditingLayer = "base";
+      btnLayerBase.classList.add("active");
+      btnLayerFn.classList.remove("active");
+      renderButtonGrid();
+    });
+
+    btnLayerFn.addEventListener("click", () => {
+      if (currentEditingLayer === "fn") return;
+      currentEditingLayer = "fn";
+      btnLayerFn.classList.add("active");
+      btnLayerBase.classList.remove("active");
+      renderButtonGrid();
+    });
+  }
+
+  const btnAddCombo = document.getElementById("btnAddCombo");
+  if (btnAddCombo) {
+    btnAddCombo.addEventListener("click", () => {
+      if (!currentConfig.keymap) currentConfig.keymap = {};
+      if (!Array.isArray(currentConfig.keymap.combos)) currentConfig.keymap.combos = [];
+      currentConfig.keymap.combos.push({
+        buttons: [9, 11], // 側面上 + 側面下
+        action: "profile_next",
+        hold_ms: 600
+      });
+      syncCurrentToProfile();
+      updateProfilesSyncSummary();
+      renderCombosList();
+      showToast("➕ 新しいコンボを追加しました");
+    });
+  }
+
+  initTapHoldModalEvents();
 }
 
 function renderDirectionTable() {
@@ -2872,11 +3364,15 @@ function updateFormFromConfig() {
   rotationSelect.value = String((currentConfig.joystick && currentConfig.joystick.rotation !== undefined) ? currentConfig.joystick.rotation : 90);
 
   // ボタン
+  const isFn = (currentEditingLayer === "fn");
+  const buttonsArray = isFn
+    ? (currentConfig.keymap && currentConfig.keymap.fn_buttons || [])
+    : (currentConfig.keymap && currentConfig.keymap.buttons || []);
   for (let i = 0; i < 13; i++) {
     const input = document.getElementById(`btnInput_${i}`);
     const badge = document.getElementById(`keyValid_${i}`);
     if (input) {
-      const val = currentConfig.keymap.buttons[i];
+      const val = buttonsArray[i];
       input.value = Array.isArray(val) ? val.join(', ') : (val || "");
       if (badge) updateValidationBadge(input, badge);
     }

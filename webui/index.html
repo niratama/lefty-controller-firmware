@@ -175,6 +175,24 @@
               <p class="section-desc">前面9個、側面トリガー3個、スティック押し込みスイッチの割当キーを設定します。</p>
             </div>
 
+            <!-- レイヤー切り替え UI (通常レイヤー vs Fnレイヤー) -->
+            <div class="layer-switcher-bar">
+              <div class="layer-switcher-tabs" id="layerSwitcherTabs">
+                <button type="button" class="btn-layer-tab active" data-layer="base" id="btnLayerBase">
+                  <span class="layer-tab-dot dot-base"></span>
+                  <span class="layer-tab-label">通常レイヤー (Base)</span>
+                </button>
+                <button type="button" class="btn-layer-tab" data-layer="fn" id="btnLayerFn">
+                  <span class="layer-tab-dot dot-fn"></span>
+                  <span class="layer-tab-label">Fnレイヤー</span>
+                  <span class="layer-tab-badge">Fnキー押下中</span>
+                </button>
+              </div>
+              <div class="layer-hint" id="layerHintText">
+                💡 いずれかのボタンに <code>layer:fn</code> を割り当てると、そのボタンを押している間Fnレイヤーのキーマップに切り替わります。
+              </div>
+            </div>
+
             <!-- 折りたたみ式 対応キー一覧カタログ -->
             <div class="key-catalog-card">
               <div class="key-catalog-header">
@@ -195,6 +213,20 @@
             </div>
 
             <div class="button-grid" id="buttonGrid">
+              <!-- JSで動的生成 -->
+            </div>
+          </section>
+
+          <!-- コンボ (同時押し) 設定カード -->
+          <section class="card combos-section">
+            <div class="card-header combos-card-header">
+              <div class="combos-header-info">
+                <h2>🔀 2ボタン同時押し (コンボ / コード入力)</h2>
+                <p class="section-desc">2つのボタンを同時に一定時間長押しした際のアクションを設定します（誤爆防止の単体キーマスキング付き）。</p>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" id="btnAddCombo">＋ コンボを追加</button>
+            </div>
+            <div class="combos-list-container" id="combosListContainer">
               <!-- JSで動的生成 -->
             </div>
           </section>
@@ -593,6 +625,65 @@
           <div class="modal-footer-btns" style="width: 100%; justify-content: flex-end; gap: 10px;">
             <button type="button" class="btn btn-secondary" id="btnSharedProfileCancel">キャンセル</button>
             <button type="button" class="btn btn-primary" id="btnSharedProfileApply">＋ このプロファイルを一覧に追加する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 短押し / 長押し (Tap-Hold) 個別設定モーダル -->
+    <!-- ============================================== -->
+    <div id="tapHoldModal" class="modal-overlay" style="display: none;">
+      <div class="modal-box tap-hold-modal-box">
+        <div class="modal-header">
+          <div class="modal-header-info">
+            <h3 id="tapHoldModalTitle">⏱️ 短押し / 長押し (Tap-Hold) 設定</h3>
+            <span class="modal-subtitle">1つのボタンで「ちょん押し」と「長押し」のアクションを使い分けます</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="btnTapHoldClose">&times;</button>
+        </div>
+        <div class="tap-hold-modal-body">
+          <div class="tap-hold-group">
+            <div class="tap-hold-label-row">
+              <span class="tap-hold-badge badge-tap">短押し (Tap)</span>
+              <span class="tap-hold-desc">すばやく離したときに発動（例: E / リロード、1 / 武器切替）</span>
+            </div>
+            <div class="tap-hold-input-row">
+              <input type="text" id="tapHoldInputTap" class="tap-hold-input" placeholder="例: E, 1, Space" list="allKeysList" />
+              <button type="button" class="btn-tool-sm" id="btnTapHoldPickTap">📋 選択</button>
+            </div>
+          </div>
+
+          <div class="tap-hold-group">
+            <div class="tap-hold-label-row">
+              <span class="tap-hold-badge badge-hold">長押し (Hold)</span>
+              <span class="tap-hold-desc">一定時間押し続けたときに発動（例: F / インタラクト、profile_next）</span>
+            </div>
+            <div class="tap-hold-input-row">
+              <input type="text" id="tapHoldInputHold" class="tap-hold-input" placeholder="例: F, profile_next, M" list="allKeysList" />
+              <button type="button" class="btn-tool-sm" id="btnTapHoldPickHold">📋 選択</button>
+            </div>
+          </div>
+
+          <div class="tap-hold-group">
+            <div class="tap-hold-label-row">
+              <span class="tap-hold-badge badge-timer">判定長押し時間 (ミリ秒)</span>
+              <span class="tap-hold-desc">この時間以上押すと長押しと判定されます（推奨: 250〜500ms）</span>
+            </div>
+            <div class="tap-hold-ms-row">
+              <input type="number" id="tapHoldInputMs" class="tap-hold-input-ms" min="100" max="2000" step="50" value="300" />
+              <span class="tap-hold-unit">ms</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-preview">
+            <span class="preview-label">生成書式:</span>
+            <code class="preview-badge" id="tapHoldPreviewText">tap:E|hold:F|ms:300</code>
+          </div>
+          <div class="modal-footer-btns">
+            <button type="button" class="btn btn-secondary" id="btnTapHoldClear">通常の単一キーに戻す</button>
+            <button type="button" class="btn btn-primary" id="btnTapHoldApply">確定して反映</button>
           </div>
         </div>
       </div>

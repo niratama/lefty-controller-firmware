@@ -175,7 +175,14 @@ def parse_action(name):
         target_id = cleaned.split(":", 1)[1].strip()
         return ("profile_action", f"switch:{target_id}")
 
-    # 4. キーボードキー
+    # 4. レイヤー (Fnキー) アクション
+    if lower == "fn" or lower == "layer:fn":
+        return ("layer_action", "fn")
+    if lower.startswith("layer:") or lower.startswith("layer_hold:"):
+        layer_id = cleaned.split(":", 1)[1].strip().lower()
+        return ("layer_action", layer_id)
+
+    # 5. キーボードキー
     if cleaned in KEY_NAME_MAP:
         return ("keyboard", KEY_NAME_MAP[cleaned])
     for k, v in KEY_NAME_MAP.items():
@@ -194,18 +201,24 @@ def parse_actions(actions_list_or_str):
             "mouse_buttons": int (bitmask),
             "mouse_wheel": int (delta),
             "gamepad_buttons": [button_num_int, ...],
-            "profile_actions": [str, ...]
+            "profile_actions": [str, ...],
+            "layer_actions": [str, ...]
         }
     """
     if isinstance(actions_list_or_str, str):
-        actions_list_or_str = [actions_list_or_str]
+        # カンマ区切りの複数アクション対応 (例: "LCtrl, c")
+        if "," in actions_list_or_str and not actions_list_or_str.startswith("tap:"):
+            actions_list_or_str = [s.strip() for s in actions_list_or_str.split(",") if s.strip()]
+        else:
+            actions_list_or_str = [actions_list_or_str]
 
     result = {
         "keyboard": [],
         "mouse_buttons": 0,
         "mouse_wheel": 0,
         "gamepad_buttons": [],
-        "profile_actions": []
+        "profile_actions": [],
+        "layer_actions": []
     }
 
     for item in actions_list_or_str:
@@ -223,8 +236,131 @@ def parse_actions(actions_list_or_str):
             result["gamepad_buttons"].append(aval)
         elif atype == "profile_action":
             result["profile_actions"].append(aval)
+        elif atype == "layer_action":
+            result["layer_actions"].append(aval)
 
     return result
+
+
+def parse_button_def(btn_def):
+    """
+    ボタン設定を解析し、通常設定またはTap-Hold設定を返します。
+    形式:
+      1) 通常: "Space", ["LCtrl", "c"]
+      2) Tap-Hold 文字列: "tap:E|hold:F|ms:300"
+      3) Tap-Hold 辞書: {"tap": "E", "hold": "F", "hold_ms": 300}
+    戻り値:
+      {
+          "is_tap_hold": bool,
+          "hold_ms": int,
+          "actions": dict,        # is_tap_hold=False 時の通常アクション
+          "tap_actions": dict,    # is_tap_hold=True 時の短押しアクション
+          "hold_actions": dict    # is_tap_hold=True 時の長押しアクション
+      }
+    """
+    empty_actions = {
+        "keyboard": [],
+        "mouse_buttons": 0,
+        "mouse_wheel": 0,
+        "gamepad_buttons": [],
+        "profile_actions": [],
+        "layer_actions": []
+    }
+
+    if not btn_def:
+        return {
+            "is_tap_hold": False,
+            "hold_ms": 300,
+            "actions": empty_actions,
+            "tap_actions": empty_actions,
+            "hold_actions": empty_actions
+        }
+
+    # 形式 3: 辞書型
+    if isinstance(btn_def, dict):
+        if "tap" in btn_def or "hold" in btn_def:
+            tap_str = btn_def.get("tap", "")
+            hold_str = btn_def.get("hold", "")
+            hold_ms = int(btn_def.get("hold_ms", 300))
+            return {
+                "is_tap_hold": True,
+                "hold_ms": max(50, hold_ms),
+                "actions": empty_actions,
+                "tap_actions": parse_actions(tap_str),
+                "hold_actions": parse_actions(hold_str)
+            }
+        else:
+            return {
+                "is_tap_hold": False,
+                "hold_ms": 300,
+                "actions": empty_actions,
+                "tap_actions": empty_actions,
+                "hold_actions": empty_actions
+            }
+
+    # 形式 2: 文字列型で "tap:..." を含む場合
+    if isinstance(btn_def, str) and ("tap:" in btn_def or "hold:" in btn_def):
+        tap_str = ""
+        hold_str = ""
+        hold_ms = 300
+        parts = btn_def.split("|")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("tap:"):
+                tap_str = part.split(":", 1)[1].strip()
+            elif part.startswith("hold:"):
+                hold_str = part.split(":", 1)[1].strip()
+            elif part.startswith("ms:"):
+                try:
+                    hold_ms = int(part.split(":", 1)[1].strip())
+                except ValueError:
+                    hold_ms = 300
+
+        return {
+            "is_tap_hold": True,
+            "hold_ms": max(50, hold_ms),
+            "actions": empty_actions,
+            "tap_actions": parse_actions(tap_str),
+            "hold_actions": parse_actions(hold_str)
+        }
+
+    # 形式 1: 通常のキー・アクション設定
+    return {
+        "is_tap_hold": False,
+        "hold_ms": 300,
+        "actions": parse_actions(btn_def),
+        "tap_actions": empty_actions,
+        "hold_actions": empty_actions
+    }
+
+
+def parse_combos(combos_list):
+    """
+    コンボ設定のリストをパースして前処理済みリストを返します。
+    combos_list: [
+        { "buttons": [9, 11], "action": "profile_next", "hold_ms": 600 }, ...
+    ]
+    """
+    if not combos_list or not isinstance(combos_list, list):
+        return []
+
+    parsed = []
+    for item in combos_list:
+        if not isinstance(item, dict):
+            continue
+        btns = item.get("buttons", [])
+        if not isinstance(btns, list) or len(btns) < 2:
+            continue
+        act = item.get("action", "")
+        hold_ms = int(item.get("hold_ms", 0))
+
+        parsed.append({
+            "buttons": sorted([int(b) for b in btns]),
+            "hold_ms": max(0, hold_ms),
+            "actions": parse_actions(act)
+        })
+
+    return parsed
 
 
 def parse_key(key_name):
