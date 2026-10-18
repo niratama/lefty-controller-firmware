@@ -1474,11 +1474,8 @@ function savePendingImportedProfiles(list) {
 
 function addPendingImportedProfile(profile) {
   const list = loadPendingImportedProfiles();
-  const exists = list.some(p => p.name === profile.name && JSON.stringify(p.keymap) === JSON.stringify(profile.keymap));
-  if (!exists) {
-    list.push(JSON.parse(JSON.stringify(profile)));
-    savePendingImportedProfiles(list);
-  }
+  list.push(JSON.parse(JSON.stringify(profile)));
+  savePendingImportedProfiles(list);
 }
 
 function clearPendingImportedProfiles() {
@@ -1491,16 +1488,29 @@ function getPendingOrExtraProfiles(deviceConfig) {
   const pending = loadPendingImportedProfiles();
   const result = [...pending];
 
-  // さらに、現在メモリ上の currentConfig にデバイス側に存在しないプロファイルがあれば補完
+  // 現在メモリ上の currentConfig (localStorage復元含む) から未反映プロファイルを補完
   if (currentConfig && Array.isArray(currentConfig.profiles)) {
-    currentConfig.profiles.forEach(p => {
+    const devProfiles = (deviceConfig && Array.isArray(deviceConfig.profiles)) ? deviceConfig.profiles : [];
+    currentConfig.profiles.forEach((p, idx) => {
       if (!p || !p.name) return;
-      const inPending = result.some(rp => rp.name === p.name);
-      const inDevice = deviceConfig.profiles && deviceConfig.profiles.some(dp => dp.name === p.name);
-      // デフォルト初期プリセットそのままのプロファイルは除外（重複防止）
-      const isDefault = PRESET_PROFILES && PRESET_PROFILES.some(def => def.name === p.name);
-      if (!inPending && !inDevice && !isDefault) {
-        result.push(JSON.parse(JSON.stringify(p)));
+      // すでに result に含まれていればスキップ
+      if (result.some(rp => rp.name === p.name && JSON.stringify(rp.keymap) === JSON.stringify(p.keymap))) return;
+
+      // デバイス側に完全一致するプロファイルがあるか確認
+      const deviceHasExact = devProfiles.some(dp =>
+        dp.name === p.name &&
+        JSON.stringify(dp.keymap) === JSON.stringify(p.keymap) &&
+        JSON.stringify(dp.joystick) === JSON.stringify(p.joystick)
+      );
+
+      if (!deviceHasExact) {
+        const isDefaultPreset = PRESET_PROFILES && PRESET_PROFILES.some(def =>
+          def.name === p.name && JSON.stringify(def.keymap) === JSON.stringify(p.keymap)
+        );
+        // デバイスの既存プロファイル数を超えているもの、またはデフォルト初期値以外のものは追加対象
+        if (idx >= devProfiles.length || !isDefaultPreset) {
+          result.push(JSON.parse(JSON.stringify(p)));
+        }
       }
     });
   }
@@ -3300,31 +3310,18 @@ function handleReceivedLine(line) {
       if (pendingToMerge.length > 0) {
         let addedNames = [];
         pendingToMerge.forEach(p => {
-          // すでに完全に同一のプロファイルがデバイスにあるか確認
-          const exactMatchIdx = deviceConfig.profiles.findIndex(dp =>
-            dp.name === p.name &&
-            JSON.stringify(dp.keymap) === JSON.stringify(p.keymap) &&
-            JSON.stringify(dp.joystick) === JSON.stringify(p.joystick)
-          );
-
-          if (exactMatchIdx !== -1) {
-            deviceConfig.active_profile = exactMatchIdx;
-          } else {
-            let finalName = p.name;
-            let counter = 2;
-            while (deviceConfig.profiles.some(dp => dp.name === finalName)) {
-              finalName = `${p.name} (${counter++})`;
-            }
-            const clonedP = JSON.parse(JSON.stringify(p));
-            clonedP.name = finalName;
-            deviceConfig.profiles.push(clonedP);
-            addedNames.push(finalName);
+          let finalName = p.name || "共有プロファイル";
+          let counter = 2;
+          while (deviceConfig.profiles.some(dp => dp.name === finalName)) {
+            finalName = `${p.name || "共有プロファイル"} (${counter++})`;
           }
+          const clonedP = JSON.parse(JSON.stringify(p));
+          clonedP.name = finalName;
+          deviceConfig.profiles.push(clonedP);
+          addedNames.push(finalName);
         });
 
-        if (addedNames.length > 0) {
-          deviceConfig.active_profile = deviceConfig.profiles.length - 1;
-        }
+        deviceConfig.active_profile = deviceConfig.profiles.length - 1;
         deviceConfig.keymap = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].keymap));
         deviceConfig.joystick = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].joystick));
 
@@ -3338,17 +3335,13 @@ function handleReceivedLine(line) {
         saveToLocalStorage(currentConfig, "デバイス読込 & プロファイル統合");
         setDeviceOpLoading("load", false, "読込・統合完了!");
 
-        if (addedNames.length > 0) {
-          // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
-          setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
-          sendJson({ cmd: "set_config", config: currentConfig });
+        // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
+        setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
+        sendJson({ cmd: "set_config", config: currentConfig });
 
-          const namesStr = addedNames.map(n => `「${n}」`).join(", ");
-          log(`デバイスの設定を読み込み、未反映のプロファイル ${namesStr} をデバイスに追加・保存しました`, "success");
-          showToast(`📥 プロファイル ${namesStr} をデバイスへ保存・反映しました！`, 5000);
-        } else {
-          log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
-        }
+        const namesStr = addedNames.map(n => `「${n}」`).join(", ");
+        log(`デバイスの設定 (${deviceConfig.profiles.length - addedNames.length}件) に未反映プロファイル ${namesStr} を統合し、デバイスへ保存・反映しました`, "success");
+        showToast(`📥 プロファイル ${namesStr} をデバイスへ保存・反映しました！`, 5000);
 
         if (autoStartMonitorPending) {
           autoStartMonitorPending = false;
