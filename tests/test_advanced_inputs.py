@@ -384,7 +384,65 @@ class TestLeftyControllerIntegration(unittest.TestCase):
             # 例外が外部に漏れないことを検証
             self.ctrl.check_serial_input()
 
+    def test_boot_held_button_ignored_until_released(self):
+        # メンテナンスモード突入時のように、起動時点でボタン1(GP0 -> "1")が押しっぱなしのケース
+        pin0 = self.ctrl.button_pins_def[0]
+        self.raw_btns[pin0] = False  # 起動時から押下中
+        self.ctrl.record_boot_held_pins()
+        self.assertIn(pin0, self.ctrl.boot_held_pins)
+
+        # 押しっぱなしのまま複数サイクル経過しても '1' キーは送信されないこと
+        self._step(0.001)
+        self._step(0.020)
+        self._step(0.020)
+        self.assertEqual(self.ctrl.keyboard.pressed, set())
+
+        # 一度ボタン1を離すとロックが解除されること
+        self.raw_btns[pin0] = True
+        self._step(0.001)
+        self._step(0.020)
+        self.assertNotIn(pin0, self.ctrl.boot_held_pins)
+        self.assertEqual(self.ctrl.keyboard.pressed, set())
+
+        # 離した後に再度押下すれば、通常通り '1' キーが入力・解放されること
+        self._press_btn_idx(0)
+        self.assertIn(Keycode.ONE, self.ctrl.keyboard.pressed)
+        self._release_btn_idx(0)
+        self.assertEqual(self.ctrl.keyboard.pressed, set())
+
+    def test_hid_key_release_retried_after_usb_busy_oserror(self):
+        # ボタン1("1")を押下
+        self._press_btn_idx(0)
+        self.assertIn(Keycode.ONE, self.ctrl.keyboard.pressed)
+
+        # ボタン1を離した瞬間に USB Mass Storage アクセス等で OSError (USB busy) が発生したと仮定
+        orig_release = self.ctrl.keyboard.release
+        fail_once = {"failed": False}
+
+        def flaky_release(*keycodes):
+            if not fail_once["failed"]:
+                fail_once["failed"] = True
+                raise OSError("USB busy")
+            return orig_release(*keycodes)
+
+        self.ctrl.keyboard.release = flaky_release
+
+        # リリース1サイクル目: OSError が発生するが active_hid_keycodes は失われず保持される
+        pin0 = self.ctrl.button_pins_def[0]
+        self.raw_btns[pin0] = True
+        self._step(0.002)
+        self.assertTrue(fail_once["failed"])
+        self.assertIn(Keycode.ONE, self.ctrl.active_hid_keycodes)
+        self.assertIn(Keycode.ONE, self.ctrl.keyboard.pressed)
+
+        # リリース2サイクル目: 自動的にリリースが再送され、キー押しっぱなしが解消される
+        self._step(0.002)
+        self.assertEqual(self.ctrl.active_hid_keycodes, set())
+        self.assertEqual(self.ctrl.keyboard.pressed, set())
+
 
 if __name__ == '__main__':
     unittest.main()
+
+
 

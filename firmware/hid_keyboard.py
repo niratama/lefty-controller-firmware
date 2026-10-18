@@ -34,15 +34,25 @@ class NativeKeyboard:
 
     def press(self, *keycodes):
         """指定されたキーコードを押下状態にする"""
+        prev = set(self._pressed_keys)
         for k in keycodes:
             self._pressed_keys.add(k)
-        self._send()
+        try:
+            self._send()
+        except Exception:
+            self._pressed_keys = prev
+            raise
 
     def release(self, *keycodes):
         """指定されたキーコードを解放する"""
+        prev = set(self._pressed_keys)
         for k in keycodes:
             self._pressed_keys.discard(k)
-        self._send()
+        try:
+            self._send()
+        except Exception:
+            self._pressed_keys = prev
+            raise
 
     def release_all(self):
         """全キーを解放する"""
@@ -72,7 +82,5 @@ class NativeKeyboard:
         for idx, k in enumerate(regular_keys[:6]):
             self.report[2 + idx] = k
 
-        try:
-            self._device.send_report(self.report)
-        except Exception:
-            pass
+        self._device.send_report(self.report)
+

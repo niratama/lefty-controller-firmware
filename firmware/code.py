@@ -194,6 +194,7 @@ class LeftyController:
 
         # 状態追跡用
         self.active_hid_keycodes = set()
+        self.boot_held_pins = set()
         self.last_telemetry_time = 0.0
 
         # ハードウェアオブジェクト
@@ -204,9 +205,28 @@ class LeftyController:
         self.mouse = None
         self.gamepad = None
 
-        # 設定適用 (active_profile の反映)
-        self.apply_config(self.config)
+        # ハードウェア初期化 & 設定適用 (active_profile の反映)
         self.init_hardware()
+        self.apply_config(self.config)
+
+    def release_all_hid(self):
+        """全HIDデバイス（キーボード・マウス・ゲームパッド）の押下状態を安全に全解放"""
+        if self.keyboard:
+            try:
+                self.keyboard.release_all()
+            except Exception:
+                pass
+        self.active_hid_keycodes.clear()
+        if self.mouse:
+            try:
+                self.mouse.release_all()
+            except Exception:
+                pass
+        if self.gamepad:
+            try:
+                self.gamepad.reset_all()
+            except Exception:
+                pass
 
     def apply_config(self, cfg):
         """プロファイルおよび各種設定を反映（ピン定義等のハードウェア情報はプロファイルから分離・固定）"""
@@ -248,23 +268,8 @@ class LeftyController:
         self.tap_hold_states.clear()
         self.combo_states.clear()
 
-        # プロファイル切替時の残存キー・ボタンを安全に全解放
-        if self.keyboard:
-            try:
-                self.keyboard.release_all()
-            except Exception:
-                pass
-        self.active_hid_keycodes.clear()
-        if self.mouse:
-            try:
-                self.mouse.release_all()
-            except Exception:
-                pass
-        if self.gamepad:
-            try:
-                self.gamepad.reset_all()
-            except Exception:
-                pass
+        # プロファイル切替・初期化時の残存キー・ボタンを安全に全解放
+        self.release_all_hid()
 
     def handle_profile_action(self, action_str):
         """プロファイル切り替えアクションの処理 (RAM上で即時切り替え、Flash書き込みなし)"""
@@ -349,6 +354,9 @@ class LeftyController:
         except Exception as e:
             print(f"[WARN] USB HID Gamepad 初期化失敗: {e}")
 
+        # 起動・リロード直後に残存HID入力を即座に全解放
+        self.release_all_hid()
+
         # 2. ボタンGPIO初期化 (GP0〜GP12: 内部プルアップ / Active Low)
         for p in self.button_pins_def:
             pin_name = f"GP{p}"
@@ -374,6 +382,17 @@ class LeftyController:
 
         # 4. ゼロ点自動キャリブレーション (起動時数十ms静止サンプリング)
         self.auto_calibrate(num_samples=40, delay=0.002)
+
+        # 5. 起動直後のHID全解放 & 起動時押しっぱなしボタンのラッチ記録
+        self.release_all_hid()
+        self.record_boot_held_pins()
+
+    def record_boot_held_pins(self):
+        """起動時にすでに押下されているボタンを記録（一度離されるまで入力を無効化）"""
+        raw_btns, _, _ = self.read_raw_inputs()
+        self.boot_held_pins = {p for p, val in raw_btns.items() if not val}
+        if self.boot_held_pins:
+            print(f"[INFO] 起動時押下ボタンを検出 (一度離すまで出力抑制): {sorted(list(self.boot_held_pins))}")
 
     def auto_calibrate(self, num_samples=40, delay=0.002):
         if not (self.adc_x_io and self.adc_y_io):
@@ -422,21 +441,21 @@ class LeftyController:
         to_press = desired_keycodes - self.active_hid_keycodes
         to_release = self.active_hid_keycodes - desired_keycodes
 
-        # 先にreleaseを実行
-        for code in to_release:
+        # 先にreleaseを一括実行（USB busy等で失敗した場合はactive_hid_keycodesを維持して次サイクルで再試行）
+        if to_release:
             try:
-                self.keyboard.release(code)
+                self.keyboard.release(*to_release)
+                self.active_hid_keycodes -= to_release
             except Exception:
-                pass
+                return
 
-        # 次にpressを実行
-        for code in to_press:
+        # 次にpressを一括実行
+        if to_press:
             try:
-                self.keyboard.press(code)
+                self.keyboard.press(*to_press)
+                self.active_hid_keycodes |= to_press
             except Exception:
-                pass
-
-        self.active_hid_keycodes = desired_keycodes
+                return
 
     def run_cycle(self):
         now = time.monotonic()
@@ -451,6 +470,14 @@ class LeftyController:
 
         # 2. ハードウェア読み出し
         raw_btns, rx, ry = self.read_raw_inputs()
+
+        # 2.1 起動時（メンテナンスモード突入時など）から押しっぱなしのボタンは一度離されるまで無視
+        if self.boot_held_pins:
+            for p in list(self.boot_held_pins):
+                if raw_btns.get(p, True):
+                    self.boot_held_pins.discard(p)
+                else:
+                    raw_btns[p] = True
 
         # 3. ボタンのデバウンス処理
         pressed_pins, just_pressed, just_released = self.button_manager.update(raw_btns, now_ms)
@@ -667,20 +694,38 @@ class LeftyController:
             self.last_telemetry_time = now
             self.serial_handler.send_telemetry(rx, ry, debug_info, pressed_pins)
 
+    def _is_autoreload_enabled(self):
+        """メンテナンスモード等で自動リロードが有効かどうかを返す"""
+        if not IS_CIRCUITPYTHON:
+            return False
+        try:
+            return bool(getattr(supervisor.runtime, "autoreload", False))
+        except Exception:
+            return False
+
     def run_forever(self):
         print("[INFO] Lefty Controller メインループを開始します。")
         while True:
             try:
                 self.run_cycle()
-            except (Exception, KeyboardInterrupt) as e:
-                print(f"[ERROR in loop] {e}")
-            try:
                 time.sleep(0.002)  # 約500Hzポーリング
             except KeyboardInterrupt:
-                pass
+                self.release_all_hid()
+                if self._is_autoreload_enabled():
+                    print("[INFO] KeyboardInterrupt によりメインループを終了します。")
+                    break
+            except Exception as e:
+                print(f"[ERROR in loop] {e}")
+                try:
+                    time.sleep(0.002)
+                except KeyboardInterrupt:
+                    self.release_all_hid()
+                    if self._is_autoreload_enabled():
+                        break
 
 
 if __name__ == "__main__":
+    controller = None
     try:
         controller = LeftyController()
         if IS_CIRCUITPYTHON:
@@ -691,10 +736,22 @@ if __name__ == "__main__":
             for _ in range(10):
                 controller.run_cycle()
             print("[TEST] シミュレーション実行 正常終了")
-    except (Exception, KeyboardInterrupt) as e:
+    except KeyboardInterrupt:
+        if controller is not None:
+            controller.release_all_hid()
+        if IS_CIRCUITPYTHON and not getattr(supervisor.runtime, "autoreload", False):
+            while True:
+                try:
+                    time.sleep(1)
+                except KeyboardInterrupt:
+                    pass
+    except Exception as e:
         print(f"[FATAL ERROR] {e}")
+        if controller is not None:
+            controller.release_all_hid()
         while True:
             try:
                 time.sleep(1)
             except KeyboardInterrupt:
                 pass
+
