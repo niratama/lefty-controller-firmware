@@ -143,7 +143,7 @@ class TestConfigStore(unittest.TestCase):
         config_store.save_to_nvm(nvm_data)
 
         # ファイルに新しい設定 (PC直接編集などをシミュレート)
-        file_data = {"version": "1.5.0", "active_profile": 0, "profiles": [{"name": "New File"}]}
+        file_data = {"version": "1.6.0", "active_profile": 0, "profiles": [{"name": "New File"}]}
         with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
             json.dump(file_data, tf)
             temp_path = tf.name
