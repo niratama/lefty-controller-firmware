@@ -15,10 +15,11 @@ class NativeGamepad:
     レポート構成:
       Byte 0: ボタン 1〜8 (bit 0〜7)
       Byte 1: ボタン 9〜16 (bit 0〜7)
-      Byte 2: X軸 (-127 〜 127)
-      Byte 3: Y軸 (-127 〜 127)
-      Byte 4: Z軸 (-127 〜 127)
-      Byte 5: Rz軸 (-127 〜 127)
+      Byte 2: ハットスイッチ (D-Pad: 0=中立, 1=上, 2=右上, 3=右, 4=右下, 5=下, 6=左下, 7=左, 8=左上)
+      Byte 3: X軸 (-127 〜 127)
+      Byte 4: Y軸 (-127 〜 127)
+      Byte 5: Z軸 (-127 〜 127)
+      Byte 6: Rz軸 (-127 〜 127)
     """
 
     def __init__(self, devices=None):
@@ -33,8 +34,9 @@ class NativeGamepad:
                     self._device = dev
                     break
 
-        self.report = bytearray(6)
+        self.report = bytearray(7)
         self._buttons = 0  # 16bit整数 (bit 0: Btn 1 ... bit 15: Btn 16)
+        self._hat = 0      # 0=中立, 1〜8=8方向
         self._joy_x = 0
         self._joy_y = 0
         self._joy_z = 0
@@ -67,8 +69,8 @@ class NativeGamepad:
         self._buttons = 0
         self._send()
 
-    def move_joysticks(self, x=None, y=None, z=None, rz=None):
-        """アナログ軸値を更新 (-127 〜 127)"""
+    def move_joysticks(self, x=None, y=None, z=None, rz=None, hat=None):
+        """アナログ軸値 (-127 〜 127) およびハットスイッチ (0〜8) を更新"""
         changed = False
         if x is not None:
             cx = self._clamp(x)
@@ -90,32 +92,41 @@ class NativeGamepad:
             if crz != self._joy_rz:
                 self._joy_rz = crz
                 changed = True
+        if hat is not None:
+            chat = max(0, min(8, int(hat)))
+            if chat != self._hat:
+                self._hat = chat
+                changed = True
 
         if changed:
             self._send()
 
-    def update(self, desired_buttons, x=0, y=0, z=0, rz=0):
-        """ボタン状態と各軸をまとめて更新（変更があった場合のみレポート送信）"""
+    def update(self, desired_buttons, x=0, y=0, z=0, rz=0, hat=0):
+        """ボタン状態、各軸、ハットスイッチをまとめて更新（変更があった場合のみレポート送信）"""
         cx = self._clamp(x)
         cy = self._clamp(y)
         cz = self._clamp(z)
         crz = self._clamp(rz)
+        chat = max(0, min(8, int(hat)))
 
         if (self._buttons != desired_buttons or
             self._joy_x != cx or
             self._joy_y != cy or
             self._joy_z != cz or
-            self._joy_rz != crz):
+            self._joy_rz != crz or
+            self._hat != chat):
             self._buttons = desired_buttons
             self._joy_x = cx
             self._joy_y = cy
             self._joy_z = cz
             self._joy_rz = crz
+            self._hat = chat
             self._send()
 
     def reset_all(self):
-        """全ボタン解放および全軸ニュートラル(0)復帰"""
+        """全ボタン解放、全軸ニュートラル(0)およびハットスイッチ中立(0)復帰"""
         self._buttons = 0
+        self._hat = 0
         self._joy_x = 0
         self._joy_y = 0
         self._joy_z = 0
@@ -128,10 +139,11 @@ class NativeGamepad:
 
         self.report[0] = self._buttons & 0xFF
         self.report[1] = (self._buttons >> 8) & 0xFF
-        self.report[2] = self._joy_x & 0xFF
-        self.report[3] = self._joy_y & 0xFF
-        self.report[4] = self._joy_z & 0xFF
-        self.report[5] = self._joy_rz & 0xFF
+        self.report[2] = self._hat & 0x0F
+        self.report[3] = self._joy_x & 0xFF
+        self.report[4] = self._joy_y & 0xFF
+        self.report[5] = self._joy_z & 0xFF
+        self.report[6] = self._joy_rz & 0xFF
 
         try:
             self._device.send_report(self.report)

@@ -161,6 +161,11 @@ class SerialHandler:
                         "invert_x": False,
                         "invert_y": False,
                         "rotation": 90,
+                        "direction_mode": "8way",
+                        "enable_run": True,
+                        "gamepad_target": "left_stick",
+                        "dpad_walk_btn": "",
+                        "dpad_run_btn": "Gamepad_2",
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
@@ -186,6 +191,11 @@ class SerialHandler:
                         "invert_x": False,
                         "invert_y": False,
                         "rotation": 90,
+                        "direction_mode": "8way",
+                        "enable_run": True,
+                        "gamepad_target": "left_stick",
+                        "dpad_walk_btn": "",
+                        "dpad_run_btn": "Gamepad_2",
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
@@ -211,6 +221,11 @@ class SerialHandler:
                         "invert_x": False,
                         "invert_y": False,
                         "rotation": 90,
+                        "direction_mode": "8way",
+                        "enable_run": True,
+                        "gamepad_target": "left_stick",
+                        "dpad_walk_btn": "",
+                        "dpad_run_btn": "Gamepad_2",
                         "directions": {
                             "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "Up", "key_run": ["Shift", "Up"]},
                             "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "Down", "key_run": ["Shift", "Down"]},
@@ -231,6 +246,11 @@ class SerialHandler:
                 "invert_x": False,
                 "invert_y": False,
                 "rotation": 90,
+                "direction_mode": "8way",
+                "enable_run": True,
+                "gamepad_target": "left_stick",
+                "dpad_walk_btn": "",
+                "dpad_run_btn": "Gamepad_2",
                 "directions": {
                     "up":    {"th_walk": 3000, "th_run": 26000, "key_walk": "W", "key_run": ["Shift", "W"]},
                     "down":  {"th_walk": 3000, "th_run": 26000, "key_walk": "S", "key_run": ["Shift", "S"]},
@@ -279,7 +299,11 @@ class SerialHandler:
             "keys": debug_info["active_keys"],
             "btns": pressed_buttons,
             "mode": debug_info.get("mode", "keyboard"),
-            "gamepad": debug_info.get("gamepad", (0, 0)),
+            "direction_mode": debug_info.get("direction_mode", "8way"),
+            "current_4way_dir": debug_info.get("current_4way_dir"),
+            "gamepad": debug_info.get("gamepad", (0, 0, 0, 0, 0)),
+            "gamepad_stage": debug_info.get("gamepad_stage", "neutral"),
+            "gamepad_target": debug_info.get("gamepad_target", "left_stick"),
             "mouse": debug_info.get("mouse", (0, 0))
         }
         self.send_response(payload)

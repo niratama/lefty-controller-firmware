@@ -48,7 +48,7 @@ except Exception as e_storage:
 try:
     import usb_hid
 
-    # 16ボタン + 4軸 (X, Y, Z, Rz: -127〜127) 標準HIDゲームパッド
+    # 16ボタン + 1ハットスイッチ (D-Pad) + 4軸 (X, Y, Z, Rz: -127〜127) 標準HIDゲームパッド
     GAMEPAD_REPORT_DESCRIPTOR = bytes((
         0x05, 0x01,        # Usage Page (Generic Desktop Ctrls)
         0x09, 0x05,        # Usage (Game Pad)
@@ -63,6 +63,21 @@ try:
         0x75, 0x01,        #   Report Size (1)
         0x95, 0x10,        #   Report Count (16)
         0x81, 0x02,        #   Input (Data,Var,Abs)
+        # 1 Hat Switch (D-Pad) (1 byte: 1〜8 direction, 0=neutral; 4-bit data + 4-bit padding)
+        0x05, 0x01,        #   Usage Page (Generic Desktop Ctrls)
+        0x09, 0x39,        #   Usage (Hat switch)
+        0x15, 0x01,        #   Logical Minimum (1)
+        0x25, 0x08,        #   Logical Maximum (8)
+        0x35, 0x00,        #   Physical Minimum (0)
+        0x46, 0x3B, 0x01,  #   Physical Maximum (315)
+        0x65, 0x14,        #   Unit (Eng Rot:Degrees)
+        0x75, 0x04,        #   Report Size (4)
+        0x95, 0x01,        #   Report Count (1)
+        0x81, 0x42,        #   Input (Data,Var,Abs,Null)
+        0x65, 0x00,        #   Unit (None)
+        0x75, 0x04,        #   Report Size (4)
+        0x95, 0x01,        #   Report Count (1)
+        0x81, 0x03,        #   Input (Const,Var,Abs)
         # 4 Axes: X, Y, Z, Rz (4 bytes: -127 〜 127)
         0x05, 0x01,        #   Usage Page (Generic Desktop Ctrls)
         0x15, 0x81,        #   Logical Minimum (-127)
@@ -82,7 +97,7 @@ try:
         usage_page=0x01,
         usage=0x05,
         report_ids=(4,),
-        in_report_lengths=(6,),
+        in_report_lengths=(7,),
         out_report_lengths=(0,),
     )
 

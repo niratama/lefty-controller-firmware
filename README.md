@@ -1,9 +1,9 @@
-# 左手デバイス近代化改修ファームウェア (Waveshare RP2040-Zero)
+# 左手デバイス 設定ツール & ファームウェア (Waveshare RP2040-Zero)
 
-PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare RP2040-Zero**（3.3V系）に換装してファームウェアを刷新・近代化したプロジェクトです。
+PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare RP2040-Zero**（3.3V系）に換装してファームウェアを刷新したプロジェクトです。
 13個のボタンスイッチ入力と2軸アナログスティックを備え、**USB Composite Device（Keyboard + Mouse + Gamepad）** として動作します。
 
-キーボードとしての多段階入力（歩き／走り、斜め移動合成）に加え、**アナログゲームパッド（X/Y軸コントローラー）** や **マウス（ポインタ移動・クリック）** としても利用可能で、**Web Serial API によるブラウザ設定ツール** からオンザフライで設定・プロファイル切り替えが行えます。
+キーボードとしての多段階入力（歩き／走り、斜め移動合成）に加え、**アナログゲームパッド（左スティック、右スティック、D-Padハットスイッチ、Z軸）** や **マウス（ポインタ移動・クリック）** としても利用可能で、**Web Serial API によるマルチタブブラウザ設定ツール** からオンザフライで設定・プロファイルの並び替えや単体JSON保存が行えます。
 
 ---
 
@@ -41,29 +41,30 @@ PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare
 ```text
 lefty-controller-firmware/
 ├── firmware/                  # RP2040-Zero に書き込むファームウェア一式
-│   ├── boot.py                # USB Composite HID (Keyboard + Mouse + Gamepad) 構成
+│   ├── boot.py                # USB Composite HID (Keyboard + Mouse + Gamepad 7バイトレポート) 構成
 │   ├── code.py                # メインプログラム (スキャンループ・通信・HIDディスパッチ)
 │   ├── hid_keyboard.py        # 外部依存ゼロのネイティブHIDキーボードドライバ
 │   ├── hid_mouse.py           # 外部依存ゼロのネイティブHIDマウスドライバ
-│   ├── hid_gamepad.py         # 外部依存ゼロのネイティブHIDゲームパッドドライバ
-│   ├── stick_engine.py        # スティック判定エンジン (WASD多段判定 / アナログ軸 / マウス移動)
+│   ├── hid_gamepad.py         # 外部依存ゼロのネイティブHIDゲームパッドドライバ (Hatスイッチ対応)
+│   ├── stick_engine.py        # スティック判定エンジン (WASD / 各種ターゲット軸 / D-Pad / マウス)
 │   ├── debouncer.py           # 13ボタンの高速デバウンス処理 (Eager Debounce)
 │   ├── key_mapper.py          # キーボード/マウス/ゲームパッド入力文字列パース
 │   ├── serial_handler.py      # Web Serial API 連携・JSONプロトコルハンドラ
 │   ├── diagnostic.py          # 導通テスト & ADCプロファイリングツール
 │   └── config.json            # 動作設定ファイル (3つのプリセットプロファイル内蔵)
-├── webui/                     # ブラウザ設定ツール (Web Serial API 対応)
+├── webui/                     # ブラウザ設定ツール (Web Serial API 対応, マルチタブサイドバーUI)
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-├── tests/                     # PC上で即時実行可能な自動テストスイート (34テスト)
-│   ├── test_stick_engine.py   # スティック多段判定・ゲームパッド/マウスモード検証
+├── tests/                     # PC上で即時実行可能な自動テストスイート (48テスト)
+│   ├── test_stick_engine.py   # スティック多段判定・ターゲット軸・ハット・Run無効化検証
 │   ├── test_debouncer.py      # デバウンス・チャタリング耐性検証
 │   ├── test_key_mapper.py     # キー/マウス/ゲームパッドマッピング検証
 │   ├── test_hid_keyboard.py   # キーボードレポート生成検証
 │   ├── test_hid_mouse.py      # マウスレポート生成検証
-│   ├── test_hid_gamepad.py    # ゲームパッドレポート生成検証
-│   └── test_serial_handler.py # シリアル通信プロトコル検証
+│   ├── test_hid_gamepad.py    # ゲームパッド7バイトレポート・Hatスイッチ検証
+│   ├── test_serial_handler.py # シリアル通信プロトコル検証
+│   └── test_config.py         # 設定ファイル整合性検証
 ├── docs/
 │   ├── handover_spec.md       # 引き継ぎ仕様書ドキュメント
 │   └── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.2.0〜)
@@ -79,10 +80,13 @@ lefty-controller-firmware/
 ### 3.1 動作モード
 1. **キーボード (WASD 多段階入力):**
    - 浅倒しで「歩き (W/A/S/D)」、深倒しで「走り (Shift + W/A/S/D)」の2段階入力。
+   - `enable_run` の切り替えにより、Runを使わない単一速度移動にも対応。
    - ヒステリシス機構（チャタリング防止）と斜め入力合成を完備。
-2. **ゲームパッド (アナログスティック):**
-   - ジョイスティックの倒しこみ量と角度を正規化アナログ値（X軸, Y軸: -127〜127）として出力。
-   - PC標準のDirectInputゲームパッドとして認識（Steam入力経由でXInputに自動変換可能）。
+2. **ゲームパッド (アナログスティック / D-Pad):**
+   - **左スティック (X/Y):** 標準アナログスティック。
+   - **右スティック (Z/Rz):** カメラ操作用アナログスティック。
+   - **D-Pad (ハットスイッチ / 十字キー):** 8方向ハットスイッチ出力。4方向スナップと併用で完全4方向入力。
+   - **D-Pad Walk / Run 連動ボタン:** スティックの傾きに応じてダッシュボタン（Bダッシュ等）やスニーク歩きボタンを同時押し可能。
 3. **マウス (ポインタ移動):**
    - スティックの傾き量に応じた加速度カーブ付きマウスポインタ移動。
    - WebUIから最高速度（感度スライダー）を微調整可能。

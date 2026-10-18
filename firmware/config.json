@@ -19,6 +19,10 @@
         "invert_y": false,
         "rotation": 90,
         "direction_mode": "8way",
+        "enable_run": true,
+        "gamepad_target": "left_stick",
+        "dpad_walk_btn": "",
+        "dpad_run_btn": "Gamepad_2",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -65,6 +69,10 @@
         "invert_y": false,
         "rotation": 90,
         "direction_mode": "8way",
+        "enable_run": true,
+        "gamepad_target": "left_stick",
+        "dpad_walk_btn": "",
+        "dpad_run_btn": "Gamepad_2",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -111,6 +119,10 @@
         "invert_y": false,
         "rotation": 90,
         "direction_mode": "8way",
+        "enable_run": true,
+        "gamepad_target": "left_stick",
+        "dpad_walk_btn": "",
+        "dpad_run_btn": "Gamepad_2",
         "directions": {
           "up": {
             "th_walk": 3000,
@@ -155,6 +167,10 @@
     "invert_y": false,
     "rotation": 90,
     "direction_mode": "8way",
+    "enable_run": true,
+    "gamepad_target": "left_stick",
+    "dpad_walk_btn": "",
+    "dpad_run_btn": "Gamepad_2",
     "directions": {
       "up": {
         "th_walk": 3000,

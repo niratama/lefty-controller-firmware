@@ -202,21 +202,69 @@ class TestStickEngine(unittest.TestCase):
         active, press, release, info = self.engine.process(31000, 30000)
         self.assertEqual(active, set())
         self.assertEqual(info["mode"], "gamepad")
-        self.assertEqual(info["gamepad"], (0, 0))
+        self.assertEqual(info["gamepad"], (0, 0, 0, 0, 0))
+        self.assertEqual(info["gamepad_stage"], "neutral")
 
         # 2. 右に倒す (raw_x=30000, raw_y=45000 => dx=+15000, dy=0)
         active, press, release, info = self.engine.process(30000, 45000)
         self.assertEqual(active, set())
-        joy_x, joy_y = info["gamepad"]
+        joy_x, joy_y, joy_z, joy_rz, hat = info["gamepad"]
         self.assertGreater(joy_x, 0)
         self.assertEqual(joy_y, 0)
+        self.assertEqual(joy_z, 0)
+        self.assertEqual(joy_rz, 0)
+        self.assertEqual(hat, 0)
 
         # 3. 上に倒す (raw_x=45000, raw_y=30000 => dx=0, dy=+15000 => DirectInput Yは負)
         active, press, release, info = self.engine.process(45000, 30000)
         self.assertEqual(active, set())
-        joy_x, joy_y = info["gamepad"]
+        joy_x, joy_y, joy_z, joy_rz, hat = info["gamepad"]
         self.assertEqual(joy_x, 0)
         self.assertLess(joy_y, 0)
+        self.assertEqual(hat, 0)
+
+    def test_gamepad_targets_and_stages(self):
+        self.engine.mode = "gamepad"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+
+        # Right stick target
+        self.engine.gamepad_target = "right_stick"
+        active, _, _, info = self.engine.process(30000, 45000)
+        joy_x, joy_y, joy_z, joy_rz, hat = info["gamepad"]
+        self.assertEqual(joy_x, 0)
+        self.assertEqual(joy_y, 0)
+        self.assertGreater(joy_z, 0)
+        self.assertEqual(joy_rz, 0)
+
+        # Dpad target (8-way)
+        self.engine.gamepad_target = "dpad"
+        # 上に倒す (dx=0, dy=+20000) -> hat=1 (North)
+        active, _, _, info = self.engine.process(50000, 30000)
+        self.assertEqual(info["gamepad"][4], 1)
+        # 右に倒す (dx=+20000, dy=0) -> hat=3 (East)
+        active, _, _, info = self.engine.process(30000, 50000)
+        self.assertEqual(info["gamepad"][4], 3)
+        # 下に倒す (dx=0, dy=-20000) -> hat=5 (South)
+        active, _, _, info = self.engine.process(10000, 30000)
+        self.assertEqual(info["gamepad"][4], 5)
+        # 左に倒す (dx=-20000, dy=0) -> hat=7 (West)
+        active, _, _, info = self.engine.process(30000, 10000)
+        self.assertEqual(info["gamepad"][4], 7)
+
+        # Walk vs Run stage
+        # Walk stage: dist = 10000 (>= 3000 walk threshold, < 26000 run threshold)
+        active, _, _, info = self.engine.process(40000, 30000)
+        self.assertEqual(info["gamepad_stage"], "walk")
+        # Run stage: dist = 28000 (>= 26000)
+        active, _, _, info = self.engine.process(58000, 30000)
+        self.assertEqual(info["gamepad_stage"], "run")
+
+        # enable_run = False: even if dist >= 26000, stage remains walk
+        self.engine.enable_run = False
+        active, _, _, info = self.engine.process(58000, 30000)
+        self.assertEqual(info["gamepad_stage"], "walk")
 
     def test_mouse_mode(self):
         self.engine.mode = "mouse"
@@ -345,9 +393,14 @@ class TestStickEngine(unittest.TestCase):
         # 右斜め上 (dy=+25000, dx=+12000 => 上がアクティブ)
         active, _, _, info = self.engine.process(55000, 42000)
         self.assertEqual(active, set())
-        joy_x, joy_y = info["gamepad"]
+        joy_x, joy_y, joy_z, joy_rz, hat = info["gamepad"]
         self.assertEqual(joy_x, 0)
         self.assertLess(joy_y, 0)
+
+        # DPAD + 4way_snap: 上がアクティブなら hat=1
+        self.engine.gamepad_target = "dpad"
+        active, _, _, info = self.engine.process(55000, 42000)
+        self.assertEqual(info["gamepad"][4], 1)
 
 if __name__ == '__main__':
     unittest.main()

@@ -262,6 +262,10 @@ const DEFAULT_CONFIG = {
       joystick: {
         mode: "keyboard",
         direction_mode: "8way",
+        enable_run: true,
+        gamepad_target: "left_stick",
+        dpad_walk_btn: "",
+        dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -288,6 +292,10 @@ const DEFAULT_CONFIG = {
       joystick: {
         mode: "gamepad",
         direction_mode: "8way",
+        enable_run: true,
+        gamepad_target: "left_stick",
+        dpad_walk_btn: "",
+        dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -314,6 +322,10 @@ const DEFAULT_CONFIG = {
       joystick: {
         mode: "mouse",
         direction_mode: "8way",
+        enable_run: true,
+        gamepad_target: "left_stick",
+        dpad_walk_btn: "",
+        dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         deadzone: 2500,
         hysteresis: 1500,
@@ -335,6 +347,10 @@ const DEFAULT_CONFIG = {
   joystick: {
     mode: "keyboard",
     direction_mode: "8way",
+    enable_run: true,
+    gamepad_target: "left_stick",
+    dpad_walk_btn: "",
+    dpad_run_btn: "Gamepad_2",
     mouse_speed: 12,
     deadzone: 2500,
     hysteresis: 1500,
@@ -349,6 +365,176 @@ const DEFAULT_CONFIG = {
     }
   }
 };
+
+// プリセットプロファイル一覧
+const PRESET_PROFILES = [
+  {
+    name: "FPS / 汎用 (WASD移動 + Run)",
+    description: "キーボードWASD移動、Shift走り、13キーFPS標準レイアウト",
+    keymap: {
+      buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+    },
+    joystick: {
+      mode: "keyboard",
+      direction_mode: "8way",
+      enable_run: true,
+      gamepad_target: "left_stick",
+      dpad_walk_btn: "",
+      dpad_run_btn: "Gamepad_2",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      }
+    }
+  },
+  {
+    name: "左スティック (ゲームパッド XY)",
+    description: "左スティック(X/Y軸)アナログ移動、ゲームパッド13ボタン",
+    keymap: {
+      buttons: ["Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4", "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8", "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"]
+    },
+    joystick: {
+      mode: "gamepad",
+      direction_mode: "8way",
+      enable_run: true,
+      gamepad_target: "left_stick",
+      dpad_walk_btn: "",
+      dpad_run_btn: "Gamepad_2",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      }
+    }
+  },
+  {
+    name: "右スティック (カメラ Z/Rz)",
+    description: "右スティック(Z/Rz軸)カメラ操作用、ゲームパッド13ボタン",
+    keymap: {
+      buttons: ["Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4", "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8", "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"]
+    },
+    joystick: {
+      mode: "gamepad",
+      direction_mode: "8way",
+      enable_run: false,
+      gamepad_target: "right_stick",
+      dpad_walk_btn: "",
+      dpad_run_btn: "",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      }
+    }
+  },
+  {
+    name: "D-Pad 十字キー (ハットスイッチ 8方向)",
+    description: "ハットスイッチによる十字キー入力、Walk/Run(Bダッシュ)ボタン連動対応",
+    keymap: {
+      buttons: ["Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4", "Gamepad_5", "Gamepad_6", "Gamepad_7", "Gamepad_8", "Gamepad_9", "Gamepad_10", "Gamepad_11", "Gamepad_12", "Gamepad_13"]
+    },
+    joystick: {
+      mode: "gamepad",
+      direction_mode: "8way",
+      enable_run: true,
+      gamepad_target: "dpad",
+      dpad_walk_btn: "",
+      dpad_run_btn: "Gamepad_2",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      }
+    }
+  },
+  {
+    name: "マウス & 作業用 (ショートカット)",
+    description: "スティックでマウスカーソル移動、ホイールやコピペ・Undo/Redoショートカット",
+    keymap: {
+      buttons: [
+        "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",
+        ["LCtrl", "z"], ["LCtrl", "y"], ["LCtrl", "c"], ["LCtrl", "v"],
+        "Space", "Tab", "LCtrl", "LAlt"
+      ]
+    },
+    joystick: {
+      mode: "mouse",
+      direction_mode: "8way",
+      enable_run: true,
+      gamepad_target: "left_stick",
+      dpad_walk_btn: "",
+      dpad_run_btn: "Gamepad_2",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "Up", key_run: ["Shift", "Up"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "Down", key_run: ["Shift", "Down"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "Left", key_run: ["Shift", "Left"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "Right", key_run: ["Shift", "Right"] }
+      }
+    }
+  },
+  {
+    name: "MMO / 4方向スナップ (誤爆防止)",
+    description: "4方向スナップ(4way_snap)で斜め誤入力を防止、ホットバー1〜9＋Space/Esc",
+    keymap: {
+      buttons: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Space", "Tab", "Escape", "M"]
+    },
+    joystick: {
+      mode: "keyboard",
+      direction_mode: "4way_snap",
+      enable_run: true,
+      gamepad_target: "left_stick",
+      dpad_walk_btn: "",
+      dpad_run_btn: "Gamepad_2",
+      mouse_speed: 12,
+      deadzone: 2500,
+      hysteresis: 1500,
+      invert_x: false,
+      invert_y: false,
+      rotation: 90,
+      directions: {
+        up:    { th_walk: 3000, th_run: 26000, key_walk: "W", key_run: ["Shift", "W"] },
+        down:  { th_walk: 3000, th_run: 26000, key_walk: "S", key_run: ["Shift", "S"] },
+        left:  { th_walk: 3000, th_run: 26000, key_walk: "A", key_run: ["Shift", "A"] },
+        right: { th_walk: 3000, th_run: 26000, key_walk: "D", key_run: ["Shift", "D"] }
+      }
+    }
+  }
+];
 
 let currentConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 let serialPort = null;
@@ -383,12 +569,26 @@ const btnToggleMonitor = document.getElementById("btnToggleMonitor");
 const logArea = document.getElementById("logArea");
 const btnClearLog = document.getElementById("btnClearLog");
 
+// タブ & サイドバーDOM要素
+const navItems = document.querySelectorAll(".nav-item[data-tab]");
+const tabPanes = document.querySelectorAll(".tab-pane");
+const sidebarActiveProfileName = document.getElementById("sidebarActiveProfileName");
+
 // プロファイルDOM要素
 const profileSelect = document.getElementById("profileSelect");
 const profileNameInput = document.getElementById("profileNameInput");
 const btnAddProfile = document.getElementById("btnAddProfile");
 const btnDuplicateProfile = document.getElementById("btnDuplicateProfile");
 const btnDeleteProfile = document.getElementById("btnDeleteProfile");
+const btnMoveProfileUp = document.getElementById("btnMoveProfileUp");
+const btnMoveProfileDown = document.getElementById("btnMoveProfileDown");
+const btnExportSingleProfile = document.getElementById("btnExportSingleProfile");
+const fileImportSingleProfile = document.getElementById("fileImportSingleProfile");
+const btnOpenPresetModal = document.getElementById("btnOpenPresetModal");
+const presetModal = document.getElementById("presetModal");
+const btnPresetModalClose = document.getElementById("btnPresetModalClose");
+const presetCardsGrid = document.getElementById("presetCardsGrid");
+const profilesListGrid = document.getElementById("profilesListGrid");
 
 // テスト入力DOM要素
 const testInputBox = document.getElementById("testInputBox");
@@ -398,11 +598,22 @@ const hwBtnGrid = document.getElementById("hwBtnGrid");
 
 // スティック・パラメータDOM要素
 const stickModeSelect = document.getElementById("stickModeSelect");
+const gamepadTargetRow = document.getElementById("gamepadTargetRow");
+const gamepadTargetSelect = document.getElementById("gamepadTargetSelect");
+const enableRunCheckbox = document.getElementById("enableRunCheckbox");
+const dpadWalkRunGroup = document.getElementById("dpadWalkRunGroup");
+const dpadWalkBtnInput = document.getElementById("dpadWalkBtnInput");
+const dpadRunBtnInput = document.getElementById("dpadRunBtnInput");
 const directionModeSelect = document.getElementById("directionModeSelect");
 const mouseSpeedRow = document.getElementById("mouseSpeedRow");
 const mouseSpeedInput = document.getElementById("mouseSpeedInput");
 const mouseSpeedVal = document.getElementById("mouseSpeedVal");
 const kbdThresholdsGroup = document.getElementById("kbdThresholdsGroup");
+
+// クイックアクション共有ボタン & プロファイル名表示
+const quickLoadBtns = document.querySelectorAll(".btn-quick-load");
+const quickSaveBtns = document.querySelectorAll(".btn-quick-save");
+const currentProfileDisplays = document.querySelectorAll(".current-profile-name-display");
 
 const deadzoneInput = document.getElementById("deadzoneInput");
 const deadzoneVal = document.getElementById("deadzoneVal");
@@ -475,6 +686,10 @@ function ensureProfiles(cfg) {
       if (p.joystick.rotation === undefined) p.joystick.rotation = 90;
       if (p.joystick.invert_x === undefined) p.joystick.invert_x = false;
       if (p.joystick.invert_y === undefined) p.joystick.invert_y = false;
+      if (p.joystick.enable_run === undefined) p.joystick.enable_run = true;
+      if (!p.joystick.gamepad_target) p.joystick.gamepad_target = "left_stick";
+      if (p.joystick.dpad_walk_btn === undefined) p.joystick.dpad_walk_btn = "";
+      if (p.joystick.dpad_run_btn === undefined) p.joystick.dpad_run_btn = "Gamepad_2";
     }
   });
   if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
@@ -488,6 +703,13 @@ function ensureProfiles(cfg) {
     if (!cfg.joystick.mode) cfg.joystick.mode = "keyboard";
     if (!cfg.joystick.mouse_speed) cfg.joystick.mouse_speed = 12;
     if (!cfg.joystick.direction_mode) cfg.joystick.direction_mode = "8way";
+    if (cfg.joystick.rotation === undefined) cfg.joystick.rotation = 90;
+    if (cfg.joystick.invert_x === undefined) cfg.joystick.invert_x = false;
+    if (cfg.joystick.invert_y === undefined) cfg.joystick.invert_y = false;
+    if (cfg.joystick.enable_run === undefined) cfg.joystick.enable_run = true;
+    if (!cfg.joystick.gamepad_target) cfg.joystick.gamepad_target = "left_stick";
+    if (cfg.joystick.dpad_walk_btn === undefined) cfg.joystick.dpad_walk_btn = "";
+    if (cfg.joystick.dpad_run_btn === undefined) cfg.joystick.dpad_run_btn = "Gamepad_2";
   }
   return cfg;
 }
@@ -495,18 +717,51 @@ function ensureProfiles(cfg) {
 function updateModeDisplay() {
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
   const dirMode = (currentConfig.joystick && currentConfig.joystick.direction_mode) ? currentConfig.joystick.direction_mode : "8way";
+  const target = (currentConfig.joystick && currentConfig.joystick.gamepad_target) ? currentConfig.joystick.gamepad_target : "left_stick";
   const textEl = document.getElementById("stickModeText");
   const extraEl = document.getElementById("stickModeExtra");
   if (!textEl) return;
 
   let modeLabel = "";
   if (mode === "gamepad") {
-    modeLabel = "GAMEPAD (X/Y)";
-    if (extraEl) {
-      if (currentTelemetry && currentTelemetry.gamepad) {
-        extraEl.textContent = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
-      } else {
-        extraEl.textContent = "";
+    if (target === "right_stick") {
+      modeLabel = "GAMEPAD (右スティック Z/Rz)";
+      if (extraEl) {
+        if (currentTelemetry && currentTelemetry.gamepad) {
+          extraEl.textContent = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
+        } else {
+          extraEl.textContent = "";
+        }
+      }
+    } else if (target === "dpad") {
+      modeLabel = "GAMEPAD (DPAD/ハットスイッチ)";
+      if (extraEl) {
+        if (currentTelemetry && currentTelemetry.gamepad) {
+          const hatNames = ["中立(0)", "↑(1)", "↗(2)", "→(3)", "↘(4)", "↓(5)", "↙(6)", "←(7)", "↖(8)"];
+          const hatVal = currentTelemetry.gamepad[4] || 0;
+          const stageStr = currentTelemetry.gamepad_stage ? ` [${currentTelemetry.gamepad_stage.toUpperCase()}]` : "";
+          extraEl.textContent = `HAT: ${hatNames[hatVal] || hatVal}${stageStr}`;
+        } else {
+          extraEl.textContent = "";
+        }
+      }
+    } else if (target === "z_axis") {
+      modeLabel = "GAMEPAD (Z軸)";
+      if (extraEl) {
+        if (currentTelemetry && currentTelemetry.gamepad) {
+          extraEl.textContent = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
+        } else {
+          extraEl.textContent = "";
+        }
+      }
+    } else {
+      modeLabel = "GAMEPAD (左スティック X/Y)";
+      if (extraEl) {
+        if (currentTelemetry && currentTelemetry.gamepad) {
+          extraEl.textContent = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
+        } else {
+          extraEl.textContent = "";
+        }
       }
     }
   } else if (mode === "mouse") {
@@ -533,11 +788,31 @@ function updateModeDisplay() {
 
 function updateModeVisibility() {
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  const target = (currentConfig.joystick && currentConfig.joystick.gamepad_target) ? currentConfig.joystick.gamepad_target : "left_stick";
+
   if (mouseSpeedRow) {
     mouseSpeedRow.style.display = (mode === "mouse") ? "flex" : "none";
   }
   if (kbdThresholdsGroup) {
     kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
+  }
+  if (gamepadTargetRow) {
+    gamepadTargetRow.style.display = (mode === "gamepad") ? "flex" : "none";
+  }
+  if (dpadWalkRunGroup) {
+    dpadWalkRunGroup.style.display = (mode === "gamepad" && target === "dpad") ? "block" : "none";
+  }
+  if (gamepadTargetSelect) {
+    gamepadTargetSelect.value = target;
+  }
+  if (enableRunCheckbox) {
+    enableRunCheckbox.checked = currentConfig.joystick.enable_run !== false;
+  }
+  if (dpadWalkBtnInput) {
+    dpadWalkBtnInput.value = currentConfig.joystick.dpad_walk_btn || "";
+  }
+  if (dpadRunBtnInput) {
+    dpadRunBtnInput.value = currentConfig.joystick.dpad_run_btn || "";
   }
   updateModeDisplay();
 }
@@ -713,6 +988,48 @@ function switchProfile(newIdx, shouldNotifyDevice = true) {
   log(`プロファイルを「${p.name}」に切り替えました`, "info");
 }
 
+function updateProfileLabels() {
+  if (!currentConfig.profiles || !currentConfig.profiles[currentConfig.active_profile]) return;
+  const curName = currentConfig.profiles[currentConfig.active_profile].name;
+  currentProfileDisplays.forEach(el => {
+    el.textContent = curName;
+  });
+  if (sidebarActiveProfileName) {
+    sidebarActiveProfileName.textContent = curName;
+  }
+}
+
+function renderProfilesList() {
+  if (!profilesListGrid) return;
+  profilesListGrid.innerHTML = "";
+  ensureProfiles(currentConfig);
+  currentConfig.profiles.forEach((p, idx) => {
+    const card = document.createElement("div");
+    card.className = "profile-card-item" + (idx === currentConfig.active_profile ? " active" : "");
+    const mode = (p.joystick && p.joystick.mode) ? p.joystick.mode.toUpperCase() : "KEYBOARD";
+    const target = (p.joystick && p.joystick.gamepad_target) ? p.joystick.gamepad_target.toUpperCase() : "";
+    const badgeText = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
+
+    card.innerHTML = `
+      <div class="profile-card-top">
+        <span class="profile-card-index">#${idx + 1}</span>
+        <span class="profile-card-badge">${badgeText}</span>
+      </div>
+      <div class="profile-card-name">${escapeHtml(p.name)}</div>
+      <div class="profile-card-footer">
+        <span>${p.keymap ? p.keymap.buttons.length : 13} ボタン</span>
+        <span>${idx === currentConfig.active_profile ? "✓ 選択中" : "クリックして選択"}</span>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      if (idx !== currentConfig.active_profile) {
+        switchProfile(idx, true);
+      }
+    });
+    profilesListGrid.appendChild(card);
+  });
+}
+
 function renderProfileSelect() {
   if (!profileSelect) return;
   profileSelect.innerHTML = "";
@@ -724,9 +1041,179 @@ function renderProfileSelect() {
     if (idx === currentConfig.active_profile) opt.selected = true;
     profileSelect.appendChild(opt);
   });
-  if (profileNameInput) {
+  if (profileNameInput && currentConfig.profiles[currentConfig.active_profile]) {
     profileNameInput.value = currentConfig.profiles[currentConfig.active_profile].name;
   }
+  updateProfileLabels();
+  renderProfilesList();
+}
+
+function moveProfileUp() {
+  syncCurrentToProfile();
+  const curIdx = currentConfig.active_profile;
+  if (curIdx <= 0) return;
+  const temp = currentConfig.profiles[curIdx];
+  currentConfig.profiles[curIdx] = currentConfig.profiles[curIdx - 1];
+  currentConfig.profiles[curIdx - 1] = temp;
+  currentConfig.active_profile = curIdx - 1;
+  currentConfig.keymap = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].keymap));
+  currentConfig.joystick = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].joystick));
+
+  renderProfileSelect();
+  updateFormFromConfig();
+  renderButtonGrid();
+  renderDirectionTable();
+  drawRadar();
+  saveToLocalStorage(currentConfig, `並び替え: ${temp.name} を上へ移動`);
+
+  if (serialPort && writer) {
+    setDeviceOpLoading("save", true, "", `並び替えをデバイスへ反映中...`);
+    sendJson({ cmd: "set_config", config: currentConfig });
+  }
+  log(`プロファイル「${temp.name}」を上へ並び替えました`, "info");
+}
+
+function moveProfileDown() {
+  syncCurrentToProfile();
+  const curIdx = currentConfig.active_profile;
+  if (curIdx >= currentConfig.profiles.length - 1) return;
+  const temp = currentConfig.profiles[curIdx];
+  currentConfig.profiles[curIdx] = currentConfig.profiles[curIdx + 1];
+  currentConfig.profiles[curIdx + 1] = temp;
+  currentConfig.active_profile = curIdx + 1;
+  currentConfig.keymap = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].keymap));
+  currentConfig.joystick = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].joystick));
+
+  renderProfileSelect();
+  updateFormFromConfig();
+  renderButtonGrid();
+  renderDirectionTable();
+  drawRadar();
+  saveToLocalStorage(currentConfig, `並び替え: ${temp.name} を下へ移動`);
+
+  if (serialPort && writer) {
+    setDeviceOpLoading("save", true, "", `並び替えをデバイスへ反映中...`);
+    sendJson({ cmd: "set_config", config: currentConfig });
+  }
+  log(`プロファイル「${temp.name}」を下へ並び替えました`, "info");
+}
+
+function exportSingleProfile() {
+  syncCurrentToProfile();
+  const curProfile = currentConfig.profiles[currentConfig.active_profile];
+  if (!curProfile) return;
+  const singleData = {
+    version: WEBUI_VERSION,
+    profile: JSON.parse(JSON.stringify(curProfile))
+  };
+  const safeName = curProfile.name.replace(/[/\\?%*:|"<>]/g, "_").trim() || "profile";
+  const blob = new Blob([JSON.stringify(singleData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `lefty_profile_${safeName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  log(`プロファイル「${curProfile.name}」を単体エクスポートしました`, "info");
+}
+
+function importSingleProfile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const parsed = JSON.parse(evt.target.result);
+      let targetProfile = null;
+      if (parsed.profile && typeof parsed.profile === "object") {
+        targetProfile = parsed.profile;
+      } else if (parsed.keymap && parsed.joystick) {
+        targetProfile = parsed;
+      }
+
+      if (!targetProfile || !targetProfile.keymap || !Array.isArray(targetProfile.keymap.buttons)) {
+        throw new Error("有効なプロファイル形式ではありません (keymap.buttons が必要です)");
+      }
+
+      const newProfile = {
+        name: targetProfile.name || `インポート: ${file.name.replace(/\.[^/.]+$/, "")}`,
+        keymap: {
+          buttons: targetProfile.keymap.buttons.slice(0, 13)
+        },
+        joystick: JSON.parse(JSON.stringify(targetProfile.joystick || DEFAULT_CONFIG.joystick))
+      };
+      while (newProfile.keymap.buttons.length < 13) {
+        newProfile.keymap.buttons.push("");
+      }
+
+      syncCurrentToProfile();
+      currentConfig.profiles.push(newProfile);
+      switchProfile(currentConfig.profiles.length - 1, true);
+
+      log(`プロファイル「${newProfile.name}」を単体インポートしました`, "success");
+    } catch (err) {
+      log(`プロファイル単体のインポートに失敗しました: ${err.message}`, "error");
+      alert(`プロファイルの読み込みに失敗しました: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function openPresetModal() {
+  if (!presetModal || !presetCardsGrid) return;
+  presetCardsGrid.innerHTML = "";
+  PRESET_PROFILES.forEach((preset) => {
+    const item = document.createElement("div");
+    item.className = "preset-card-item";
+    const mode = preset.joystick.mode.toUpperCase();
+    const target = preset.joystick.gamepad_target ? preset.joystick.gamepad_target.toUpperCase() : "";
+    const modeBadge = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
+
+    item.innerHTML = `
+      <div class="preset-card-header">
+        <span class="preset-card-title">${escapeHtml(preset.name)}</span>
+        <span class="preset-card-mode">${modeBadge}</span>
+      </div>
+      <p class="preset-card-desc">${escapeHtml(preset.description)}</p>
+      <div class="preset-card-actions">
+        <button type="button" class="btn btn-sm btn-primary">このプリセットを追加</button>
+      </div>
+    `;
+    const addBtn = item.querySelector("button");
+    addBtn.addEventListener("click", () => {
+      addPresetProfile(preset);
+      closePresetModal();
+    });
+    presetCardsGrid.appendChild(item);
+  });
+  presetModal.style.display = "flex";
+}
+
+function closePresetModal() {
+  if (presetModal) {
+    presetModal.style.display = "none";
+  }
+}
+
+function addPresetProfile(preset) {
+  syncCurrentToProfile();
+  const cloned = {
+    name: preset.name,
+    keymap: JSON.parse(JSON.stringify(preset.keymap)),
+    joystick: JSON.parse(JSON.stringify(preset.joystick))
+  };
+  currentConfig.profiles.push(cloned);
+  switchProfile(currentConfig.profiles.length - 1, true);
+  log(`プリセット「${preset.name}」を追加しました`, "success");
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ハードウェアボタン状態インジケータ生成
@@ -1116,6 +1603,75 @@ function updateModalPreview() {
   preview.textContent = key || "未選択 (なし)";
 }
 
+function initTabs() {
+  navItems.forEach(item => {
+    item.addEventListener("click", () => {
+      const targetTabId = item.getAttribute("data-tab");
+      navItems.forEach(n => n.classList.remove("active"));
+      item.classList.add("active");
+
+      tabPanes.forEach(pane => {
+        if (pane.id === targetTabId) {
+          pane.classList.add("active");
+        } else {
+          pane.classList.remove("active");
+        }
+      });
+
+      if (targetTabId === "tabJoystick") {
+        setTimeout(drawRadar, 20);
+      }
+    });
+  });
+}
+
+function initProfileExtraEvents() {
+  if (btnMoveProfileUp) btnMoveProfileUp.addEventListener("click", moveProfileUp);
+  if (btnMoveProfileDown) btnMoveProfileDown.addEventListener("click", moveProfileDown);
+  if (btnExportSingleProfile) btnExportSingleProfile.addEventListener("click", exportSingleProfile);
+  if (fileImportSingleProfile) {
+    fileImportSingleProfile.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        importSingleProfile(e.target.files[0]);
+        e.target.value = "";
+      }
+    });
+  }
+  if (btnOpenPresetModal) btnOpenPresetModal.addEventListener("click", openPresetModal);
+  if (btnPresetModalClose) btnPresetModalClose.addEventListener("click", closePresetModal);
+  if (presetModal) {
+    presetModal.addEventListener("click", (e) => {
+      if (e.target === presetModal) closePresetModal();
+    });
+  }
+}
+
+function initQuickActionBars() {
+  quickLoadBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!serialPort || !reader) {
+        alert("デバイスと接続されていません。先にヘッダーの「デバイスと接続」を行ってください。");
+        return;
+      }
+      log("デバイスから設定を読み込み中...", "info");
+      requestConfigWithRetry(false);
+    });
+  });
+
+  quickSaveBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!serialPort || !writer) {
+        alert("デバイスと接続されていません。先にヘッダーの「デバイスと接続」を行ってください。");
+        return;
+      }
+      syncCurrentToProfile();
+      setDeviceOpLoading("save", true, "", "デバイスへ設定を保存中 (Flash書き込み待機)...");
+      log("デバイスへ設定を送信・保存中...", "info");
+      sendJson({ cmd: "set_config", config: currentConfig });
+    });
+  });
+}
+
 // UI初期化
 function initUI() {
   const appVersionTag = document.getElementById("appVersionTag");
@@ -1135,6 +1691,9 @@ function initUI() {
   populateDatalist();
   initKeyCatalog();
   initModalEvents();
+  initTabs();
+  initProfileExtraEvents();
+  initQuickActionBars();
   if (btnDismissVersionAlert && versionAlertBanner) {
     btnDismissVersionAlert.addEventListener("click", () => {
       versionAlertBanner.style.display = "none";
@@ -1490,6 +2049,21 @@ window.addEventListener("blur", () => {
   updateLiveKeysDisplay();
 });
 
+if (testInputBox) {
+  testInputBox.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      e.stopPropagation();
+      const start = testInputBox.selectionStart;
+      const end = testInputBox.selectionEnd;
+      const val = testInputBox.value;
+      testInputBox.value = val.substring(0, start) + "\t" + val.substring(end);
+      testInputBox.selectionStart = testInputBox.selectionEnd = start + 1;
+      testInputBox.focus();
+    }
+  });
+}
+
 if (btnClearTestInput) {
   btnClearTestInput.addEventListener("click", () => {
     if (testInputBox) {
@@ -1507,6 +2081,40 @@ if (stickModeSelect) {
     syncCurrentToProfile();
     drawRadar();
     log(`スティック動作モードを「${e.target.value}」に変更しました`, "info");
+  });
+}
+
+if (gamepadTargetSelect) {
+  gamepadTargetSelect.addEventListener("change", (e) => {
+    currentConfig.joystick.gamepad_target = e.target.value;
+    updateModeVisibility();
+    syncCurrentToProfile();
+    log(`ゲームパッド割り当て軸を「${e.target.value}」に変更しました`, "info");
+  });
+}
+
+if (enableRunCheckbox) {
+  enableRunCheckbox.addEventListener("change", (e) => {
+    currentConfig.joystick.enable_run = e.target.checked;
+    syncCurrentToProfile();
+    drawRadar();
+    log(`スティックRun(走り/2段階目)入力を「${e.target.checked ? "有効" : "無効"}」に変更しました`, "info");
+  });
+}
+
+if (dpadWalkBtnInput) {
+  dpadWalkBtnInput.addEventListener("change", (e) => {
+    currentConfig.joystick.dpad_walk_btn = e.target.value.trim();
+    syncCurrentToProfile();
+    log(`DPAD Walk追加ボタンを「${e.target.value.trim() || "(なし)"}」に変更しました`, "info");
+  });
+}
+
+if (dpadRunBtnInput) {
+  dpadRunBtnInput.addEventListener("change", (e) => {
+    currentConfig.joystick.dpad_run_btn = e.target.value.trim();
+    syncCurrentToProfile();
+    log(`DPAD Run追加ボタンを「${e.target.value.trim() || "(なし)"}」に変更しました`, "info");
   });
 }
 
@@ -1715,7 +2323,9 @@ function updateTelemetryUI(data) {
   currentTelemetry.mode = data.mode || "keyboard";
   currentTelemetry.direction_mode = data.direction_mode || (currentConfig.joystick && currentConfig.joystick.direction_mode) || "8way";
   currentTelemetry.current_4way_dir = data.current_4way_dir || null;
-  currentTelemetry.gamepad = data.gamepad || [0, 0];
+  currentTelemetry.gamepad = data.gamepad || [0, 0, 0, 0, 0];
+  currentTelemetry.gamepad_stage = data.gamepad_stage || "neutral";
+  currentTelemetry.gamepad_target = data.gamepad_target || "left_stick";
   currentTelemetry.mouse = data.mouse || [0, 0];
 
   updateModeDisplay();
@@ -1783,13 +2393,27 @@ function setDeviceOpLoading(opType, isLoading, successText = "", customText = ""
     if (btnSaveConfig) btnSaveConfig.disabled = true;
     if (btnResetDefault) btnResetDefault.disabled = true;
     if (btnCalibrate) btnCalibrate.disabled = true;
+    quickLoadBtns.forEach(btn => btn.disabled = true);
+    quickSaveBtns.forEach(btn => btn.disabled = true);
 
-    if (opType === "save" && btnSaveConfig) {
-      btnSaveConfig.classList.add("btn-loading");
-      btnSaveConfig.innerHTML = '<span class="spinner"></span>デバイスへ保存中...';
-    } else if (opType === "load" && btnLoadConfig) {
-      btnLoadConfig.classList.add("btn-loading");
-      btnLoadConfig.innerHTML = '<span class="spinner"></span>読込中...';
+    if (opType === "save") {
+      if (btnSaveConfig) {
+        btnSaveConfig.classList.add("btn-loading");
+        btnSaveConfig.innerHTML = '<span class="spinner"></span>デバイスへ保存中...';
+      }
+      quickSaveBtns.forEach(btn => {
+        btn.classList.add("btn-loading");
+        btn.innerHTML = '<span class="spinner"></span>保存中...';
+      });
+    } else if (opType === "load") {
+      if (btnLoadConfig) {
+        btnLoadConfig.classList.add("btn-loading");
+        btnLoadConfig.innerHTML = '<span class="spinner"></span>読込中...';
+      }
+      quickLoadBtns.forEach(btn => {
+        btn.classList.add("btn-loading");
+        btn.innerHTML = '<span class="spinner"></span>読込中...';
+      });
     } else if (opType === "reset" && btnResetDefault) {
       btnResetDefault.classList.add("btn-loading");
       btnResetDefault.innerHTML = '<span class="spinner"></span>初期化中...';
@@ -1824,6 +2448,14 @@ function setDeviceOpLoading(opType, isLoading, successText = "", customText = ""
     if (btnSaveConfig) btnSaveConfig.classList.remove("btn-loading");
     if (btnResetDefault) btnResetDefault.classList.remove("btn-loading");
     if (btnCalibrate) btnCalibrate.classList.remove("btn-loading");
+    quickLoadBtns.forEach(btn => {
+      btn.classList.remove("btn-loading");
+      btn.textContent = "📥 デバイスから読込";
+    });
+    quickSaveBtns.forEach(btn => {
+      btn.classList.remove("btn-loading");
+      btn.textContent = "💾 デバイスへ保存・反映";
+    });
 
     if (successText) {
       let targetBtn = null;
@@ -1869,6 +2501,8 @@ function restoreDeviceButtons() {
   if (btnSaveConfig) btnSaveConfig.disabled = !isConn;
   if (btnCalibrate) btnCalibrate.disabled = !isConn;
   if (btnResetDefault) btnResetDefault.disabled = false;
+  quickLoadBtns.forEach(btn => btn.disabled = !isConn);
+  quickSaveBtns.forEach(btn => btn.disabled = !isConn);
 }
 
 // モニタリング制御ヘルパー

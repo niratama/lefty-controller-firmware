@@ -51,6 +51,10 @@ DEFAULT_CONFIG = {
             },
             "joystick": {
                 "mode": "keyboard",
+                "enable_run": True,
+                "gamepad_target": "left_stick",
+                "dpad_walk_btn": "",
+                "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
@@ -76,6 +80,10 @@ DEFAULT_CONFIG = {
             },
             "joystick": {
                 "mode": "gamepad",
+                "enable_run": True,
+                "gamepad_target": "left_stick",
+                "dpad_walk_btn": "",
+                "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
@@ -101,6 +109,10 @@ DEFAULT_CONFIG = {
             },
             "joystick": {
                 "mode": "mouse",
+                "enable_run": True,
+                "gamepad_target": "left_stick",
+                "dpad_walk_btn": "",
+                "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "deadzone": 2500,
                 "hysteresis": 1500,
@@ -124,6 +136,10 @@ DEFAULT_CONFIG = {
     },
     "joystick": {
         "mode": "keyboard",
+        "enable_run": True,
+        "gamepad_target": "left_stick",
+        "dpad_walk_btn": "",
+        "dpad_run_btn": "Gamepad_2",
         "mouse_speed": 12,
         "deadzone": 2500,
         "hysteresis": 1500,
@@ -360,6 +376,24 @@ class LeftyController:
                 c = parse_key(k_str)
                 if c is not None:
                     desired_keycodes.add(c)
+        elif self.stick_engine.mode == "gamepad":
+            # DPAD / Gamepad Walk/Run 連動ボタンの追加
+            gp_stage = debug_info.get("gamepad_stage", "neutral")
+            run_or_walk_btn = ""
+            if gp_stage == "walk":
+                run_or_walk_btn = getattr(self.stick_engine, "dpad_walk_btn", "")
+            elif gp_stage == "run":
+                run_or_walk_btn = getattr(self.stick_engine, "dpad_run_btn", "")
+
+            if run_or_walk_btn:
+                actions = parse_actions(run_or_walk_btn)
+                for c in actions["keyboard"]:
+                    desired_keycodes.add(c)
+                desired_mouse_buttons |= actions["mouse_buttons"]
+                desired_mouse_wheel += actions["mouse_wheel"]
+                for b_num in actions["gamepad_buttons"]:
+                    if 1 <= b_num <= 16:
+                        desired_gamepad_buttons |= (1 << (b_num - 1))
 
         # ボタン入力のパース
         for idx, pin in enumerate(self.button_pins_def):
@@ -385,8 +419,16 @@ class LeftyController:
 
         # 6.3 ゲームパッド送信
         if self.gamepad:
-            joy_x, joy_y = debug_info.get("gamepad", (0, 0)) if self.stick_engine.mode == "gamepad" else (0, 0)
-            self.gamepad.update(desired_gamepad_buttons, x=joy_x, y=joy_y)
+            if self.stick_engine.mode == "gamepad":
+                gp_data = debug_info.get("gamepad", (0, 0, 0, 0, 0))
+                if len(gp_data) == 5:
+                    gx, gy, gz, grz, ghat = gp_data
+                else:
+                    gx, gy = gp_data[0], gp_data[1]
+                    gz, grz, ghat = 0, 0, 0
+            else:
+                gx, gy, gz, grz, ghat = 0, 0, 0, 0, 0
+            self.gamepad.update(desired_gamepad_buttons, x=gx, y=gy, z=gz, rz=grz, hat=ghat)
 
         # 7. テレメトリ送信（モニタ有効時、最大30Hz程度に制限）
         if self.serial_handler.monitor_enabled and (now - self.last_telemetry_time) >= 0.033:

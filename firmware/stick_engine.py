@@ -29,8 +29,12 @@ class StickEngine:
         self.deadzone = 2500
         self.hysteresis = 1500
         self.invert_x = False
-        self.invert_y = True  # デフォルト: Y軸反転
-        self.rotation = 0     # 取付角度回転補正 (度数: 0, 90, 180, 270)
+        self.invert_y = False
+        self.rotation = 90     # 取付角度回転補正 (度数: 0, 90, 180, 270)
+        self.enable_run = True # Run (走り/2段階目入力) の有効化
+        self.gamepad_target = "left_stick"  # "left_stick" | "right_stick" | "dpad" | "z_axis"
+        self.dpad_walk_btn = ""             # DPAD Walk時の追加ボタン
+        self.dpad_run_btn = "Gamepad_2"     # DPAD Run時の追加ボタン
 
         self.dir_configs = {
             "up": {
@@ -84,6 +88,10 @@ class StickEngine:
         self.invert_x = joy_cfg.get("invert_x", self.invert_x)
         self.invert_y = joy_cfg.get("invert_y", self.invert_y)
         self.rotation = joy_cfg.get("rotation", self.rotation)
+        self.enable_run = joy_cfg.get("enable_run", self.enable_run)
+        self.gamepad_target = joy_cfg.get("gamepad_target", self.gamepad_target)
+        self.dpad_walk_btn = joy_cfg.get("dpad_walk_btn", self.dpad_walk_btn)
+        self.dpad_run_btn = joy_cfg.get("dpad_run_btn", self.dpad_run_btn)
 
         dirs = joy_cfg.get("directions", {})
         for d in ["up", "down", "left", "right"]:
@@ -158,7 +166,7 @@ class StickEngine:
         effective_dz = max(dz, th_walk - hyst)
 
         if current == DirectionState.NEUTRAL:
-            if magnitude >= th_run:
+            if self.enable_run and magnitude >= th_run:
                 new_state = DirectionState.RUN
             elif magnitude >= th_walk:
                 new_state = DirectionState.WALK
@@ -166,7 +174,7 @@ class StickEngine:
                 new_state = DirectionState.NEUTRAL
 
         elif current == DirectionState.WALK:
-            if magnitude >= th_run:
+            if self.enable_run and magnitude >= th_run:
                 new_state = DirectionState.RUN
             elif magnitude < (th_walk - hyst) or magnitude < dz:
                 new_state = DirectionState.NEUTRAL
@@ -174,7 +182,9 @@ class StickEngine:
                 new_state = DirectionState.WALK
 
         elif current == DirectionState.RUN:
-            if magnitude < (th_walk - hyst) or magnitude < dz:
+            if not self.enable_run:
+                new_state = DirectionState.WALK if magnitude >= th_walk else DirectionState.NEUTRAL
+            elif magnitude < (th_walk - hyst) or magnitude < dz:
                 new_state = DirectionState.NEUTRAL
             elif magnitude < (th_run - hyst):
                 new_state = DirectionState.WALK
@@ -250,6 +260,7 @@ class StickEngine:
         dist = math.sqrt(dx * dx + dy * dy)
 
         if self.mode == "gamepad":
+            norm_val = 0
             if dist < self.deadzone:
                 joy_x = 0
                 joy_y = 0
@@ -286,6 +297,50 @@ class StickEngine:
             else:
                 self.current_4way_dir = None
 
+            # Walk / Run ステージ判定
+            avg_th_walk = self.dir_configs["up"]["th_walk"]
+            avg_th_run = self.dir_configs["up"]["th_run"]
+            if dist < self.deadzone:
+                gamepad_stage = "neutral"
+            elif self.enable_run and dist >= avg_th_run:
+                gamepad_stage = "run"
+            elif dist >= avg_th_walk:
+                gamepad_stage = "walk"
+            else:
+                gamepad_stage = "neutral"
+
+            # ターゲット軸・ハットのディスパッチ
+            out_x = 0
+            out_y = 0
+            out_z = 0
+            out_rz = 0
+            out_hat = 0
+
+            target = getattr(self, "gamepad_target", "left_stick")
+            if target == "right_stick":
+                out_z = joy_x
+                out_rz = joy_y
+            elif target == "z_axis":
+                out_z = joy_x
+                out_rz = joy_y
+            elif target == "dpad":
+                if dist < self.deadzone:
+                    out_hat = 0
+                elif self.direction_mode in ("4way_snap", "4way_strict"):
+                    td = self._determine_4way_direction(dx, dy, dist)
+                    if td == "up": out_hat = 1
+                    elif td == "right": out_hat = 3
+                    elif td == "down": out_hat = 5
+                    elif td == "left": out_hat = 7
+                    else: out_hat = 0
+                else:
+                    ang = math.degrees(math.atan2(dx, dy)) % 360  # 0°=上, 90°=右, 180°=下, 270°=左
+                    sector = int((ang + 22.5) / 45) % 8
+                    out_hat = sector + 1
+            else:  # "left_stick"
+                out_x = joy_x
+                out_y = joy_y
+
             to_press = set()
             to_release = set(self.active_keys)
             self.active_keys = set()
@@ -299,7 +354,9 @@ class StickEngine:
                 "mode": "gamepad",
                 "direction_mode": self.direction_mode,
                 "current_4way_dir": self.current_4way_dir,
-                "gamepad": (joy_x, joy_y),
+                "gamepad": (out_x, out_y, out_z, out_rz, out_hat),
+                "gamepad_stage": gamepad_stage,
+                "gamepad_target": target,
                 "mouse": (0, 0),
                 "magnitudes": {
                     "up": mag_up,

@@ -24,6 +24,11 @@ class TestNativeGamepad(unittest.TestCase):
         self.mock_dev = MockHIDGamepadDevice()
         self.gamepad = NativeGamepad(devices=[self.mock_dev])
 
+    def test_report_length(self):
+        # 7バイトレポート (buttons LSB, buttons MSB, hat, X, Y, Z, Rz)
+        self.gamepad.press_buttons(1)
+        self.assertEqual(len(self.mock_dev.last_report), 7)
+
     def test_buttons_press_release(self):
         # ボタン 1 (byte 0: bit 0)
         self.gamepad.press_buttons(1)
@@ -45,30 +50,45 @@ class TestNativeGamepad(unittest.TestCase):
         self.assertEqual(self.mock_dev.last_report[0], 0x00)
         self.assertEqual(self.mock_dev.last_report[1], 0x00)
 
+    def test_hat_switch(self):
+        # ハットスイッチ 0 (中立) 〜 8 (NW)
+        for h in range(1, 9):
+            self.gamepad.move_joysticks(hat=h)
+            self.assertEqual(self.mock_dev.last_report[2], h)
+
+        # クランプ (0..8)
+        self.gamepad.move_joysticks(hat=15)
+        self.assertEqual(self.mock_dev.last_report[2], 8)
+        self.gamepad.move_joysticks(hat=-2)
+        self.assertEqual(self.mock_dev.last_report[2], 0)
+
     def test_axes_move_and_clamp(self):
-        # アナログ軸移動 (X=50, Y=-60)
-        self.gamepad.move_joysticks(x=50, y=-60)
-        self.assertEqual(self.mock_dev.last_report[2], 50)
-        self.assertEqual(self.mock_dev.last_report[3], (-60) & 0xFF)
+        # アナログ軸移動 (X=50, Y=-60, Z=30, Rz=-40)
+        self.gamepad.move_joysticks(x=50, y=-60, z=30, rz=-40)
+        self.assertEqual(self.mock_dev.last_report[3], 50)
+        self.assertEqual(self.mock_dev.last_report[4], (-60) & 0xFF)
+        self.assertEqual(self.mock_dev.last_report[5], 30)
+        self.assertEqual(self.mock_dev.last_report[6], (-40) & 0xFF)
 
         # クランプ上限・下限 (-127 〜 127)
         self.gamepad.move_joysticks(x=300, y=-200)
-        self.assertEqual(self.mock_dev.last_report[2], 127)
-        self.assertEqual(self.mock_dev.last_report[3], (-127) & 0xFF)
+        self.assertEqual(self.mock_dev.last_report[3], 127)
+        self.assertEqual(self.mock_dev.last_report[4], (-127) & 0xFF)
 
     def test_gamepad_update(self):
         cnt = self.mock_dev.report_count
-        # ボタン 1 (1) + ボタン 3 (4) = 5 (0x0005), X=20, Y=-30
-        self.gamepad.update(desired_buttons=0x0005, x=20, y=-30)
+        # ボタン 1 (1) + ボタン 3 (4) = 5 (0x0005), X=20, Y=-30, hat=2
+        self.gamepad.update(desired_buttons=0x0005, x=20, y=-30, hat=2)
         self.assertEqual(self.mock_dev.report_count, cnt + 1)
         self.assertEqual(self.mock_dev.last_report[0], 0x05)
         self.assertEqual(self.mock_dev.last_report[1], 0x00)
-        self.assertEqual(self.mock_dev.last_report[2], 20)
-        self.assertEqual(self.mock_dev.last_report[3], (-30) & 0xFF)
+        self.assertEqual(self.mock_dev.last_report[2], 2)
+        self.assertEqual(self.mock_dev.last_report[3], 20)
+        self.assertEqual(self.mock_dev.last_report[4], (-30) & 0xFF)
 
         # 同一状態ならレポート送信をスキップ
         cnt = self.mock_dev.report_count
-        self.gamepad.update(desired_buttons=0x0005, x=20, y=-30)
+        self.gamepad.update(desired_buttons=0x0005, x=20, y=-30, hat=2)
         self.assertEqual(self.mock_dev.report_count, cnt)
 
 
