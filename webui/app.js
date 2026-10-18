@@ -1,7 +1,7 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.2.0";
-const MIN_RECOMMENDED_FW_VERSION = "1.2.0";
+const WEBUI_VERSION = "1.3.0";
+const MIN_RECOMMENDED_FW_VERSION = "1.3.0";
 
 // ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
 const HARDWARE_PINS = {
@@ -251,7 +251,7 @@ function updateValidationBadge(input, badge) {
 let lastFocusedInput = null;
 
 const DEFAULT_CONFIG = {
-  version: "1.2.0",
+  version: "1.3.0",
   active_profile: 0,
   profiles: [
     {
