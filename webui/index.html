@@ -143,7 +143,7 @@
                 <span class="col-status">状態</span>
                 <span class="col-sync" title="マイコン内蔵Flash (config.json) への転送対象">転送</span>
                 <span class="col-index">#</span>
-                <span class="col-name">プロファイル名（直接編集可能）</span>
+                <span class="col-name" title="LED色アイコンをクリックして発光色を変更、テキスト入力で名前を変更">LED色 / プロファイル名</span>
                 <span class="col-meta">動作モード</span>
                 <span class="col-actions">操作</span>
               </div>
@@ -696,6 +696,18 @@
     <!-- キー入力補完用 datalist -->
     <datalist id="allKeysList">
       <!-- JSで動的生成 -->
+    </datalist>
+
+    <!-- LED色パレット補完用 datalist -->
+    <datalist id="presetLedColors">
+      <option value="#008cff">シアン / ブルー (デフォルト 1)</option>
+      <option value="#00ff3c">グリーン (デフォルト 2)</option>
+      <option value="#b400ff">パープル (デフォルト 3)</option>
+      <option value="#ffb400">オレンジ / イエロー (デフォルト 4)</option>
+      <option value="#00ffe6">ターコイズ (デフォルト 5)</option>
+      <option value="#ff2800">レッド (デフォルト 6)</option>
+      <option value="#ff007f">ホットピンク</option>
+      <option value="#ffffff">ピュアホワイト</option>
     </datalist>
   </div>
 

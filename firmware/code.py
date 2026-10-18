@@ -45,6 +45,7 @@ DEFAULT_CONFIG = {
         {
             "id": "prof_fps_default",
             "name": "プロファイル 1 (FPS/汎用)",
+            "color": "#008cff",
             "keymap": {
                 "buttons": [
                     "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
@@ -77,6 +78,7 @@ DEFAULT_CONFIG = {
         {
             "id": "prof_gamepad_default",
             "name": "プロファイル 2 (ゲームパッド)",
+            "color": "#00ff3c",
             "keymap": {
                 "buttons": [
                     "Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4",
@@ -107,6 +109,7 @@ DEFAULT_CONFIG = {
         {
             "id": "prof_mouse_default",
             "name": "プロファイル 3 (マウス & 作業用)",
+            "color": "#b400ff",
             "keymap": {
                 "buttons": [
                     "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",

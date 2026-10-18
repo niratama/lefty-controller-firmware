@@ -67,12 +67,13 @@
 
 ## 3. プロファイルオブジェクト仕様 (Profile Object)
 
-各プロファイルは `id`, `name`, `device_sync`, `keymap`, `joystick` の要素で構成されます。
+各プロファイルは `id`, `name`, `color`, `device_sync`, `keymap`, `joystick` の要素で構成されます。
 
 ```json
 {
   "id": "prof_fps_default",
   "name": "プロファイル 1 (FPS/汎用)",
+  "color": "#008cff",
   "device_sync": true,
   "keymap": {
     "buttons": [
@@ -112,9 +113,10 @@
 
 ---
 
-### 3.1 `id`, `name`, `device_sync` フィールド
+### 3.1 `id`, `name`, `color`, `device_sync` フィールド
 * **`id`** (`string`): プロファイルの一意識別子（例: `"prof_fps_default"`）。`profile_switch:<id>` によるダイレクト切り替えや共有URLインポート時の識別に使用されます。
 * **`name`** (`string`): プロファイルの表示名。WebUI のドロップダウン選択肢やログ出力で使用されます（例: `"プロファイル 1 (FPS/汎用)"`）。
+* **`color`** (`string`, 省略可): プロファイル切替時のオンボードRGB LED（WS2812）発光色（7文字の16進数カラーコード `"#RRGGBB"`、例: `"#008cff"`）。プロファイル切り替え時に指定色でパルス点滅し、通常点灯色としても保持されます。省略時はプロファイル番号順のデフォルトカラーパレット（青、緑、紫、橙/黄、水色、赤）が自動割り当てされます。WebUI のプロファイル一覧から直感的にカラーピッカーで指定・変更できます。
 * **`device_sync`** (`boolean`, 省略時 `true`): マイコンへの転送対象フラグ。`false` に設定するとブラウザ（`localStorage`）上にのみ保管され、マイコンへの送信ペイロードから除外されます（ただし現在アクティブなプロファイルや `profile_switch:<id>` で参照されているプロファイルは強制的に同期されます）。
 
 ---

@@ -10,6 +10,23 @@ const HARDWARE_PINS = {
   adc_y: 26
 };
 
+// プロファイル標準LEDカラー (インデックス順: 青, 緑, 紫, 橙/黄, ターコイズ, 赤)
+const DEFAULT_PROFILE_HEX_COLORS = [
+  "#008cff", // Profile 0: シアン / ブルー
+  "#00ff3c", // Profile 1: グリーン
+  "#b400ff", // Profile 2: パープル
+  "#ffb400", // Profile 3: オレンジ / イエロー
+  "#00ffe6", // Profile 4: ターコイズ
+  "#ff2800", // Profile 5: レッド
+];
+
+function getProfileColor(profile, index = 0) {
+  if (profile && profile.color && typeof profile.color === "string" && /^#[0-9a-fA-F]{6}$/.test(profile.color)) {
+    return profile.color.toLowerCase();
+  }
+  return DEFAULT_PROFILE_HEX_COLORS[index % DEFAULT_PROFILE_HEX_COLORS.length];
+}
+
 const PIN_NAMES = [
   "SW1 (1)",
   "SW2 (2)",
@@ -308,6 +325,7 @@ const DEFAULT_CONFIG = {
     {
       id: "prof_fps_default",
       name: "プロファイル 1 (FPS/汎用)",
+      color: "#008cff",
       keymap: {
         buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"],
         fn_buttons: ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "Space", "z", "LCtrl", "LAlt"],
@@ -339,6 +357,7 @@ const DEFAULT_CONFIG = {
     {
       id: "prof_gamepad_default",
       name: "プロファイル 2 (ゲームパッド)",
+      color: "#00ff3c",
       keymap: {
         buttons: [
           "Gamepad_1", "Gamepad_2", "Gamepad_3", "Gamepad_4",
@@ -370,6 +389,7 @@ const DEFAULT_CONFIG = {
     {
       id: "prof_mouse_default",
       name: "プロファイル 3 (マウス & 作業用)",
+      color: "#b400ff",
       keymap: {
         buttons: [
           "Mouse_Left", "Mouse_Right", "Mouse_Middle", "Wheel_Up", "Wheel_Down",
@@ -1068,6 +1088,11 @@ function ensureProfiles(cfg) {
       p.device_sync = true;
     }
 
+    // LED色未定義の場合はデフォルトパレットから割り当て
+    if (!p.color || !/^#[0-9a-fA-F]{6}$/.test(p.color)) {
+      p.color = getProfileColor(p, idx);
+    }
+
     if (!p.keymap || typeof p.keymap !== "object") {
       p.keymap = {};
     }
@@ -1446,12 +1471,30 @@ function switchProfile(newIdx, shouldNotifyDevice = true) {
 
 function updateProfileLabels() {
   if (!currentConfig.profiles || !currentConfig.profiles[currentConfig.active_profile]) return;
-  const curName = currentConfig.profiles[currentConfig.active_profile].name;
+  const curProf = currentConfig.profiles[currentConfig.active_profile];
+  const curName = curProf.name;
+  const curColor = getProfileColor(curProf, currentConfig.active_profile);
+
   currentProfileDisplays.forEach(el => {
-    el.textContent = curName;
+    let dot = el.querySelector(".active-profile-color-indicator");
+    let textSpan = el.querySelector(".active-profile-name-text");
+    if (!dot || !textSpan) {
+      el.innerHTML = `<span class="active-profile-color-indicator"></span><span class="active-profile-name-text"></span>`;
+      dot = el.querySelector(".active-profile-color-indicator");
+      textSpan = el.querySelector(".active-profile-name-text");
+    }
+    textSpan.textContent = curName;
+    if (dot) {
+      dot.style.backgroundColor = curColor;
+      dot.style.boxShadow = `0 0 6px ${curColor}`;
+    }
+    el.style.borderColor = curColor;
   });
+
   if (sidebarActiveProfileName) {
     sidebarActiveProfileName.textContent = curName;
+    sidebarActiveProfileName.style.borderLeft = `3px solid ${curColor}`;
+    sidebarActiveProfileName.style.paddingLeft = "6px";
   }
   if (sidebarProfileSelect) {
     sidebarProfileSelect.value = currentConfig.active_profile;
@@ -1482,6 +1525,7 @@ function renderProfilesList() {
     const target = (p.joystick && p.joystick.gamepad_target) ? p.joystick.gamepad_target.toUpperCase() : "";
     const badgeText = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
     const buttonCount = p.keymap && p.keymap.buttons ? p.keymap.buttons.length : 13;
+    const profColor = getProfileColor(p, idx);
 
     let syncBadgeHtml = "";
     let syncTitle = "";
@@ -1511,6 +1555,10 @@ function renderProfilesList() {
       </div>
       <div class="col-index">#${idx + 1}</div>
       <div class="col-name">
+        <label class="profile-color-picker-wrapper" title="プロファイル切替時のLED色: ${escapeHtml(profColor)} (クリックして変更)">
+          <input type="color" list="presetLedColors" class="profile-color-input" value="${escapeHtml(profColor)}">
+          <span class="profile-color-dot" style="background-color: ${escapeHtml(profColor)}; box-shadow: 0 0 8px ${escapeHtml(profColor)}88;"></span>
+        </label>
         <input type="text" class="profile-row-name-input" value="${escapeHtml(p.name)}" placeholder="プロファイル名">
       </div>
       <div class="col-meta">
@@ -1566,6 +1614,32 @@ function renderProfilesList() {
         switchProfile(idx, true);
       }
     });
+
+    // LED色変更
+    const colorWrapper = row.querySelector(".profile-color-picker-wrapper");
+    if (colorWrapper) {
+      colorWrapper.addEventListener("click", (e) => e.stopPropagation());
+    }
+    const colorInput = row.querySelector(".profile-color-input");
+    const colorDot = row.querySelector(".profile-color-dot");
+    if (colorInput) {
+      colorInput.addEventListener("input", (e) => {
+        const val = e.target.value.toLowerCase();
+        p.color = val;
+        if (colorDot) {
+          colorDot.style.backgroundColor = val;
+          colorDot.style.boxShadow = `0 0 8px ${val}88`;
+        }
+        if (isAct) {
+          updateProfileLabels();
+        }
+      });
+      colorInput.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const val = e.target.value.toLowerCase();
+        setProfileColorAt(idx, val);
+      });
+    }
 
     // 名前編集
     const nameInput = row.querySelector(".profile-row-name-input");
@@ -1743,6 +1817,7 @@ function duplicateProfileAt(idx) {
   const duplicated = {
     id: generateProfileId(),
     name: `${src.name} (コピー)`,
+    color: src.color || getProfileColor(src, idx + 1),
     keymap: JSON.parse(JSON.stringify(src.keymap)),
     joystick: JSON.parse(JSON.stringify(src.joystick))
   };
@@ -1807,6 +1882,22 @@ function renameProfileAt(idx, newName) {
     sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
   }
   log(`プロファイル #${idx + 1} の名前を「${name}」に変更しました`, "info");
+}
+
+function setProfileColorAt(idx, newColor) {
+  if (!currentConfig.profiles[idx]) return;
+  const color = newColor.toLowerCase();
+  currentConfig.profiles[idx].color = color;
+  if (idx === currentConfig.active_profile) {
+    updateProfileLabels();
+  }
+  renderProfilesList();
+  renderProfileSelect();
+  saveToLocalStorage(currentConfig, `LED色変更: ${currentConfig.profiles[idx].name}`);
+  if (serialPort && writer) {
+    sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
+  }
+  log(`プロファイル #${idx + 1} のLED色を「${color}」に変更しました`, "info");
 }
 
 function moveProfileUp() {
@@ -3500,6 +3591,7 @@ if (btnAddProfile) {
     const newProfile = {
       id: generateProfileId(),
       name: `プロファイル ${newNum}`,
+      color: DEFAULT_PROFILE_HEX_COLORS[(newNum - 1) % DEFAULT_PROFILE_HEX_COLORS.length],
       keymap: JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
       joystick: JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
     };
@@ -3519,6 +3611,7 @@ if (btnDuplicateProfile) {
     const duplicated = {
       id: generateProfileId(),
       name: `${cur.name} (コピー)`,
+      color: cur.color || DEFAULT_PROFILE_HEX_COLORS[currentConfig.profiles.length % DEFAULT_PROFILE_HEX_COLORS.length],
       keymap: JSON.parse(JSON.stringify(cur.keymap)),
       joystick: JSON.parse(JSON.stringify(cur.joystick))
     };
