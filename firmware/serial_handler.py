@@ -97,6 +97,8 @@ class SerialHandler:
             self.send_response({"status": "ok", "cmd": "monitor", "enabled": self.monitor_enabled})
         elif cmd == "reset_config":
             return self._cmd_reset_config()
+        elif cmd == "nvm_status":
+            self.send_response({"status": "ok", "cmd": "nvm_status", "version": FIRMWARE_VERSION, "nvm": config_store.get_nvm_status()})
         elif cmd == "ping":
             self.send_response({"status": "ok", "cmd": "pong", "version": FIRMWARE_VERSION})
         else:
@@ -105,7 +107,13 @@ class SerialHandler:
     def _cmd_get_config(self):
         try:
             cfg = config_store.load_config(self.config_path)
-            self.send_response({"status": "ok", "cmd": "get_config", "version": FIRMWARE_VERSION, "config": cfg})
+            self.send_response({
+                "status": "ok",
+                "cmd": "get_config",
+                "version": FIRMWARE_VERSION,
+                "config": cfg,
+                "nvm": config_store.get_nvm_status()
+            })
         except Exception as e:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
 
@@ -128,7 +136,8 @@ class SerialHandler:
             "cmd": "set_config",
             "version": FIRMWARE_VERSION,
             "saved_to_file": saved_to_file,
-            "saved_to_nvm": saved_to_nvm
+            "saved_to_nvm": saved_to_nvm,
+            "nvm": config_store.get_nvm_status()
         }
         if warning_msg:
             resp["warning"] = warning_msg
@@ -266,7 +275,13 @@ class SerialHandler:
                 self.stick_engine.load_config(default_cfg)
         else:
             self.stick_engine.load_config(default_cfg)
-        self.send_response({"status": "ok", "cmd": "reset_config", "version": FIRMWARE_VERSION, "config": default_cfg})
+        self.send_response({
+            "status": "ok",
+            "cmd": "reset_config",
+            "version": FIRMWARE_VERSION,
+            "config": default_cfg,
+            "nvm": config_store.get_nvm_status()
+        })
 
     def send_response(self, obj):
         try:

@@ -152,5 +152,21 @@ class TestSerialHandler(unittest.TestCase):
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "pong")
 
+    def test_nvm_status_command(self):
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            self.handler.handle_line(json.dumps({"cmd": "nvm_status"}))
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "nvm_status")
+        self.assertIn("nvm", resp)
+        self.assertIn("total", resp["nvm"])
+        self.assertIn("used", resp["nvm"])
+        self.assertIn("free", resp["nvm"])
+
 if __name__ == '__main__':
     unittest.main()

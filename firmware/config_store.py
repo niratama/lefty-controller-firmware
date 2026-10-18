@@ -49,6 +49,46 @@ def clear_nvm():
             pass
     return False
 
+def get_nvm_status():
+    """
+    microcontroller.nvm の総容量、使用量、空き容量、ステータスを返す。
+    戻り値: dict
+    {
+        "total": 4096,
+        "used": 2150,
+        "free": 1946,
+        "valid": True
+    }
+    """
+    total = 4096
+    if microcontroller and hasattr(microcontroller, "nvm"):
+        try:
+            total = len(microcontroller.nvm)
+            if total >= 7 and bytes(microcontroller.nvm[0:5]) == NVM_MAGIC:
+                length = (microcontroller.nvm[5] << 8) | microcontroller.nvm[6]
+                if 0 <= length <= (total - 7):
+                    used = 7 + length
+                    return {
+                        "total": total,
+                        "used": used,
+                        "free": max(0, total - used),
+                        "valid": True
+                    }
+            return {
+                "total": total,
+                "used": 0,
+                "free": total,
+                "valid": False
+            }
+        except Exception as e:
+            print(f"[WARN] get_nvm_status エラー: {e}")
+    return {
+        "total": total,
+        "used": 0,
+        "free": total,
+        "valid": False
+    }
+
 def load_from_nvm():
     """microcontroller.nvm から保存された設定を読出"""
     if not microcontroller or not hasattr(microcontroller, "nvm"):

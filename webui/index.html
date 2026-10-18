@@ -93,6 +93,7 @@
             <div class="quick-action-info">
               <span class="quick-action-label">選択中プロファイル:</span>
               <span class="active-profile-badge current-profile-name-display">プロファイル 1</span>
+              <span id="quickNvmBadge" class="nvm-chip" title="マイコン内蔵Flash (NVM) 容量状況">💾 Flash: -- / 4,096 B</span>
             </div>
             <div class="quick-action-buttons">
               <button type="button" class="btn btn-secondary btn-quick-load" disabled>📥 デバイスから読込</button>
@@ -378,7 +379,66 @@
           <section class="card device-management-card">
             <div class="card-header">
               <h2>⚙️ デバイス管理 & 設定バックアップ</h2>
-              <p class="section-desc">設定全体のバックアップ・復元、出荷時リセット、およびシリアル通信ログの確認が行えます。</p>
+              <p class="section-desc">設定全体のバックアップ・復元、内蔵Flashメモリ(NVM)使用状況の確認、出荷時リセット、およびシリアル通信ログの確認が行えます。</p>
+            </div>
+
+            <!-- NVMストレージ使用状況カード -->
+            <div class="nvm-storage-card">
+              <div class="nvm-card-header">
+                <div class="nvm-header-title">
+                  <h3>💾 マイコン内蔵Flash (NVM) ストレージ状況</h3>
+                  <span id="nvmSourceBadge" class="nvm-source-badge offline">オフライン (推定値)</span>
+                </div>
+                <button type="button" id="btnRefreshNvm" class="btn btn-sm btn-outline">🔄 容量を再確認</button>
+              </div>
+
+              <div class="nvm-stats-grid">
+                <div class="nvm-stat-box">
+                  <span class="nvm-stat-label">使用容量</span>
+                  <div class="nvm-stat-value-group">
+                    <span id="nvmUsedVal" class="nvm-stat-num">--</span>
+                    <span class="nvm-stat-unit">bytes</span>
+                  </div>
+                </div>
+                <div class="nvm-stat-box">
+                  <span class="nvm-stat-label">空き容量</span>
+                  <div class="nvm-stat-value-group">
+                    <span id="nvmFreeVal" class="nvm-stat-num">--</span>
+                    <span class="nvm-stat-unit">bytes</span>
+                  </div>
+                </div>
+                <div class="nvm-stat-box">
+                  <span class="nvm-stat-label">総容量</span>
+                  <div class="nvm-stat-value-group">
+                    <span id="nvmTotalVal" class="nvm-stat-num">4,096</span>
+                    <span class="nvm-stat-unit">bytes</span>
+                  </div>
+                </div>
+                <div class="nvm-stat-box">
+                  <span class="nvm-stat-label">登録プロファイル数</span>
+                  <div class="nvm-stat-value-group">
+                    <span id="nvmProfileCountVal" class="nvm-stat-num">--</span>
+                    <span class="nvm-stat-unit">個</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="nvm-progress-section">
+                <div class="nvm-progress-track">
+                  <div id="nvmProgressBar" class="nvm-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="nvm-progress-info">
+                  <span id="nvmProgressPercent" class="nvm-percent-text">0.0% 使用中</span>
+                  <span id="nvmProgressStatus" class="nvm-status-text">余裕あり</span>
+                </div>
+              </div>
+
+              <div class="nvm-card-footer">
+                <p id="nvmWarningText" class="nvm-alert-text" style="display: none;"></p>
+                <p class="nvm-guide-text">
+                  ℹ️ <strong>RP2040 Flash (microcontroller.nvm):</strong> 全4,096 bytes（4KB）。1プロファイルあたり約700〜900 bytesを消費します。安定動作のため最大3〜4個のプロファイル保存が推奨されます。
+                </p>
+              </div>
             </div>
 
             <div class="backup-actions-bar">
@@ -526,6 +586,6 @@
     </datalist>
   </div>
 
-  <script src="app.js?v=1.3.3-clean-merge"></script>
+  <script src="app.js?v=1.3.4-nvm-monitor"></script>
 </body>
 </html>

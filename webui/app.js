@@ -695,6 +695,120 @@ function getConfigJsonByteLength(cfg) {
   }
 }
 
+let latestNvmStatus = null;
+
+function updateNvmStorageUI(nvmReported = null) {
+  let total = 4096;
+  let used = 0;
+  let free = 4096;
+  let isDeviceReported = false;
+
+  if (nvmReported && typeof nvmReported === "object" && nvmReported.total > 0) {
+    total = nvmReported.total;
+    used = nvmReported.used;
+    free = nvmReported.free;
+    isDeviceReported = true;
+    latestNvmStatus = { ...nvmReported, isDeviceReported: true };
+  } else if (latestNvmStatus && latestNvmStatus.isDeviceReported) {
+    total = latestNvmStatus.total;
+    used = latestNvmStatus.used;
+    free = latestNvmStatus.free;
+    isDeviceReported = true;
+  } else {
+    // オフラインまたはファームウェア未対応時の推定値 (現在の設定JSON + ヘッダ7バイト)
+    const payloadLen = getConfigJsonByteLength(currentConfig);
+    used = payloadLen > 0 ? (7 + payloadLen) : 0;
+    free = Math.max(0, total - used);
+    latestNvmStatus = { total, used, free, valid: true, isDeviceReported: false };
+  }
+
+  const percentNum = total > 0 ? (used / total) * 100 : 0;
+  const percentStr = percentNum.toFixed(1);
+  const profileCount = (currentConfig && Array.isArray(currentConfig.profiles)) ? currentConfig.profiles.length : 0;
+
+  // Tab 5 詳細カード要素
+  const usedEl = document.getElementById("nvmUsedVal");
+  const freeEl = document.getElementById("nvmFreeVal");
+  const totalEl = document.getElementById("nvmTotalVal");
+  const countEl = document.getElementById("nvmProfileCountVal");
+  const percentEl = document.getElementById("nvmProgressPercent");
+  const barEl = document.getElementById("nvmProgressBar");
+  const statusEl = document.getElementById("nvmProgressStatus");
+  const badgeEl = document.getElementById("nvmSourceBadge");
+  const warnEl = document.getElementById("nvmWarningText");
+
+  if (usedEl) usedEl.textContent = used.toLocaleString();
+  if (freeEl) freeEl.textContent = free.toLocaleString();
+  if (totalEl) totalEl.textContent = total.toLocaleString();
+  if (countEl) countEl.textContent = `${profileCount}`;
+  if (percentEl) percentEl.textContent = `${percentStr}% 使用中`;
+
+  if (barEl) {
+    barEl.style.width = `${Math.min(100, Math.max(0, percentNum))}%`;
+    barEl.classList.remove("bar-safe", "bar-warn", "bar-danger");
+    if (percentNum >= 92 || free < 300) {
+      barEl.classList.add("bar-danger");
+    } else if (percentNum >= 75 || free < 800) {
+      barEl.classList.add("bar-warn");
+    } else {
+      barEl.classList.add("bar-safe");
+    }
+  }
+
+  if (statusEl) {
+    if (percentNum >= 92 || free < 300) {
+      statusEl.textContent = "🚨 容量限界寸前";
+      statusEl.style.color = "#ef4444";
+    } else if (percentNum >= 75 || free < 800) {
+      statusEl.textContent = "⚠️ 空き容量少なめ";
+      statusEl.style.color = "#f59e0b";
+    } else {
+      statusEl.textContent = "✅ 余裕あり";
+      statusEl.style.color = "#10b981";
+    }
+  }
+
+  if (badgeEl) {
+    if (isDeviceReported) {
+      badgeEl.textContent = "✅ 実測値 (マイコンFlash)";
+      badgeEl.className = "nvm-source-badge live";
+    } else if (serialPort && writer) {
+      badgeEl.textContent = "⚡ 推定値 (現在の設定データ)";
+      badgeEl.className = "nvm-source-badge est";
+    } else {
+      badgeEl.textContent = "オフライン (推定値)";
+      badgeEl.className = "nvm-source-badge offline";
+    }
+  }
+
+  if (warnEl) {
+    if (free < 300 || percentNum >= 92) {
+      warnEl.textContent = `🚨 マイコンFlashの空き容量が残り ${free.toLocaleString()} bytes です。新しいプロファイルを追加すると保存できなくなる可能性があります。不要なプロファイルを削除してください。`;
+      warnEl.style.display = "block";
+    } else if (free < 800 || percentNum >= 75) {
+      warnEl.textContent = `⚠️ マイコンFlashの空き容量が少なくなっています (残り ${free.toLocaleString()} bytes)。プロファイル追加はあと1個程度を推奨します。`;
+      warnEl.style.display = "block";
+    } else {
+      warnEl.style.display = "none";
+    }
+  }
+
+  // Tab 1 クイックチップ
+  const chipEl = document.getElementById("quickNvmBadge");
+  if (chipEl) {
+    chipEl.textContent = `💾 Flash: ${used.toLocaleString()} / ${total.toLocaleString()} B (${percentStr}%)`;
+    chipEl.title = `マイコン内蔵Flash (NVM): 使用 ${used.toLocaleString()} B / 空き ${free.toLocaleString()} B (${isDeviceReported ? "実測値" : "推定値"})`;
+    chipEl.classList.remove("chip-safe", "chip-warn", "chip-danger");
+    if (percentNum >= 92 || free < 300) {
+      chipEl.classList.add("chip-danger");
+    } else if (percentNum >= 75 || free < 800) {
+      chipEl.classList.add("chip-warn");
+    } else {
+      chipEl.classList.add("chip-safe");
+    }
+  }
+}
+
 // プロファイル構造の保証 (後方互換性 & ハードウェアピン分離)
 function ensureProfiles(cfg) {
   if (!cfg || typeof cfg !== "object") {
@@ -968,6 +1082,7 @@ function saveToLocalStorage(cfg, detail = "") {
     console.warn("localStorage save failed:", e);
     updateStorageBadge("error", e.message);
   }
+  updateNvmStorageUI();
 }
 
 function loadFromLocalStorage() {
@@ -2249,6 +2364,7 @@ function initUI() {
       versionAlertBanner.style.display = "none";
     });
   }
+  initNvmEvents();
   renderProfileSelect();
   renderHwButtonGrid();
   renderButtonGrid();
@@ -2256,7 +2372,24 @@ function initUI() {
   updateFormFromConfig();
   drawRadar();
   restoreDeviceButtons();
+  updateNvmStorageUI();
   checkUrlForSharedProfile();
+}
+
+function initNvmEvents() {
+  const btnRefreshNvm = document.getElementById("btnRefreshNvm");
+  if (btnRefreshNvm) {
+    btnRefreshNvm.addEventListener("click", () => {
+      if (serialPort && writer) {
+        log("マイコン内蔵Flash (NVM) ストレージ状況を問い合わせ中...", "info");
+        sendJson({ cmd: "nvm_status" });
+      } else {
+        latestNvmStatus = null;
+        updateNvmStorageUI();
+        showToast("💾 設定データサイズからFlash使用量を再計算しました");
+      }
+    });
+  }
 }
 
 function renderButtonGrid() {
@@ -3262,6 +3395,9 @@ async function disconnectSerial() {
     btnCalibrate.disabled = true;
     setMonitorDisabled(true);
 
+    latestNvmStatus = null;
+    updateNvmStorageUI();
+
     log("シリアルポートを切断しました", "info");
   } catch (err) {
     log(`切断エラー: ${err.message}`, "error");
@@ -3378,6 +3514,9 @@ function handleReceivedLine(line) {
           saveToLocalStorage(currentConfig, "デバイス読込 & プロファイル統合");
           setDeviceOpLoading("load", false, "読込・統合完了!");
 
+          if (msg.nvm) updateNvmStorageUI(msg.nvm);
+          else updateNvmStorageUI();
+
           // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
           setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
           sendJson({ cmd: "set_config", config: currentConfig });
@@ -3395,6 +3534,8 @@ function handleReceivedLine(line) {
           drawRadar();
           saveToLocalStorage(currentConfig, "デバイス読込同期");
           setDeviceOpLoading("load", false, "読込完了!");
+          if (msg.nvm) updateNvmStorageUI(msg.nvm);
+          else updateNvmStorageUI();
         }
 
         if (autoStartMonitorPending) {
@@ -3416,6 +3557,8 @@ function handleReceivedLine(line) {
       saveToLocalStorage(currentConfig, "デバイス読込同期");
       setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
+      if (msg.nvm) updateNvmStorageUI(msg.nvm);
+      else updateNvmStorageUI();
 
       // 初回接続時のロード完了後、少し間を置いてモニタリングを自動開始 (安定化)
       if (autoStartMonitorPending) {
@@ -3433,6 +3576,9 @@ function handleReceivedLine(line) {
       if (msg.saved_to_file) saveDest += " & config.json";
       saveToLocalStorage(currentConfig, "デバイス保存同期");
       setDeviceOpLoading("save", false, "保存完了!");
+      if (msg.nvm) updateNvmStorageUI(msg.nvm);
+      else updateNvmStorageUI();
+
       if (!msg.saved_to_nvm && !msg.saved_to_file) {
         log("⚠️ デバイスへの永続保存に失敗しました (RAM上でのみ有効です)。Flash(NVM)容量 (4KB) を超過している可能性があります。", "warn");
         showToast("⚠️ デバイス永続保存に失敗 (RAM上のみ反映)", 5000);
@@ -3440,6 +3586,12 @@ function handleReceivedLine(line) {
         log(`設定がデバイスに反映されました (${saveDest})`, "success");
       }
       if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
+    } else if (msg.cmd === "nvm_status" && msg.status === "ok") {
+      if (msg.nvm) {
+        updateNvmStorageUI(msg.nvm);
+        log(`マイコンFlash(NVM)容量: 使用 ${msg.nvm.used.toLocaleString()} B / 空き ${msg.nvm.free.toLocaleString()} B (${msg.nvm.total.toLocaleString()} B 中)`, "info");
+        showToast(`💾 NVM容量: 使用 ${msg.nvm.used.toLocaleString()}B / 空き ${msg.nvm.free.toLocaleString()}B`);
+      }
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       setDeviceOpLoading("calibrate", false, "補正完了!");
       log(`キャリブレーション完了: Center=(${msg.center[0]}, ${msg.center[1]})`, "success");
@@ -3453,6 +3605,8 @@ function handleReceivedLine(line) {
       updateFormFromConfig();
       saveToLocalStorage(currentConfig, "デバイスリセット同期");
       setDeviceOpLoading("reset", false, "初期化完了!");
+      if (msg.nvm) updateNvmStorageUI(msg.nvm);
+      else updateNvmStorageUI();
       log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
     }
   } catch (err) {

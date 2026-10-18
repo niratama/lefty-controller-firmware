@@ -114,5 +114,28 @@ class TestConfigStore(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
+    def test_get_nvm_status(self):
+        # 初期状態 (未保存)
+        stat = config_store.get_nvm_status()
+        self.assertEqual(stat["total"], 4096)
+        self.assertEqual(stat["used"], 0)
+        self.assertEqual(stat["free"], 4096)
+        self.assertFalse(stat["valid"])
+
+        # 保存後
+        config_store.save_to_nvm(self.test_cfg)
+        stat = config_store.get_nvm_status()
+        self.assertEqual(stat["total"], 4096)
+        self.assertTrue(stat["valid"])
+        self.assertGreater(stat["used"], 7)
+        self.assertEqual(stat["free"], 4096 - stat["used"])
+
+        # クリア後
+        config_store.clear_nvm()
+        stat_cleared = config_store.get_nvm_status()
+        self.assertEqual(stat_cleared["used"], 0)
+        self.assertEqual(stat_cleared["free"], 4096)
+        self.assertFalse(stat_cleared["valid"])
+
 if __name__ == '__main__':
     unittest.main()
