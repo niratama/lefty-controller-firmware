@@ -93,7 +93,7 @@
             <div class="quick-action-info">
               <span class="quick-action-label">選択中プロファイル:</span>
               <span class="active-profile-badge current-profile-name-display">プロファイル 1</span>
-              <span id="quickNvmBadge" class="nvm-chip" title="マイコン内蔵Flash (NVM) 容量状況">💾 Flash: -- / 4,096 B</span>
+              <span id="quickStorageBadge" class="storage-chip" title="マイコン内蔵Flash (config.json) ストレージ容量状況">💾 ストレージ: -- 空き</span>
             </div>
             <div class="quick-action-buttons">
               <button type="button" class="btn btn-secondary btn-quick-load" disabled>📥 デバイスから読込</button>
@@ -118,7 +118,7 @@
 
             <!-- プロファイル一覧リスト -->
             <div class="profiles-list-section">
-              <!-- プロファイル同期 & NVM容量サマリーバー -->
+              <!-- プロファイル同期 & ストレージ容量サマリーバー -->
               <div class="profiles-sync-summary-bar" id="profilesSyncSummaryBar">
                 <div class="sync-summary-stats">
                   <span class="sync-summary-item">
@@ -128,19 +128,19 @@
                   </span>
                   <span class="sync-summary-separator">|</span>
                   <span class="sync-summary-item">
-                    <span class="sync-summary-label">転送ペイロード:</span>
-                    <strong id="syncPayloadBytes">--</strong> B (空き <strong id="syncFreeBytes">--</strong> B)
+                    <span class="sync-summary-label">設定データサイズ:</span>
+                    <strong id="syncPayloadBytes">--</strong> (デバイス空き: <strong id="syncFreeBytes">--</strong>)
                   </span>
                 </div>
                 <div class="sync-summary-guide">
-                  <span class="sync-guide-badge">4KB NVM保護</span>
-                  <span class="sync-guide-text">チェックを入れたプロファイルのみマイコンへ転送されます</span>
+                  <span class="sync-guide-badge">Flashストレージ保存</span>
+                  <span class="sync-guide-text">マイコン内蔵Flash (約1.4MB) に安全に永続保存されます</span>
                 </div>
               </div>
 
               <div class="profiles-list-header-row">
                 <span class="col-status">状態</span>
-                <span class="col-sync" title="マイコン内蔵Flash (NVM 4KB) への転送対象">転送</span>
+                <span class="col-sync" title="マイコン内蔵Flash (config.json) への転送対象">転送</span>
                 <span class="col-index">#</span>
                 <span class="col-name">プロファイル名（直接編集可能）</span>
                 <span class="col-meta">動作モード</span>
@@ -439,7 +439,7 @@
             <div class="nvm-storage-card">
               <div class="nvm-card-header">
                 <div class="nvm-header-title">
-                  <h3>💾 マイコン内蔵Flash (NVM) ストレージ状況</h3>
+                  <h3>💾 マイコン内蔵ストレージ (Flash / config.json) 状況</h3>
                   <span id="nvmSourceBadge" class="nvm-source-badge offline">オフライン (推定値)</span>
                 </div>
                 <button type="button" id="btnRefreshNvm" class="btn btn-sm btn-outline">🔄 容量を再確認</button>
@@ -447,24 +447,24 @@
 
               <div class="nvm-stats-grid">
                 <div class="nvm-stat-box">
-                  <span class="nvm-stat-label">使用容量</span>
+                  <span class="nvm-stat-label">設定データ使用量</span>
                   <div class="nvm-stat-value-group">
                     <span id="nvmUsedVal" class="nvm-stat-num">--</span>
-                    <span class="nvm-stat-unit">bytes</span>
+                    <span id="nvmUsedUnit" class="nvm-stat-unit">bytes</span>
                   </div>
                 </div>
                 <div class="nvm-stat-box">
                   <span class="nvm-stat-label">空き容量</span>
                   <div class="nvm-stat-value-group">
                     <span id="nvmFreeVal" class="nvm-stat-num">--</span>
-                    <span class="nvm-stat-unit">bytes</span>
+                    <span id="nvmFreeUnit" class="nvm-stat-unit">MB</span>
                   </div>
                 </div>
                 <div class="nvm-stat-box">
                   <span class="nvm-stat-label">総容量</span>
                   <div class="nvm-stat-value-group">
-                    <span id="nvmTotalVal" class="nvm-stat-num">4,096</span>
-                    <span class="nvm-stat-unit">bytes</span>
+                    <span id="nvmTotalVal" class="nvm-stat-num">約 1.4</span>
+                    <span id="nvmTotalUnit" class="nvm-stat-unit">MB</span>
                   </div>
                 </div>
                 <div class="nvm-stat-box">
@@ -489,7 +489,7 @@
               <div class="nvm-card-footer">
                 <p id="nvmWarningText" class="nvm-alert-text" style="display: none;"></p>
                 <p class="nvm-guide-text">
-                  ℹ️ <strong>RP2040 Flash (microcontroller.nvm):</strong> 全4,096 bytes（4KB）。1プロファイルあたり約700〜900 bytesを消費します。安定動作のため最大3〜4個のプロファイル保存が推奨されます。
+                  ℹ️ <strong>RP2040 内蔵Flashストレージ:</strong> 総容量 約 1.0〜1.4 MB。1プロファイルあたり約400 bytesと非常に軽量なため、数十〜数百個のプロファイルを余裕を持ってマイコンへ保存可能です。PCへUSBマウント（メンテナンスモード）時にも <code>config.json</code> を直接バックアップ・手動編集できます。
                 </p>
               </div>
             </div>

@@ -137,5 +137,31 @@ class TestConfigStore(unittest.TestCase):
         self.assertEqual(stat_cleared["free"], 4096)
         self.assertFalse(stat_cleared["valid"])
 
+    def test_file_prioritized_over_nvm(self):
+        # NVMに古い設定
+        nvm_data = {"version": "1.4.0", "active_profile": 0, "profiles": [{"name": "Old NVM"}]}
+        config_store.save_to_nvm(nvm_data)
+
+        # ファイルに新しい設定 (PC直接編集などをシミュレート)
+        file_data = {"version": "1.5.0", "active_profile": 0, "profiles": [{"name": "New File"}]}
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
+            json.dump(file_data, tf)
+            temp_path = tf.name
+
+        try:
+            loaded = config_store.load_config(temp_path)
+            # ファイルの内容が優先されること
+            self.assertEqual(loaded["profiles"][0]["name"], "New File")
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    def test_get_storage_status(self):
+        stat = config_store.get_storage_status()
+        self.assertIn("total", stat)
+        self.assertIn("used", stat)
+        self.assertIn("free", stat)
+        self.assertGreater(stat["total"], 0)
+
 if __name__ == '__main__':
     unittest.main()

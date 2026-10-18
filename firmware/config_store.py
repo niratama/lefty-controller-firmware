@@ -122,60 +122,126 @@ def sanitize_config(cfg):
 
     return cfg, had_pins
 
+def get_storage_status(path="/"):
+    """
+    ファイルシステム (Flashストレージ) の総容量、使用量、空き容量を返す。
+    戻り値: dict
+    {
+        "total": 1441792,
+        "used": 153600,
+        "free": 1288192,
+        "valid": True
+    }
+    """
+    try:
+        import os
+        stat = os.statvfs(path)
+        block_size = stat[0]
+        total_blocks = stat[2]
+        free_blocks = stat[3]
+        total = total_blocks * block_size
+        free = free_blocks * block_size
+        used = max(0, total - free)
+        return {
+            "total": total,
+            "used": used,
+            "free": free,
+            "valid": True
+        }
+    except Exception as e:
+        return {
+            "total": 1441792,
+            "used": 102400,
+            "free": 1339392,
+            "valid": False
+        }
+
 def load_config(config_path="config.json", default_config=None):
     """
     設定を読み込む。
-    1. config.json から基本設定を読み込み
-    2. NVM (内蔵Flash) に新しい保存データがあればそれを優先適用
-    3. ピン定義等のハードウェア情報はプロファイルから分離・除外
+    1. config.json (メイン保存先) から設定を読み込み (メンテナンスモードでの直接編集も反映)
+    2. config.json が見つからない・破損している場合のみ NVM (内蔵Flash EEPROM) から読出
+    3. どちらも存在しない場合は default_config を適用
+    4. ピン定義等のハードウェア情報はプロファイルから分離・除外
     """
     cfg = None
+    loaded_from_file = False
 
-    # 1. ファイルから読込
+    # 1. メイン保存先: config.json から読込
     try:
         with open(config_path, "r") as f:
             cfg = json.load(f)
+            loaded_from_file = True
     except Exception:
-        cfg = default_config
+        pass
 
-    # 2. NVMから読込 (Flash保存データがあれば上書き)
-    nvm_cfg = load_from_nvm()
-    if nvm_cfg:
-        cfg = nvm_cfg
+    # 2. ファイルが無い/壊れている場合は NVM (旧設定またはフォールバック) から読込
+    if not loaded_from_file:
+        nvm_cfg = load_from_nvm()
+        if nvm_cfg:
+            cfg = nvm_cfg
+            # NVMから読込成功した場合は config.json への自動移行を試行
+            try:
+                with open(config_path, "w") as f:
+                    json.dump(cfg, f)
+            except Exception:
+                pass
+
+    if cfg is None:
+        cfg = default_config
 
     if cfg:
         cfg, had_pins = sanitize_config(cfg)
         if had_pins:
-            # 旧バージョンの pins が含まれていた場合は除去した設定をNVMに書き戻しクリーン化
-            save_to_nvm(cfg)
+            try:
+                with open(config_path, "w") as f:
+                    json.dump(cfg, f)
+            except Exception:
+                pass
+            if microcontroller and hasattr(microcontroller, "nvm"):
+                save_to_nvm(cfg)
 
     return cfg
 
 def save_config(config_dict, config_path="config.json"):
     """
     設定を保存する。
-    1. microcontroller.nvm (Flash) への保存を試行 (USB接続中も常に成功)
-    2. config.json への保存を試行 (可能であれば)
+    1. config.json (メインFlashストレージ) への保存 (容量制限なし / 1MB以上)
+    2. microcontroller.nvm (内蔵Flash 4KB) へのサブ保存 (4KBに収まる場合のみバックアップ)
     戻り値: (saved_to_file, saved_to_nvm, warning_msg)
     """
     if isinstance(config_dict, dict):
         config_dict, _ = sanitize_config(config_dict)
 
-    saved_to_nvm = save_to_nvm(config_dict)
     saved_to_file = False
+    saved_to_nvm = False
     warning_msg = None
 
+    # 1. メイン保存先: ファイルシステム上の config.json に保存
     try:
         with open(config_path, "w") as f:
             json.dump(config_dict, f)
+            try:
+                f.flush()
+            except Exception:
+                pass
         saved_to_file = True
     except OSError as e:
-        # USB接続中でRead-onlyストレージの場合
-        if saved_to_nvm:
-            warning_msg = "ストレージはPC接続中(Read-Only)ですが、RP2040内蔵Flash(NVM)に安全に永続保存されました！電源を切っても維持されます。"
-        else:
-            warning_msg = f"ファイル書き込み失敗: {e}"
+        warning_msg = f"ストレージ書き込み失敗 (PCマウント中の可能性): {e}"
     except Exception as e:
         warning_msg = str(e)
 
+    # 2. サブ保存先: 4KBに収まる場合はNVMにもバックアップ保存
+    try:
+        saved_to_nvm = save_to_nvm(config_dict)
+    except Exception:
+        saved_to_nvm = False
+
+    if not saved_to_file and saved_to_nvm:
+        warning_msg = "ストレージはPC接続中(Read-Only)ですが、RP2040内蔵Flash(NVM)に安全に永続保存されました！"
+    elif saved_to_file and not saved_to_nvm:
+        # NVMの4KBを超過しているが、ファイル保存は正常完了
+        pass
+
     return saved_to_file, saved_to_nvm, warning_msg
+

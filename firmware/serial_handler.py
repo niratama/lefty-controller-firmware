@@ -97,8 +97,14 @@ class SerialHandler:
             self.send_response({"status": "ok", "cmd": "monitor", "enabled": self.monitor_enabled})
         elif cmd == "reset_config":
             return self._cmd_reset_config()
-        elif cmd == "nvm_status":
-            self.send_response({"status": "ok", "cmd": "nvm_status", "version": FIRMWARE_VERSION, "nvm": config_store.get_nvm_status()})
+        elif cmd == "storage_status" or cmd == "nvm_status":
+            self.send_response({
+                "status": "ok",
+                "cmd": cmd,
+                "version": FIRMWARE_VERSION,
+                "storage": config_store.get_storage_status(),
+                "nvm": config_store.get_nvm_status()
+            })
         elif cmd == "ping":
             self.send_response({"status": "ok", "cmd": "pong", "version": FIRMWARE_VERSION})
         else:
@@ -112,6 +118,7 @@ class SerialHandler:
                 "cmd": "get_config",
                 "version": FIRMWARE_VERSION,
                 "config": cfg,
+                "storage": config_store.get_storage_status(),
                 "nvm": config_store.get_nvm_status()
             })
         except Exception as e:
@@ -137,6 +144,7 @@ class SerialHandler:
             "version": FIRMWARE_VERSION,
             "saved_to_file": saved_to_file,
             "saved_to_nvm": saved_to_nvm,
+            "storage": config_store.get_storage_status(),
             "nvm": config_store.get_nvm_status()
         }
         if warning_msg:
@@ -278,11 +286,13 @@ class SerialHandler:
                 self.stick_engine.load_config(default_cfg)
         else:
             self.stick_engine.load_config(default_cfg)
+        config_store.save_config(default_cfg, self.config_path)
         self.send_response({
             "status": "ok",
             "cmd": "reset_config",
             "version": FIRMWARE_VERSION,
             "config": default_cfg,
+            "storage": config_store.get_storage_status(),
             "nvm": config_store.get_nvm_status()
         })
 

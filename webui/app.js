@@ -739,8 +739,20 @@ function sanitizeConfig(cfg) {
   return cfg;
 }
 
-// RP2040内蔵Flash(microcontroller.nvm)の容量制限 (合計4096バイト、ヘッダ7バイト)
-const MAX_NVM_PAYLOAD_BYTES = 3900;
+// RP2040 Flashストレージ容量上限 (約1.4MB、安全マージンとして1MBを設定)
+const MAX_STORAGE_PAYLOAD_BYTES = 1000000;
+const MAX_NVM_PAYLOAD_BYTES = 3900; // 旧NVM互換用
+
+function formatBytes(bytes) {
+  if (bytes === null || bytes === undefined || isNaN(bytes)) return "--";
+  if (bytes >= 1048576) {
+    return `${(bytes / 1048576).toFixed(2)} MB`;
+  } else if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  } else {
+    return `${bytes.toLocaleString()} B`;
+  }
+}
 
 function getConfigJsonByteLength(cfg) {
   try {
@@ -750,6 +762,7 @@ function getConfigJsonByteLength(cfg) {
   }
 }
 
+let latestStorageStatus = null;
 let latestNvmStatus = null;
 
 // プロファイル間の依存関係 (profile_switch:<id>) をアクティブプロファイルから再帰追跡 (Combo / Fn / Tap-Hold対応)
@@ -871,21 +884,19 @@ function updateProfilesSyncSummary() {
   if (!currentConfig || !Array.isArray(currentConfig.profiles)) return;
 
   const syncPayload = getDeviceSyncPayload(currentConfig);
-  const payloadBytes = getConfigJsonByteLength(syncPayload) + 7;
-  const freeBytes = Math.max(0, 4096 - payloadBytes);
+  const payloadBytes = getConfigJsonByteLength(syncPayload);
+
+  let freeBytes = 1250000;
+  if (latestStorageStatus && latestStorageStatus.free !== undefined) {
+    freeBytes = latestStorageStatus.free;
+  }
 
   if (syncTargetCountEl) syncTargetCountEl.textContent = syncPayload.profiles.length;
   if (syncTotalCountEl) syncTotalCountEl.textContent = currentConfig.profiles.length;
-  if (syncPayloadBytesEl) syncPayloadBytesEl.textContent = payloadBytes.toLocaleString();
+  if (syncPayloadBytesEl) syncPayloadBytesEl.textContent = formatBytes(payloadBytes);
   if (syncFreeBytesEl) {
-    syncFreeBytesEl.textContent = freeBytes.toLocaleString();
-    if (freeBytes < 300) {
-      syncFreeBytesEl.style.color = "#ef4444";
-    } else if (freeBytes < 800) {
-      syncFreeBytesEl.style.color = "#f59e0b";
-    } else {
-      syncFreeBytesEl.style.color = "#34d399";
-    }
+    syncFreeBytesEl.textContent = formatBytes(freeBytes);
+    syncFreeBytesEl.style.color = "#34d399";
   }
 }
 
@@ -915,35 +926,39 @@ function playProfileSwitchTone() {
   }
 }
 
-function updateNvmStorageUI(nvmReported = null) {
-  let total = 4096;
-  let used = 0;
-  let free = 4096;
+function updateStorageUI(storageReported = null, nvmReported = null) {
+  let total = 1441792;
+  let free = 1250000;
+  let used = 191792;
   let isDeviceReported = false;
 
-  if (nvmReported && typeof nvmReported === "object" && nvmReported.total > 0) {
-    total = nvmReported.total;
-    used = nvmReported.used;
-    free = nvmReported.free;
+  if (storageReported && typeof storageReported === "object" && storageReported.total > 0) {
+    total = storageReported.total;
+    used = storageReported.used;
+    free = storageReported.free;
     isDeviceReported = true;
-    latestNvmStatus = { ...nvmReported, isDeviceReported: true };
-  } else if (latestNvmStatus && latestNvmStatus.isDeviceReported) {
-    total = latestNvmStatus.total;
-    used = latestNvmStatus.used;
-    free = latestNvmStatus.free;
+    latestStorageStatus = { ...storageReported, isDeviceReported: true };
+  } else if (latestStorageStatus && latestStorageStatus.isDeviceReported) {
+    total = latestStorageStatus.total;
+    used = latestStorageStatus.used;
+    free = latestStorageStatus.free;
     isDeviceReported = true;
   } else {
-    // オフラインまたはファームウェア未対応時の推定値 (転送対象の設定JSON + ヘッダ7バイト)
     const syncPayload = getDeviceSyncPayload(currentConfig);
     const payloadLen = getConfigJsonByteLength(syncPayload);
-    used = payloadLen > 0 ? (7 + payloadLen) : 0;
+    used = payloadLen;
     free = Math.max(0, total - used);
-    latestNvmStatus = { total, used, free, valid: true, isDeviceReported: false };
+    latestStorageStatus = { total, used, free, valid: true, isDeviceReported: false };
   }
 
+  if (nvmReported && typeof nvmReported === "object") {
+    latestNvmStatus = nvmReported;
+  }
+
+  const syncPayload = getDeviceSyncPayload(currentConfig);
+  const payloadBytes = getConfigJsonByteLength(syncPayload);
   const percentNum = total > 0 ? (used / total) * 100 : 0;
   const percentStr = percentNum.toFixed(1);
-  const syncPayload = getDeviceSyncPayload(currentConfig);
   const profileCount = (syncPayload && Array.isArray(syncPayload.profiles)) ? syncPayload.profiles.length : 0;
   const totalProfilesCount = (currentConfig && Array.isArray(currentConfig.profiles)) ? currentConfig.profiles.length : 0;
 
@@ -958,18 +973,18 @@ function updateNvmStorageUI(nvmReported = null) {
   const badgeEl = document.getElementById("nvmSourceBadge");
   const warnEl = document.getElementById("nvmWarningText");
 
-  if (usedEl) usedEl.textContent = used.toLocaleString();
-  if (freeEl) freeEl.textContent = free.toLocaleString();
-  if (totalEl) totalEl.textContent = total.toLocaleString();
-  if (countEl) countEl.textContent = `${profileCount} (PC内: ${totalProfilesCount})`;
-  if (percentEl) percentEl.textContent = `${percentStr}% 使用中`;
+  if (usedEl) usedEl.textContent = formatBytes(payloadBytes);
+  if (freeEl) freeEl.textContent = formatBytes(free);
+  if (totalEl) totalEl.textContent = formatBytes(total);
+  if (countEl) countEl.textContent = `${profileCount} (全登録: ${totalProfilesCount})`;
+  if (percentEl) percentEl.textContent = `${percentStr}% 使用中 (システム全体)`;
 
   if (barEl) {
-    barEl.style.width = `${Math.min(100, Math.max(0, percentNum))}%`;
+    barEl.style.width = `${Math.min(100, Math.max(2, percentNum))}%`;
     barEl.classList.remove("bar-safe", "bar-warn", "bar-danger");
-    if (percentNum >= 92 || free < 300) {
+    if (percentNum >= 95) {
       barEl.classList.add("bar-danger");
-    } else if (percentNum >= 75 || free < 800) {
+    } else if (percentNum >= 85) {
       barEl.classList.add("bar-warn");
     } else {
       barEl.classList.add("bar-safe");
@@ -977,24 +992,24 @@ function updateNvmStorageUI(nvmReported = null) {
   }
 
   if (statusEl) {
-    if (percentNum >= 92 || free < 300) {
-      statusEl.textContent = "🚨 容量限界寸前";
+    if (percentNum >= 95) {
+      statusEl.textContent = "🚨 ストレージ空き容量僅少";
       statusEl.style.color = "#ef4444";
-    } else if (percentNum >= 75 || free < 800) {
-      statusEl.textContent = "⚠️ 空き容量少なめ";
+    } else if (percentNum >= 85) {
+      statusEl.textContent = "⚠️ 使用率高め";
       statusEl.style.color = "#f59e0b";
     } else {
-      statusEl.textContent = "✅ 余裕あり";
+      statusEl.textContent = "✅ 余裕あり (空き多数)";
       statusEl.style.color = "#10b981";
     }
   }
 
   if (badgeEl) {
     if (isDeviceReported) {
-      badgeEl.textContent = "✅ 実測値 (マイコンFlash)";
+      badgeEl.textContent = "✅ 実測値 (マイコンFlashストレージ)";
       badgeEl.className = "nvm-source-badge live";
     } else if (serialPort && writer) {
-      badgeEl.textContent = "⚡ 推定値 (転送対象データ)";
+      badgeEl.textContent = "⚡ 接続中 (ストレージ)";
       badgeEl.className = "nvm-source-badge est";
     } else {
       badgeEl.textContent = "オフライン (推定値)";
@@ -1003,33 +1018,23 @@ function updateNvmStorageUI(nvmReported = null) {
   }
 
   if (warnEl) {
-    if (free < 300 || percentNum >= 92) {
-      warnEl.textContent = `🚨 マイコンFlashの空き容量が残り ${free.toLocaleString()} bytes です。新しいプロファイルを追加すると保存できなくなる可能性があります。プロファイル一覧で「デバイス転送」のチェックを外して転送数を調整してください。`;
-      warnEl.style.display = "block";
-    } else if (free < 800 || percentNum >= 75) {
-      warnEl.textContent = `⚠️ マイコンFlashの空き容量が少なくなっています (残り ${free.toLocaleString()} bytes)。転送プロファイルはあと1個程度を推奨します。`;
-      warnEl.style.display = "block";
-    } else {
-      warnEl.style.display = "none";
-    }
+    warnEl.style.display = "none";
   }
 
   // Tab 1 クイックチップ
-  const chipEl = document.getElementById("quickNvmBadge");
+  const chipEl = document.getElementById("quickStorageBadge") || document.getElementById("quickNvmBadge");
   if (chipEl) {
-    chipEl.textContent = `💾 Flash: ${used.toLocaleString()} / ${total.toLocaleString()} B (${percentStr}%)`;
-    chipEl.title = `マイコン内蔵Flash (NVM): 使用 ${used.toLocaleString()} B / 空き ${free.toLocaleString()} B (${isDeviceReported ? "実測値" : "推定値"})`;
+    chipEl.textContent = `💾 ストレージ: ${formatBytes(free)} 空き`;
+    chipEl.title = `マイコン内蔵Flashストレージ (config.json): 空き ${formatBytes(free)} / 総容量 ${formatBytes(total)} (${isDeviceReported ? "実測値" : "推定値"})`;
     chipEl.classList.remove("chip-safe", "chip-warn", "chip-danger");
-    if (percentNum >= 92 || free < 300) {
-      chipEl.classList.add("chip-danger");
-    } else if (percentNum >= 75 || free < 800) {
-      chipEl.classList.add("chip-warn");
-    } else {
-      chipEl.classList.add("chip-safe");
-    }
+    chipEl.classList.add("chip-safe");
   }
 
   updateProfilesSyncSummary();
+}
+
+function updateNvmStorageUI(nvmReported = null) {
+  updateStorageUI(null, nvmReported);
 }
 
 // プロファイル構造の保証 (後方互換性 & ハードウェアピン分離 & device_sync初期化)
@@ -1059,7 +1064,7 @@ function ensureProfiles(cfg) {
     }
     seenIds.add(p.id);
 
-    // device_sync 未定義の場合は true (アクティブまたは先頭数個をデフォルト同期)
+    // device_sync 未定義の場合は true (デフォルトで全件デバイス同期)
     if (p.device_sync === undefined) {
       p.device_sync = true;
     }
@@ -1097,16 +1102,16 @@ function ensureProfiles(cfg) {
     }
   });
 
-  // 全体で 3900 bytes を超えている場合、先頭プロファイル群以外で超過したものの device_sync を自動で false に調整
+  // ストレージ上限 (約1MB) を超える極端な場合のみ安全調整
   let testProfiles = cfg.profiles.filter((p, i) => i === cfg.active_profile || p.device_sync !== false);
   let testCfg = { version: cfg.version, active_profile: 0, profiles: testProfiles };
-  if (getConfigJsonByteLength(testCfg) > MAX_NVM_PAYLOAD_BYTES) {
+  if (getConfigJsonByteLength(testCfg) > MAX_STORAGE_PAYLOAD_BYTES) {
     for (let i = cfg.profiles.length - 1; i > 0; i--) {
       if (i === cfg.active_profile) continue;
       cfg.profiles[i].device_sync = false;
       testProfiles = cfg.profiles.filter((p, idx) => idx === cfg.active_profile || p.device_sync !== false);
       testCfg.profiles = testProfiles;
-      if (getConfigJsonByteLength(testCfg) <= MAX_NVM_PAYLOAD_BYTES) {
+      if (getConfigJsonByteLength(testCfg) <= MAX_STORAGE_PAYLOAD_BYTES) {
         break;
       }
     }
@@ -1513,25 +1518,10 @@ function renderProfilesList() {
     if (syncCheckbox && !isLocked) {
       syncCheckbox.addEventListener("change", (e) => {
         e.stopPropagation();
-        const wanted = e.target.checked;
-        if (wanted) {
-          p.device_sync = true;
-          const testPayload = getDeviceSyncPayload(currentConfig);
-          const testLen = getConfigJsonByteLength(testPayload);
-          if (testLen > MAX_NVM_PAYLOAD_BYTES) {
-            p.device_sync = false;
-            e.target.checked = false;
-            showToast("⚠️ マイコンのFlash容量（4KB）を超過するため転送対象に追加できません。他のプロファイルの転送を解除してください。", 6000);
-            log(`[WARN] プロファイル「${p.name}」の転送追加を中止しました (予測サイズ ${testLen + 7}B > 上限 4096B)`, "warn");
-            return;
-          }
-        } else {
-          p.device_sync = false;
-        }
-
+        p.device_sync = e.target.checked;
         saveToLocalStorage(currentConfig, `転送設定: ${p.name}`);
         renderProfilesList();
-        updateNvmStorageUI();
+        updateStorageUI();
         showToast(p.device_sync ? `💾 プロファイル「${p.name}」をデバイス転送対象に設定しました` : `🌐 プロファイル「${p.name}」をブラウザのみ(PC保存)に設定しました`);
       });
     }
@@ -2784,12 +2774,12 @@ function initNvmEvents() {
   if (btnRefreshNvm) {
     btnRefreshNvm.addEventListener("click", () => {
       if (serialPort && writer) {
-        log("マイコン内蔵Flash (NVM) ストレージ状況を問い合わせ中...", "info");
-        sendJson({ cmd: "nvm_status" });
+        log("マイコン内蔵Flashストレージ状況を問い合わせ中...", "info");
+        sendJson({ cmd: "storage_status" });
       } else {
-        latestNvmStatus = null;
-        updateNvmStorageUI();
-        showToast("💾 設定データサイズからFlash使用量を再計算しました");
+        latestStorageStatus = null;
+        updateStorageUI();
+        showToast("💾 設定データサイズからストレージ使用量を再計算しました");
       }
     });
   }
@@ -4270,10 +4260,10 @@ function handleReceivedLine(line) {
           const clonedP = JSON.parse(JSON.stringify(p));
           clonedP.name = finalName;
 
-          // NVM容量チェック (4096 bytes制限)
+          // ストレージ容量チェック (上限約1MB)
           const testProfiles = [...deviceConfig.profiles, clonedP];
           const testConfig = { ...deviceConfig, profiles: testProfiles };
-          if (getConfigJsonByteLength(testConfig) > MAX_NVM_PAYLOAD_BYTES) {
+          if (getConfigJsonByteLength(testConfig) > MAX_STORAGE_PAYLOAD_BYTES) {
             skippedNames.push(finalName);
             return;
           }
@@ -4284,8 +4274,8 @@ function handleReceivedLine(line) {
 
         if (skippedNames.length > 0) {
           const skipStr = skippedNames.map(n => `「${n}」`).join(", ");
-          showToast(`⚠️ マイコン容量制限(4KB)のため、プロファイル ${skipStr} は同期できませんでした`, 7000);
-          log(`マイコン内蔵メモリ(NVM 4KB)の空き容量不足のため、プロファイル ${skipStr} の追加をスキップしました。既存の不要なプロファイルを削除してください。`, "warn");
+          showToast(`⚠️ マイコン容量制限のため、プロファイル ${skipStr} は同期できませんでした`, 7000);
+          log(`マイコン内蔵ストレージの空き容量不足のため、プロファイル ${skipStr} の追加をスキップしました。既存の不要なプロファイルを削除してください。`, "warn");
         }
 
         if (addedNames.length > 0) {
@@ -4323,8 +4313,7 @@ function handleReceivedLine(line) {
           drawRadar();
           saveToLocalStorage(currentConfig, "デバイス読込同期");
           setDeviceOpLoading("load", false, "読込完了!");
-          if (msg.nvm) updateNvmStorageUI(msg.nvm);
-          else updateNvmStorageUI();
+          updateStorageUI(msg.storage, msg.nvm);
         }
 
         if (autoStartMonitorPending) {
@@ -4346,8 +4335,7 @@ function handleReceivedLine(line) {
       saveToLocalStorage(currentConfig, "デバイス読込同期");
       setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
-      if (msg.nvm) updateNvmStorageUI(msg.nvm);
-      else updateNvmStorageUI();
+      updateStorageUI(msg.storage, msg.nvm);
 
       // 初回接続時のロード完了後、少し間を置いてモニタリングを自動開始 (安定化)
       if (autoStartMonitorPending) {
@@ -4385,25 +4373,26 @@ function handleReceivedLine(line) {
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
       if (msg.version) checkFirmwareVersion(msg.version);
       let saveDest = "RAMのみ";
-      if (msg.saved_to_nvm) saveDest = "内蔵Flash(NVM)に永続保存";
-      if (msg.saved_to_file) saveDest += " & config.json";
+      if (msg.saved_to_file) saveDest = "内蔵Flash (config.json)";
+      if (msg.saved_to_nvm) saveDest += " & NVMバックアップ";
       saveToLocalStorage(currentConfig, "デバイス保存同期");
       setDeviceOpLoading("save", false, "保存完了!");
-      if (msg.nvm) updateNvmStorageUI(msg.nvm);
-      else updateNvmStorageUI();
+      updateStorageUI(msg.storage, msg.nvm);
 
       if (!msg.saved_to_nvm && !msg.saved_to_file) {
-        log("⚠️ デバイスへの永続保存に失敗しました (RAM上でのみ有効です)。Flash(NVM)容量 (4KB) を超過している可能性があります。", "warn");
+        log("⚠️ デバイスへの永続保存に失敗しました (RAM上でのみ有効です)。", "warn");
         showToast("⚠️ デバイス永続保存に失敗 (RAM上のみ反映)", 5000);
       } else {
         log(`設定がデバイスに反映されました (${saveDest})`, "success");
       }
-      if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
-    } else if (msg.cmd === "nvm_status" && msg.status === "ok") {
-      if (msg.nvm) {
-        updateNvmStorageUI(msg.nvm);
-        log(`マイコンFlash(NVM)容量: 使用 ${msg.nvm.used.toLocaleString()} B / 空き ${msg.nvm.free.toLocaleString()} B (${msg.nvm.total.toLocaleString()} B 中)`, "info");
-        showToast(`💾 NVM容量: 使用 ${msg.nvm.used.toLocaleString()}B / 空き ${msg.nvm.free.toLocaleString()}B`);
+      if (msg.warning) log(`情報: ${msg.warning}`, "info");
+    } else if ((msg.cmd === "storage_status" || msg.cmd === "nvm_status") && msg.status === "ok") {
+      updateStorageUI(msg.storage, msg.nvm);
+      if (msg.storage) {
+        log(`マイコンFlashストレージ: 空き ${formatBytes(msg.storage.free)} / 総容量 ${formatBytes(msg.storage.total)}`, "info");
+        showToast(`💾 ストレージ空き: ${formatBytes(msg.storage.free)}`);
+      } else if (msg.nvm) {
+        log(`マイコンFlash(NVM)容量: 使用 ${msg.nvm.used.toLocaleString()} B / 空き ${msg.nvm.free.toLocaleString()} B`, "info");
       }
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       setDeviceOpLoading("calibrate", false, "補正完了!");
@@ -4418,9 +4407,8 @@ function handleReceivedLine(line) {
       updateFormFromConfig();
       saveToLocalStorage(currentConfig, "デバイスリセット同期");
       setDeviceOpLoading("reset", false, "初期化完了!");
-      if (msg.nvm) updateNvmStorageUI(msg.nvm);
-      else updateNvmStorageUI();
-      log("マイコンのFlash(NVM)および設定をデフォルトに初期化しました", "success");
+      updateStorageUI(msg.storage, msg.nvm);
+      log("マイコンのFlashストレージおよび設定をデフォルトに初期化しました", "success");
     }
   } catch (err) {
     console.error("受信データ処理エラー:", err);
@@ -4444,8 +4432,8 @@ btnSaveConfig.addEventListener("click", () => {
   syncCurrentToProfile();
   const syncPayload = getDeviceSyncPayload(currentConfig);
   const byteLen = getConfigJsonByteLength(syncPayload);
-  if (byteLen > MAX_NVM_PAYLOAD_BYTES) {
-    if (!confirm(`⚠️ 転送対象データのサイズ (${byteLen + 7} bytes) がマイコンFlash(NVM)の上限 (4096 bytes) に近づいています。容量不足で保存に失敗する可能性があります。\n\nプロファイル一覧で不要なプロファイルの「デバイス転送」チェックを外すことをおすすめします。\n\n続行しますか？`)) {
+  if (byteLen > MAX_STORAGE_PAYLOAD_BYTES) {
+    if (!confirm(`⚠️ 転送対象データのサイズ (${formatBytes(byteLen)}) が上限 (1MB) に近づいています。続行しますか？`)) {
       return;
     }
   }
