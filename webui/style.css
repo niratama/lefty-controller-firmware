@@ -1262,6 +1262,26 @@ body {
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4);
 }
 
+.sidebar-help-link {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-help-link a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.sidebar-help-link a:hover {
+  color: #38bdf8;
+}
+
 .tab-content-area {
   flex: 1;
   min-width: 0;
