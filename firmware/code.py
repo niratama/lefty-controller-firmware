@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     "active_profile": 0,
     "profiles": [
         {
+            "id": "prof_fps_default",
             "name": "プロファイル 1 (FPS/汎用)",
             "keymap": {
                 "buttons": [
@@ -70,6 +71,7 @@ DEFAULT_CONFIG = {
             }
         },
         {
+            "id": "prof_gamepad_default",
             "name": "プロファイル 2 (ゲームパッド)",
             "keymap": {
                 "buttons": [
@@ -99,6 +101,7 @@ DEFAULT_CONFIG = {
             }
         },
         {
+            "id": "prof_mouse_default",
             "name": "プロファイル 3 (マウス & 作業用)",
             "keymap": {
                 "buttons": [

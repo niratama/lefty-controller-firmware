@@ -250,11 +250,20 @@ function updateValidationBadge(input, badge) {
 
 let lastFocusedInput = null;
 
+// プロファイル固有ID (UUID / ユニークID) 生成
+function generateProfileId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return "prof_" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  }
+  return "prof_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).slice(-4);
+}
+
 const DEFAULT_CONFIG = {
   version: "1.3.0",
   active_profile: 0,
   profiles: [
     {
+      id: "prof_fps_default",
       name: "プロファイル 1 (FPS/汎用)",
       keymap: {
         buttons: ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
@@ -281,6 +290,7 @@ const DEFAULT_CONFIG = {
       }
     },
     {
+      id: "prof_gamepad_default",
       name: "プロファイル 2 (ゲームパッド)",
       keymap: {
         buttons: [
@@ -311,6 +321,7 @@ const DEFAULT_CONFIG = {
       }
     },
     {
+      id: "prof_mouse_default",
       name: "プロファイル 3 (マウス & 作業用)",
       keymap: {
         buttons: [
@@ -685,13 +696,20 @@ function ensureProfiles(cfg) {
   if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
     cfg.profiles = [
       {
+        id: generateProfileId(),
         name: "プロファイル 1 (デフォルト)",
         keymap: cfg.keymap || JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
         joystick: cfg.joystick || JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
       }
     ];
   }
+  const seenIds = new Set();
   cfg.profiles.forEach(p => {
+    if (!p.id || seenIds.has(p.id)) {
+      p.id = generateProfileId();
+    }
+    seenIds.add(p.id);
+
     if (p.joystick) {
       if (!p.joystick.mode) p.joystick.mode = "keyboard";
       if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
@@ -1248,6 +1266,7 @@ function duplicateProfileAt(idx) {
   const src = currentConfig.profiles[idx];
   if (!src) return;
   const duplicated = {
+    id: generateProfileId(),
     name: `${src.name} (コピー)`,
     keymap: JSON.parse(JSON.stringify(src.keymap)),
     joystick: JSON.parse(JSON.stringify(src.joystick))
@@ -1360,6 +1379,9 @@ function importSingleProfile(file) {
       }
 
       const newProfile = {
+        id: (targetProfile.id && !currentConfig.profiles.some(p => p.id === targetProfile.id))
+          ? targetProfile.id
+          : generateProfileId(),
         name: targetProfile.name || `インポート: ${file.name.replace(/\.[^/.]+$/, "")}`,
         keymap: {
           buttons: targetProfile.keymap.buttons.slice(0, 13)
@@ -1429,6 +1451,7 @@ function closePresetModal() {
 function addPresetProfile(preset) {
   syncCurrentToProfile();
   const cloned = {
+    id: generateProfileId(),
     name: preset.name,
     keymap: JSON.parse(JSON.stringify(preset.keymap)),
     joystick: JSON.parse(JSON.stringify(preset.joystick))
@@ -1486,31 +1509,32 @@ function clearPendingImportedProfiles() {
 
 function getPendingOrExtraProfiles(deviceConfig) {
   const pending = loadPendingImportedProfiles();
-  const result = [...pending];
+  const result = [];
+  const devProfiles = (deviceConfig && Array.isArray(deviceConfig.profiles)) ? deviceConfig.profiles : [];
 
-  // 現在メモリ上の currentConfig (localStorage復元含む) から未反映プロファイルを補完
+  // 1. 保留リスト (pending) からデバイスに存在しないプロファイルを収集
+  pending.forEach(p => {
+    if (!p) return;
+    const existsOnDevice = p.id ? devProfiles.some(dp => dp.id === p.id) : false;
+    if (!existsOnDevice) {
+      result.push(p);
+    }
+  });
+
+  // 2. 現在メモリ上の currentConfig (localStorage復元含む) からデバイスに存在しないプロファイルを収集
   if (currentConfig && Array.isArray(currentConfig.profiles)) {
-    const devProfiles = (deviceConfig && Array.isArray(deviceConfig.profiles)) ? deviceConfig.profiles : [];
     currentConfig.profiles.forEach((p, idx) => {
-      if (!p || !p.name) return;
+      if (!p) return;
       // すでに result に含まれていればスキップ
-      if (result.some(rp => rp.name === p.name && JSON.stringify(rp.keymap) === JSON.stringify(p.keymap))) return;
+      if (p.id && result.some(rp => rp.id === p.id)) return;
+      if (!p.id && result.some(rp => rp.name === p.name)) return;
 
-      // デバイス側に完全一致するプロファイルがあるか確認
-      const deviceHasExact = devProfiles.some(dp =>
-        dp.name === p.name &&
-        JSON.stringify(dp.keymap) === JSON.stringify(p.keymap) &&
-        JSON.stringify(dp.joystick) === JSON.stringify(p.joystick)
-      );
+      const existsOnDevice = p.id
+        ? devProfiles.some(dp => dp.id === p.id)
+        : devProfiles.some(dp => dp.name === p.name);
 
-      if (!deviceHasExact) {
-        const isDefaultPreset = PRESET_PROFILES && PRESET_PROFILES.some(def =>
-          def.name === p.name && JSON.stringify(def.keymap) === JSON.stringify(p.keymap)
-        );
-        // デバイスの既存プロファイル数を超えているもの、またはデフォルト初期値以外のものは追加対象
-        if (idx >= devProfiles.length || !isDefaultPreset) {
-          result.push(JSON.parse(JSON.stringify(p)));
-        }
+      if (!existsOnDevice) {
+        result.push(JSON.parse(JSON.stringify(p)));
       }
     });
   }
@@ -1583,6 +1607,7 @@ async function copyProfileShareUrl(idx) {
 
   try {
     const profileToShare = {
+      id: target.id || generateProfileId(),
       name: target.name,
       keymap: JSON.parse(JSON.stringify(target.keymap)),
       joystick: JSON.parse(JSON.stringify(target.joystick))
@@ -1657,6 +1682,9 @@ function applySharedProfile() {
   }
 
   const newProfile = {
+    id: (profile.id && !currentConfig.profiles.some(p => p.id === profile.id))
+      ? profile.id
+      : generateProfileId(),
     name: profile.name || "共有プロファイル",
     keymap: { buttons },
     joystick: JSON.parse(JSON.stringify(profile.joystick || DEFAULT_CONFIG.joystick))
@@ -2509,6 +2537,7 @@ if (btnAddProfile) {
     syncCurrentToProfile();
     const newNum = currentConfig.profiles.length + 1;
     const newProfile = {
+      id: generateProfileId(),
       name: `プロファイル ${newNum}`,
       keymap: JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
       joystick: JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
@@ -2527,6 +2556,7 @@ if (btnDuplicateProfile) {
     syncCurrentToProfile();
     const cur = currentConfig.profiles[currentConfig.active_profile];
     const duplicated = {
+      id: generateProfileId(),
       name: `${cur.name} (コピー)`,
       keymap: JSON.parse(JSON.stringify(cur.keymap)),
       joystick: JSON.parse(JSON.stringify(cur.joystick))
