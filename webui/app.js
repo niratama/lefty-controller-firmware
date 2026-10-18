@@ -1,7 +1,7 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.4.0";
-const MIN_RECOMMENDED_FW_VERSION = "1.3.0";
+const WEBUI_VERSION = "1.5.0";
+const MIN_RECOMMENDED_FW_VERSION = "1.4.0";
 
 // ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
 const HARDWARE_PINS = {
@@ -273,7 +273,7 @@ function generateProfileId() {
 }
 
 const DEFAULT_CONFIG = {
-  version: "1.4.0",
+  version: "1.5.0",
   active_profile: 0,
   profiles: [
     {
@@ -1205,10 +1205,10 @@ function checkFirmwareVersion(fwVersion) {
     log(`⚠️ ファームウェアの更新が推奨されます: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "warn");
 
   } else if (cmpWeb < 0) {
-    // 動作可能だが最新版 (v1.4.0) へのアップデートが利用可能
+    // 動作可能だが最新版 (v1.5.0) へのアップデートが利用可能
     fwVersionBadge.className = "badge badge-fw-version up-to-date";
     fwVersionBadge.textContent = `FW: v${fwVersion} (更新可能)`;
-    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です（NVM実測容量モニター機能など）。`;
+    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です（ハードウェアプロファイル切替キー & オンボードLED連携など）。`;
 
     if (versionAlertBanner) {
       versionAlertBanner.style.display = "none";

@@ -39,7 +39,7 @@ except ImportError:
 CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
-    "version": "1.4.0",
+    "version": "1.5.0",
     "active_profile": 0,
     "profiles": [
         {
