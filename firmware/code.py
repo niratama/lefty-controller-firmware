@@ -238,6 +238,59 @@ class LeftyController:
             except Exception:
                 pass
 
+    def handle_profile_action(self, action_str):
+        """プロファイル切り替えアクションの処理 (RAM上で即時切り替え、Flash書き込みなし)"""
+        profiles = self.config.get("profiles", [])
+        if not profiles or not isinstance(profiles, list) or len(profiles) <= 1:
+            return
+
+        cur_idx = self.config.get("active_profile", 0)
+        target_idx = cur_idx
+
+        if action_str == "next":
+            target_idx = (cur_idx + 1) % len(profiles)
+        elif action_str == "prev":
+            target_idx = (cur_idx - 1 + len(profiles)) % len(profiles)
+        elif action_str == "default":
+            target_idx = 0
+        elif action_str.startswith("switch:"):
+            target_id = action_str.split(":", 1)[1]
+            found = False
+            for i, p in enumerate(profiles):
+                if p.get("id") == target_id or p.get("name") == target_id:
+                    target_idx = i
+                    found = True
+                    break
+            if not found:
+                print(f"[WARN] プロファイルID '{target_id}' がデバイス内に見つかりません")
+                return
+
+        if target_idx != cur_idx:
+            self.switch_to_profile(target_idx)
+
+    def switch_to_profile(self, target_idx):
+        """RAM上でプロファイルを切り替え、LEDフラッシュ & シリアル通知"""
+        profiles = self.config.get("profiles", [])
+        if target_idx < 0 or target_idx >= len(profiles):
+            return
+
+        self.config["active_profile"] = target_idx
+        self.apply_config(self.config)
+
+        cur_prof = profiles[target_idx]
+        prof_name = cur_prof.get("name", f"Profile {target_idx + 1}")
+        prof_id = cur_prof.get("id", "")
+        print(f"[INFO] プロファイル切替 -> [{target_idx}] {prof_name} (ID: {prof_id})")
+
+        # シリアル接続があればイベント通知
+        if hasattr(self, "serial_handler") and self.serial_handler:
+            self.serial_handler.send_response({
+                "type": "profile_switched",
+                "active_profile": target_idx,
+                "id": prof_id,
+                "name": prof_name
+            })
+
     def load_config(self):
         try:
             return config_store.load_config(CONFIG_FILE, DEFAULT_CONFIG)
@@ -410,9 +463,17 @@ class LeftyController:
 
         # ボタン入力のパース
         for idx, pin in enumerate(self.button_pins_def):
-            if pin in pressed_pins and idx < len(self.button_keymap):
-                key_def = self.button_keymap[idx]
-                actions = parse_actions(key_def)
+            if idx >= len(self.button_keymap):
+                continue
+            key_def = self.button_keymap[idx]
+            actions = parse_actions(key_def)
+
+            # プロファイル切替アクションは押された瞬間 (just_pressed) のみ1度だけ実行
+            if pin in just_pressed:
+                for pact in actions.get("profile_actions", []):
+                    self.handle_profile_action(pact)
+
+            if pin in pressed_pins:
                 for c in actions["keyboard"]:
                     desired_keycodes.add(c)
                 desired_mouse_buttons |= actions["mouse_buttons"]

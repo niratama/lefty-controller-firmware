@@ -164,7 +164,18 @@ def parse_action(name):
         if lower in GAMEPAD_ALIAS_MAP:
             return ("gamepad_button", GAMEPAD_ALIAS_MAP[lower])
 
-    # 3. キーボードキー
+    # 3. プロファイル切替アクション
+    if lower == "profile_next":
+        return ("profile_action", "next")
+    if lower == "profile_prev":
+        return ("profile_action", "prev")
+    if lower in ("profile_default", "profile_reset"):
+        return ("profile_action", "default")
+    if lower.startswith("profile_switch:"):
+        target_id = cleaned.split(":", 1)[1].strip()
+        return ("profile_action", f"switch:{target_id}")
+
+    # 4. キーボードキー
     if cleaned in KEY_NAME_MAP:
         return ("keyboard", KEY_NAME_MAP[cleaned])
     for k, v in KEY_NAME_MAP.items():
@@ -182,7 +193,8 @@ def parse_actions(actions_list_or_str):
             "keyboard": [keycode_int, ...],
             "mouse_buttons": int (bitmask),
             "mouse_wheel": int (delta),
-            "gamepad_buttons": [button_num_int, ...]
+            "gamepad_buttons": [button_num_int, ...],
+            "profile_actions": [str, ...]
         }
     """
     if isinstance(actions_list_or_str, str):
@@ -192,7 +204,8 @@ def parse_actions(actions_list_or_str):
         "keyboard": [],
         "mouse_buttons": 0,
         "mouse_wheel": 0,
-        "gamepad_buttons": []
+        "gamepad_buttons": [],
+        "profile_actions": []
     }
 
     for item in actions_list_or_str:
@@ -208,6 +221,8 @@ def parse_actions(actions_list_or_str):
             result["mouse_wheel"] += aval
         elif atype == "gamepad_button":
             result["gamepad_buttons"].append(aval)
+        elif atype == "profile_action":
+            result["profile_actions"].append(aval)
 
     return result
 

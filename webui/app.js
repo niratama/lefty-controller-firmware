@@ -187,6 +187,16 @@ const SUPPORTED_KEY_CATALOG = [
       { id: "Gamepad_15", label: "BTN 15", desc: "拡張ボタン 15" },
       { id: "Gamepad_16", label: "BTN 16", desc: "拡張ボタン 16" },
     ]
+  },
+  {
+    category: "profile",
+    name: "プロファイル切替",
+    icon: "🔄",
+    keys: [
+      { id: "profile_next", label: "次のプロファイル", desc: "デバイス内の次のプロファイルへ循環切替" },
+      { id: "profile_prev", label: "前のプロファイル", desc: "デバイス内の前のプロファイルへ循環切替" },
+      { id: "profile_default", label: "デフォルトへ復帰", desc: "初期プロファイル (#1) へ即座に切り替え" },
+    ]
   }
 ];
 
@@ -202,7 +212,8 @@ SUPPORTED_KEY_CATALOG.forEach(cat => {
   "mouse_l", "click_left", "mouse_r", "click_right", "mouse_m", "click_middle",
   "mouse_wheel_up", "mouse_wheel_down", "gamepad_l1", "gamepad_r1", "gamepad_l2", "gamepad_r2",
   "gamepad_back", "gamepad_ls", "gamepad_rs", "minus", "equals", "leftbracket", "rightbracket",
-  "backslash", "semicolon", "quote", "grave", "comma", "period", "slash"
+  "backslash", "semicolon", "quote", "grave", "comma", "period", "slash",
+  "profile_reset"
 ].forEach(a => ALL_VALID_KEYS_SET.add(a));
 
 function isValidActionName(name) {
@@ -212,6 +223,9 @@ function isValidActionName(name) {
   if (/^(gamepad|btn)_\d{1,2}$/.test(lower)) {
     const num = parseInt(lower.split("_")[1], 10);
     return num >= 1 && num <= 16;
+  }
+  if (/^profile_switch:[a-zA-Z0-9_\-]+$/.test(lower)) {
+    return true;
   }
   return false;
 }
@@ -697,6 +711,140 @@ function getConfigJsonByteLength(cfg) {
 
 let latestNvmStatus = null;
 
+// プロファイル間の依存関係 (profile_switch:<id>) をアクティブプロファイルから再帰追跡
+function getDependentProfileIds(activeProfile, allProfiles) {
+  const dependentIds = new Set();
+  if (!activeProfile || !Array.isArray(allProfiles)) return dependentIds;
+
+  const queue = [activeProfile];
+  const visited = new Set();
+  if (activeProfile.id) visited.add(activeProfile.id);
+
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    const buttons = cur.keymap?.buttons || [];
+    for (const b of buttons) {
+      if (!b || typeof b !== "string") continue;
+      const parts = b.split(",").map(s => s.trim());
+      for (const part of parts) {
+        const lower = part.toLowerCase();
+        if (lower.startsWith("profile_switch:")) {
+          const target = part.split(":")[1].trim();
+          // target は id または name
+          const found = allProfiles.find(p => (p.id && p.id.toLowerCase() === target.toLowerCase()) || (p.name && p.name.toLowerCase() === target.toLowerCase()));
+          if (found && found.id && !visited.has(found.id)) {
+            visited.add(found.id);
+            dependentIds.add(found.id);
+            queue.push(found);
+          }
+        }
+      }
+    }
+  }
+
+  return dependentIds;
+}
+
+// デバイス (4KB Flash) 転送用の軽量化ペイロードを生成
+function getDeviceSyncPayload(fullConfig) {
+  if (!fullConfig || typeof fullConfig !== "object") return fullConfig;
+  const cfg = JSON.parse(JSON.stringify(fullConfig));
+  ensureProfiles(cfg);
+
+  const activeIdx = (cfg.active_profile >= 0 && cfg.active_profile < cfg.profiles.length)
+    ? cfg.active_profile
+    : 0;
+  const activeProfile = cfg.profiles[activeIdx];
+  const depIds = getDependentProfileIds(activeProfile, cfg.profiles);
+
+  // 転送対象となるプロファイルを選定:
+  // 1) アクティブプロファイル (強制)
+  // 2) 依存プロファイル (強制)
+  // 3) p.device_sync !== false のプロファイル
+  const syncProfiles = [];
+  let newActiveIdx = 0;
+
+  cfg.profiles.forEach((p, idx) => {
+    const isAct = (idx === activeIdx);
+    const isDep = p.id && depIds.has(p.id);
+    const isSelected = isAct || isDep || (p.device_sync !== false);
+
+    if (isSelected) {
+      if (isAct) {
+        newActiveIdx = syncProfiles.length;
+      }
+      syncProfiles.push(p);
+    }
+  });
+
+  if (syncProfiles.length === 0) {
+    syncProfiles.push(activeProfile);
+    newActiveIdx = 0;
+  }
+
+  cfg.profiles = syncProfiles;
+  cfg.active_profile = newActiveIdx;
+  if (syncProfiles[newActiveIdx]) {
+    cfg.keymap = JSON.parse(JSON.stringify(syncProfiles[newActiveIdx].keymap));
+    cfg.joystick = JSON.parse(JSON.stringify(syncProfiles[newActiveIdx].joystick));
+  }
+  return cfg;
+}
+
+// プロファイル同期サマリー表示の更新
+function updateProfilesSyncSummary() {
+  const syncTargetCountEl = document.getElementById("syncTargetCount");
+  const syncTotalCountEl = document.getElementById("syncTotalCount");
+  const syncPayloadBytesEl = document.getElementById("syncPayloadBytes");
+  const syncFreeBytesEl = document.getElementById("syncFreeBytes");
+
+  if (!currentConfig || !Array.isArray(currentConfig.profiles)) return;
+
+  const syncPayload = getDeviceSyncPayload(currentConfig);
+  const payloadBytes = getConfigJsonByteLength(syncPayload) + 7;
+  const freeBytes = Math.max(0, 4096 - payloadBytes);
+
+  if (syncTargetCountEl) syncTargetCountEl.textContent = syncPayload.profiles.length;
+  if (syncTotalCountEl) syncTotalCountEl.textContent = currentConfig.profiles.length;
+  if (syncPayloadBytesEl) syncPayloadBytesEl.textContent = payloadBytes.toLocaleString();
+  if (syncFreeBytesEl) {
+    syncFreeBytesEl.textContent = freeBytes.toLocaleString();
+    if (freeBytes < 300) {
+      syncFreeBytesEl.style.color = "#ef4444";
+    } else if (freeBytes < 800) {
+      syncFreeBytesEl.style.color = "#f59e0b";
+    } else {
+      syncFreeBytesEl.style.color = "#34d399";
+    }
+  }
+}
+
+// プロファイル切替時のビープ音 (Web Audio API)
+function playProfileSwitchTone() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(659.25, now); // E5
+    osc.frequency.setValueAtTime(880, now + 0.05); // A5
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.15);
+  } catch (e) {
+    // audio context blocked before user gesture
+  }
+}
+
 function updateNvmStorageUI(nvmReported = null) {
   let total = 4096;
   let used = 0;
@@ -715,8 +863,9 @@ function updateNvmStorageUI(nvmReported = null) {
     free = latestNvmStatus.free;
     isDeviceReported = true;
   } else {
-    // オフラインまたはファームウェア未対応時の推定値 (現在の設定JSON + ヘッダ7バイト)
-    const payloadLen = getConfigJsonByteLength(currentConfig);
+    // オフラインまたはファームウェア未対応時の推定値 (転送対象の設定JSON + ヘッダ7バイト)
+    const syncPayload = getDeviceSyncPayload(currentConfig);
+    const payloadLen = getConfigJsonByteLength(syncPayload);
     used = payloadLen > 0 ? (7 + payloadLen) : 0;
     free = Math.max(0, total - used);
     latestNvmStatus = { total, used, free, valid: true, isDeviceReported: false };
@@ -724,7 +873,9 @@ function updateNvmStorageUI(nvmReported = null) {
 
   const percentNum = total > 0 ? (used / total) * 100 : 0;
   const percentStr = percentNum.toFixed(1);
-  const profileCount = (currentConfig && Array.isArray(currentConfig.profiles)) ? currentConfig.profiles.length : 0;
+  const syncPayload = getDeviceSyncPayload(currentConfig);
+  const profileCount = (syncPayload && Array.isArray(syncPayload.profiles)) ? syncPayload.profiles.length : 0;
+  const totalProfilesCount = (currentConfig && Array.isArray(currentConfig.profiles)) ? currentConfig.profiles.length : 0;
 
   // Tab 5 詳細カード要素
   const usedEl = document.getElementById("nvmUsedVal");
@@ -740,7 +891,7 @@ function updateNvmStorageUI(nvmReported = null) {
   if (usedEl) usedEl.textContent = used.toLocaleString();
   if (freeEl) freeEl.textContent = free.toLocaleString();
   if (totalEl) totalEl.textContent = total.toLocaleString();
-  if (countEl) countEl.textContent = `${profileCount}`;
+  if (countEl) countEl.textContent = `${profileCount} (PC内: ${totalProfilesCount})`;
   if (percentEl) percentEl.textContent = `${percentStr}% 使用中`;
 
   if (barEl) {
@@ -773,7 +924,7 @@ function updateNvmStorageUI(nvmReported = null) {
       badgeEl.textContent = "✅ 実測値 (マイコンFlash)";
       badgeEl.className = "nvm-source-badge live";
     } else if (serialPort && writer) {
-      badgeEl.textContent = "⚡ 推定値 (現在の設定データ)";
+      badgeEl.textContent = "⚡ 推定値 (転送対象データ)";
       badgeEl.className = "nvm-source-badge est";
     } else {
       badgeEl.textContent = "オフライン (推定値)";
@@ -783,10 +934,10 @@ function updateNvmStorageUI(nvmReported = null) {
 
   if (warnEl) {
     if (free < 300 || percentNum >= 92) {
-      warnEl.textContent = `🚨 マイコンFlashの空き容量が残り ${free.toLocaleString()} bytes です。新しいプロファイルを追加すると保存できなくなる可能性があります。不要なプロファイルを削除してください。`;
+      warnEl.textContent = `🚨 マイコンFlashの空き容量が残り ${free.toLocaleString()} bytes です。新しいプロファイルを追加すると保存できなくなる可能性があります。プロファイル一覧で「デバイス転送」のチェックを外して転送数を調整してください。`;
       warnEl.style.display = "block";
     } else if (free < 800 || percentNum >= 75) {
-      warnEl.textContent = `⚠️ マイコンFlashの空き容量が少なくなっています (残り ${free.toLocaleString()} bytes)。プロファイル追加はあと1個程度を推奨します。`;
+      warnEl.textContent = `⚠️ マイコンFlashの空き容量が少なくなっています (残り ${free.toLocaleString()} bytes)。転送プロファイルはあと1個程度を推奨します。`;
       warnEl.style.display = "block";
     } else {
       warnEl.style.display = "none";
@@ -807,9 +958,11 @@ function updateNvmStorageUI(nvmReported = null) {
       chipEl.classList.add("chip-safe");
     }
   }
+
+  updateProfilesSyncSummary();
 }
 
-// プロファイル構造の保証 (後方互換性 & ハードウェアピン分離)
+// プロファイル構造の保証 (後方互換性 & ハードウェアピン分離 & device_sync初期化)
 function ensureProfiles(cfg) {
   if (!cfg || typeof cfg !== "object") {
     cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
@@ -823,17 +976,23 @@ function ensureProfiles(cfg) {
       {
         id: generateProfileId(),
         name: "プロファイル 1 (デフォルト)",
+        device_sync: true,
         keymap: cfg.keymap || JSON.parse(JSON.stringify(DEFAULT_CONFIG.keymap)),
         joystick: cfg.joystick || JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick))
       }
     ];
   }
   const seenIds = new Set();
-  cfg.profiles.forEach(p => {
+  cfg.profiles.forEach((p, idx) => {
     if (!p.id || seenIds.has(p.id)) {
       p.id = generateProfileId();
     }
     seenIds.add(p.id);
+
+    // device_sync 未定義の場合は true (アクティブまたは先頭数個をデフォルト同期)
+    if (p.device_sync === undefined) {
+      p.device_sync = true;
+    }
 
     if (p.joystick) {
       if (!p.joystick.mode) p.joystick.mode = "keyboard";
@@ -848,6 +1007,22 @@ function ensureProfiles(cfg) {
       if (p.joystick.dpad_run_btn === undefined) p.joystick.dpad_run_btn = "Gamepad_2";
     }
   });
+
+  // 全体で 3900 bytes を超えている場合、先頭プロファイル群以外で超過したものの device_sync を自動で false に調整
+  let testProfiles = cfg.profiles.filter((p, i) => i === cfg.active_profile || p.device_sync !== false);
+  let testCfg = { version: cfg.version, active_profile: 0, profiles: testProfiles };
+  if (getConfigJsonByteLength(testCfg) > MAX_NVM_PAYLOAD_BYTES) {
+    for (let i = cfg.profiles.length - 1; i > 0; i--) {
+      if (i === cfg.active_profile) continue;
+      cfg.profiles[i].device_sync = false;
+      testProfiles = cfg.profiles.filter((p, idx) => idx === cfg.active_profile || p.device_sync !== false);
+      testCfg.profiles = testProfiles;
+      if (getConfigJsonByteLength(testCfg) <= MAX_NVM_PAYLOAD_BYTES) {
+        break;
+      }
+    }
+  }
+
   if (cfg.active_profile === undefined || cfg.active_profile < 0 || cfg.active_profile >= cfg.profiles.length) {
     cfg.active_profile = 0;
   }
@@ -1151,7 +1326,7 @@ function switchProfile(newIdx, shouldNotifyDevice = true) {
 
   if (shouldNotifyDevice && serialPort && writer) {
     setDeviceOpLoading("save", true, "", `プロファイル「${p.name}」をデバイスへ反映中...`);
-    sendJson({ cmd: "set_config", config: currentConfig });
+    sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
   }
   log(`プロファイルを「${p.name}」に切り替えました`, "info");
 }
@@ -1176,17 +1351,50 @@ function renderProfilesList() {
   container.innerHTML = "";
   ensureProfiles(currentConfig);
 
+  const activeIdx = (currentConfig.active_profile >= 0 && currentConfig.active_profile < currentConfig.profiles.length)
+    ? currentConfig.active_profile
+    : 0;
+  const activeProfile = currentConfig.profiles[activeIdx];
+  const depIds = getDependentProfileIds(activeProfile, currentConfig.profiles);
+
   currentConfig.profiles.forEach((p, idx) => {
     const row = document.createElement("div");
-    row.className = "profile-row-item" + (idx === currentConfig.active_profile ? " active" : "");
+    const isAct = (idx === activeIdx);
+    const isDep = p.id && depIds.has(p.id);
+    const isLocked = isAct || isDep;
+    const isSynced = isLocked || (p.device_sync !== false);
+
+    row.className = "profile-row-item" + (isAct ? " active" : "");
     const mode = (p.joystick && p.joystick.mode) ? p.joystick.mode.toUpperCase() : "KEYBOARD";
     const target = (p.joystick && p.joystick.gamepad_target) ? p.joystick.gamepad_target.toUpperCase() : "";
     const badgeText = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
     const buttonCount = p.keymap && p.keymap.buttons ? p.keymap.buttons.length : 13;
 
+    let syncBadgeHtml = "";
+    let syncTitle = "";
+    if (isAct) {
+      syncBadgeHtml = '<span class="sync-status-badge active" title="現在実行中のアクティブプロファイルのため転送必須です">★実行中</span>';
+      syncTitle = "現在実行中のアクティブプロファイルのため転送必須です";
+    } else if (isDep) {
+      syncBadgeHtml = '<span class="sync-status-badge linked" title="アクティブプロファイルのキー割当から参照されているため自動転送されます">🔗連携中</span>';
+      syncTitle = "アクティブプロファイルのキー割当から直接/連鎖参照されているため自動転送されます";
+    } else if (isSynced) {
+      syncBadgeHtml = '<span class="sync-status-badge active" title="マイコンFlashへの転送対象">転送</span>';
+      syncTitle = "マイコン内蔵Flash (NVM 4KB) への転送対象";
+    } else {
+      syncBadgeHtml = '<span class="sync-status-badge local" title="PC(ブラウザ)上のみに保存">PCのみ</span>';
+      syncTitle = "マイコンへの転送から除外 (ブラウザ上でのみ保存)";
+    }
+
     row.innerHTML = `
       <div class="col-status">
-        <input type="radio" name="profile_active_radio" class="profile-radio-btn" ${idx === currentConfig.active_profile ? "checked" : ""} title="このプロファイルを選択">
+        <input type="radio" name="profile_active_radio" class="profile-radio-btn" ${isAct ? "checked" : ""} title="このプロファイルを選択">
+      </div>
+      <div class="col-sync">
+        <label class="sync-checkbox-wrapper" title="${syncTitle}" onclick="event.stopPropagation()">
+          <input type="checkbox" class="sync-checkbox" ${isSynced ? "checked" : ""} ${isLocked ? "disabled" : ""}>
+          ${syncBadgeHtml}
+        </label>
       </div>
       <div class="col-index">#${idx + 1}</div>
       <div class="col-name">
@@ -1210,6 +1418,34 @@ function renderProfilesList() {
         </div>
       </div>
     `;
+
+    // 転送チェックボックス変更
+    const syncCheckbox = row.querySelector(".sync-checkbox");
+    if (syncCheckbox && !isLocked) {
+      syncCheckbox.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const wanted = e.target.checked;
+        if (wanted) {
+          p.device_sync = true;
+          const testPayload = getDeviceSyncPayload(currentConfig);
+          const testLen = getConfigJsonByteLength(testPayload);
+          if (testLen > MAX_NVM_PAYLOAD_BYTES) {
+            p.device_sync = false;
+            e.target.checked = false;
+            showToast("⚠️ マイコンのFlash容量（4KB）を超過するため転送対象に追加できません。他のプロファイルの転送を解除してください。", 6000);
+            log(`[WARN] プロファイル「${p.name}」の転送追加を中止しました (予測サイズ ${testLen + 7}B > 上限 4096B)`, "warn");
+            return;
+          }
+        } else {
+          p.device_sync = false;
+        }
+
+        saveToLocalStorage(currentConfig, `転送設定: ${p.name}`);
+        renderProfilesList();
+        updateNvmStorageUI();
+        showToast(p.device_sync ? `💾 プロファイル「${p.name}」をデバイス転送対象に設定しました` : `🌐 プロファイル「${p.name}」をブラウザのみ(PC保存)に設定しました`);
+      });
+    }
 
     // ラジオボタン変更
     const radioBtn = row.querySelector(".profile-radio-btn");
@@ -1363,7 +1599,7 @@ function moveProfileUpAt(idx) {
 
   if (serialPort && writer) {
     setDeviceOpLoading("save", true, "", `並び替えをデバイスへ反映中...`);
-    sendJson({ cmd: "set_config", config: currentConfig });
+    sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
   }
   log(`プロファイル「${temp.name}」を上へ並び替えました`, "info");
 }
@@ -1393,7 +1629,7 @@ function moveProfileDownAt(idx) {
 
   if (serialPort && writer) {
     setDeviceOpLoading("save", true, "", `並び替えをデバイスへ反映中...`);
-    sendJson({ cmd: "set_config", config: currentConfig });
+    sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
   }
   log(`プロファイル「${temp.name}」を下へ並び替えました`, "info");
 }
@@ -1466,7 +1702,7 @@ function renameProfileAt(idx, newName) {
   saveToLocalStorage(currentConfig, `名前変更: ${name}`);
   if (serialPort && writer) {
     setDeviceOpLoading("save", true, "", "名前変更をデバイスへ反映中...");
-    sendJson({ cmd: "set_config", config: currentConfig });
+    sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
   }
   log(`プロファイル #${idx + 1} の名前を「${name}」に変更しました`, "info");
 }
@@ -1986,6 +2222,23 @@ function renderCatalogChips(catId) {
     });
     container.appendChild(chip);
   });
+
+  if (catId === "profile" && currentConfig && Array.isArray(currentConfig.profiles)) {
+    currentConfig.profiles.forEach((p, idx) => {
+      const pId = p.id || `profile_${idx}`;
+      const actionId = `profile_switch:${pId}`;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "key-chip chip-profile";
+      chip.textContent = `🎯 #${idx + 1}「${p.name}」`;
+      chip.title = `${actionId}: ボタン押下でプロファイル「${p.name}」へ直接切り替え`;
+      chip.addEventListener("click", (e) => {
+        e.stopPropagation();
+        applyKeyFromCatalog(actionId);
+      });
+      container.appendChild(chip);
+    });
+  }
 }
 
 function applyKeyFromCatalog(keyId) {
@@ -2186,6 +2439,10 @@ function openKeyPicker(targetInput, title = "キーを選択") {
   const base = parts.find(p => !["ctrl", "lctrl", "rctrl", "shift", "lshift", "rshift", "alt", "lalt", "ralt", "win", "lwin", "gui"].includes(p.toLowerCase()));
   modalSelectedBaseKey = base || null;
 
+  if (modalSelectedBaseKey && modalSelectedBaseKey.toLowerCase().startsWith("profile_")) {
+    currentModalCategory = "profile";
+  }
+
   renderModalTabs();
   renderModalChips();
   updateModalPreview();
@@ -2242,9 +2499,33 @@ function renderModalChips() {
     });
     container.appendChild(chip);
   });
+
+  // プロファイル切替タブの場合、登録されている全プロファイルへの直接切替チップを動的生成
+  if (currentModalCategory === "profile" && currentConfig && Array.isArray(currentConfig.profiles)) {
+    currentConfig.profiles.forEach((p, idx) => {
+      const pId = p.id || `profile_${idx}`;
+      const actionId = `profile_switch:${pId}`;
+      const isSelected = modalSelectedBaseKey && modalSelectedBaseKey.toLowerCase() === actionId.toLowerCase();
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = `key-chip chip-profile ${isSelected ? "selected" : ""}`;
+      chip.textContent = `🎯 #${idx + 1}「${p.name}」へ直接切替`;
+      chip.title = `${actionId}: ボタンを押すとプロファイル「${p.name}」へ直接切り替えます`;
+      chip.addEventListener("click", () => {
+        modalSelectedBaseKey = actionId;
+        renderModalChips();
+        updateModalPreview();
+      });
+      container.appendChild(chip);
+    });
+  }
 }
 
 function buildModalCombinedKey() {
+  if (modalSelectedBaseKey && modalSelectedBaseKey.toLowerCase().startsWith("profile_")) {
+    return modalSelectedBaseKey;
+  }
+
   const parts = [];
   const modCtrl = document.getElementById("modCtrl");
   const modShift = document.getElementById("modShift");
@@ -2341,9 +2622,10 @@ function initQuickActionBars() {
         return;
       }
       syncCurrentToProfile();
+      const syncPayload = getDeviceSyncPayload(currentConfig);
       setDeviceOpLoading("save", true, "", "デバイスへ設定を保存中 (Flash書き込み待機)...");
-      log("デバイスへ設定を送信・保存中...", "info");
-      sendJson({ cmd: "set_config", config: currentConfig });
+      log(`デバイスへ設定を送信・保存中 (${syncPayload.profiles.length}個のプロファイルを同期)...`, "info");
+      sendJson({ cmd: "set_config", config: syncPayload });
     });
   });
 }
@@ -2666,7 +2948,7 @@ if (profileNameInput) {
     saveToLocalStorage(currentConfig, `名前変更: ${name}`);
     if (serialPort && writer) {
       setDeviceOpLoading("save", true, "", "名前変更をデバイスへ反映中...");
-      sendJson({ cmd: "set_config", config: currentConfig });
+      sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
     }
     log(`プロファイル名を「${name}」に変更しました`, "info");
   });
@@ -3530,7 +3812,7 @@ function handleReceivedLine(line) {
 
           // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
           setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
-          sendJson({ cmd: "set_config", config: currentConfig });
+          sendJson({ cmd: "set_config", config: getDeviceSyncPayload(currentConfig) });
 
           const namesStr = addedNames.map(n => `「${n}」`).join(", ");
           log(`デバイスの設定 (${deviceConfig.profiles.length - addedNames.length}件) に未反映プロファイル ${namesStr} を統合し、デバイスへ保存・反映しました`, "success");
@@ -3578,6 +3860,30 @@ function handleReceivedLine(line) {
           startMonitoring();
         }, 150);
       }
+    } else if (msg.type === "profile_switched") {
+      log(`🔄 デバイス操作によりプロファイルが切り替わりました: [${msg.active_profile + 1}] ${msg.name} (ID: ${msg.id || "なし"})`, "info");
+      let targetIdx = -1;
+      if (msg.id) {
+        targetIdx = currentConfig.profiles.findIndex(p => p.id === msg.id);
+      }
+      if (targetIdx === -1 && msg.name) {
+        targetIdx = currentConfig.profiles.findIndex(p => p.name === msg.name);
+      }
+      if (targetIdx === -1) {
+        // デバイス内スロット番号からの逆引き
+        const syncPayload = getDeviceSyncPayload(currentConfig);
+        if (syncPayload.profiles && syncPayload.profiles[msg.active_profile]) {
+          const devP = syncPayload.profiles[msg.active_profile];
+          targetIdx = currentConfig.profiles.findIndex(p => p.id === devP.id || p.name === devP.name);
+        }
+      }
+
+      if (targetIdx >= 0 && targetIdx !== currentConfig.active_profile) {
+        switchProfile(targetIdx, false); // デバイスには再送不要
+        playProfileSwitchTone();
+        showToast(`🔄 プロファイル切替: 「${msg.name}」 (デバイス連動)`, 4000);
+      }
+      return;
     } else if (msg.cmd === "version" && msg.status === "ok") {
       checkFirmwareVersion(msg.version);
     } else if (msg.cmd === "set_config" && msg.status === "ok") {
@@ -3640,15 +3946,16 @@ btnLoadConfig.addEventListener("click", () => {
 
 btnSaveConfig.addEventListener("click", () => {
   syncCurrentToProfile();
-  const byteLen = getConfigJsonByteLength(currentConfig);
+  const syncPayload = getDeviceSyncPayload(currentConfig);
+  const byteLen = getConfigJsonByteLength(syncPayload);
   if (byteLen > MAX_NVM_PAYLOAD_BYTES) {
-    if (!confirm(`⚠️ 設定データのサイズ (${byteLen} bytes) がマイコンFlash(NVM)の上限 (4096 bytes) に近づいています。容量不足で保存に失敗する可能性があります。\n\n続行しますか？`)) {
+    if (!confirm(`⚠️ 転送対象データのサイズ (${byteLen + 7} bytes) がマイコンFlash(NVM)の上限 (4096 bytes) に近づいています。容量不足で保存に失敗する可能性があります。\n\nプロファイル一覧で不要なプロファイルの「デバイス転送」チェックを外すことをおすすめします。\n\n続行しますか？`)) {
       return;
     }
   }
   setDeviceOpLoading("save", true, "", "デバイスへ設定を保存中 (Flash書き込み待機)...");
-  log("デバイスへ設定を送信・保存中...", "info");
-  sendJson({ cmd: "set_config", config: currentConfig });
+  log(`デバイスへ設定を送信・保存中 (${syncPayload.profiles.length}個のプロファイルを同期)...`, "info");
+  sendJson({ cmd: "set_config", config: syncPayload });
 });
 
 btnCalibrate.addEventListener("click", () => {

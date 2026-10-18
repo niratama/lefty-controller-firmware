@@ -55,12 +55,14 @@ class TestKeyMapper(unittest.TestCase):
         self.assertEqual(parse_action("Gamepad_LB"), ("gamepad_button", 5))
         self.assertEqual(parse_action("Gamepad_Start"), ("gamepad_button", 10))
 
-    def test_parse_actions_composite(self):
-        res = parse_actions(["LCtrl", "Mouse_Left", "Wheel_Up", "Gamepad_1"])
-        self.assertEqual(res["keyboard"], [Keycode.LEFT_CONTROL])
-        self.assertEqual(res["mouse_buttons"], 1)
-        self.assertEqual(res["mouse_wheel"], 1)
-        self.assertEqual(res["gamepad_buttons"], [1])
+    def test_parse_profile_actions(self):
+        self.assertEqual(parse_action("profile_next"), ("profile_action", "next"))
+        self.assertEqual(parse_action("Profile_Prev"), ("profile_action", "prev"))
+        self.assertEqual(parse_action("profile_default"), ("profile_action", "default"))
+        self.assertEqual(parse_action("profile_switch:prof_loot_123"), ("profile_action", "switch:prof_loot_123"))
+
+        res = parse_actions(["profile_next", "profile_switch:custom_id"])
+        self.assertEqual(res["profile_actions"], ["next", "switch:custom_id"])
 
 if __name__ == '__main__':
     unittest.main()

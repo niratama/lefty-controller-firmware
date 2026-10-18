@@ -118,8 +118,29 @@
 
             <!-- プロファイル一覧リスト -->
             <div class="profiles-list-section">
+              <!-- プロファイル同期 & NVM容量サマリーバー -->
+              <div class="profiles-sync-summary-bar" id="profilesSyncSummaryBar">
+                <div class="sync-summary-stats">
+                  <span class="sync-summary-item">
+                    <span class="sync-summary-icon">💾</span>
+                    <span class="sync-summary-label">デバイス転送対象:</span>
+                    <strong id="syncTargetCount">1</strong> / <span id="syncTotalCount">1</span> 個
+                  </span>
+                  <span class="sync-summary-separator">|</span>
+                  <span class="sync-summary-item">
+                    <span class="sync-summary-label">転送ペイロード:</span>
+                    <strong id="syncPayloadBytes">--</strong> B (空き <strong id="syncFreeBytes">--</strong> B)
+                  </span>
+                </div>
+                <div class="sync-summary-guide">
+                  <span class="sync-guide-badge">4KB NVM保護</span>
+                  <span class="sync-guide-text">チェックを入れたプロファイルのみマイコンへ転送されます</span>
+                </div>
+              </div>
+
               <div class="profiles-list-header-row">
                 <span class="col-status">状態</span>
+                <span class="col-sync" title="マイコン内蔵Flash (NVM 4KB) への転送対象">転送</span>
                 <span class="col-index">#</span>
                 <span class="col-name">プロファイル名（直接編集可能）</span>
                 <span class="col-meta">動作モード</span>
@@ -586,6 +607,6 @@
     </datalist>
   </div>
 
-  <script src="app.js?v=1.4.0"></script>
+  <script src="app.js?v=1.4.1-selective-sync"></script>
 </body>
 </html>
