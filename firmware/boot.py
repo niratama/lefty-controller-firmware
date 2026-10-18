@@ -1,11 +1,36 @@
 """
 boot.py: CircuitPython 起動時構成スクリプト
 
-1. USB ドライブ (CIRCUITPY) のマウント制御 (メンテナンスモード判定):
+1. USB デバイス識別情報 (メーカー名: Niratama / 製品名: Lefty Controller) & シリアルポート命名
+2. USB ドライブ (CIRCUITPY) のマウント制御 (メンテナンスモード判定):
    - 通常起動 (ボタンを押さずに接続): PCへのマスストレージマウントを無効化し、マイコンからの書込を許可。
    - メンテナンスモード (前面ボタン1 = GP0 を押しながら接続): CIRCUITPY ドライブをPCに表示。
-2. USB HID Composite Device (Keyboard + Mouse + Gamepad) の有効化。
+3. USB HID Composite Device (Keyboard + Mouse + Gamepad) の有効化。
 """
+
+# ==========================================
+# 0. USB デバイス識別情報・シリアルポート名の設定
+# ==========================================
+try:
+    import supervisor
+    import usb_cdc
+
+    # USB デバイスのメーカー名・製品名を設定
+    supervisor.set_usb_identification(
+        manufacturer="Niratama",
+        product="Lefty Controller"
+    )
+
+    # シリアルポート (CDC) のインターフェース名を設定
+    try:
+        usb_cdc.set_names(
+            console_control_interface_name="Config Port"
+        )
+    except Exception as e_cdc:
+        print(f"[boot.py cdc INFO] {e_cdc}")
+except Exception as e_id:
+    print(f"[boot.py usb_id INFO] {e_id}")
+
 
 # ==========================================
 # 1. USB マスストレージ (CIRCUITPY ドライブ) のマウント制御
