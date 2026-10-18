@@ -486,6 +486,40 @@
       </div>
     </div>
 
+    <!-- ============================================== -->
+    <!-- 共有プロファイル受信確認モーダル -->
+    <!-- ============================================== -->
+    <div id="sharedProfileModal" class="modal-overlay" style="display: none;">
+      <div class="modal-box shared-profile-modal-box">
+        <div class="modal-header">
+          <div class="modal-header-info">
+            <h3>📥 共有プロファイルを受信しました</h3>
+            <span class="modal-subtitle">共有リンクからプロファイル設定が検出されました</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="btnSharedProfileClose">&times;</button>
+        </div>
+        <div class="shared-profile-body">
+          <div class="shared-profile-card">
+            <div class="shared-profile-header">
+              <span class="shared-profile-badge" id="sharedProfileBadge">KEYBOARD</span>
+              <span class="shared-profile-btn-count" id="sharedProfileBtnCount">13ボタン設定済</span>
+            </div>
+            <h4 class="shared-profile-name" id="sharedProfileName">プロファイル名</h4>
+            <p class="shared-profile-desc" id="sharedProfileDesc">スティックおよび13ボタンの設定が含まれています。</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-footer-btns" style="width: 100%; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn btn-secondary" id="btnSharedProfileCancel">キャンセル</button>
+            <button type="button" class="btn btn-primary" id="btnSharedProfileApply">＋ このプロファイルを一覧に追加する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toastNotification" class="toast-notification"></div>
+
     <!-- キー入力補完用 datalist -->
     <datalist id="allKeysList">
       <!-- JSで動的生成 -->

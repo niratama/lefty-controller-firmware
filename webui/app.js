@@ -592,6 +592,17 @@ const presetCardsGrid = document.getElementById("presetCardsGrid");
 const profilesListContainer = document.getElementById("profilesListContainer");
 const profilesListGrid = document.getElementById("profilesListGrid");
 
+// 共有プロファイルモーダル & トーストDOM要素
+const sharedProfileModal = document.getElementById("sharedProfileModal");
+const btnSharedProfileClose = document.getElementById("btnSharedProfileClose");
+const btnSharedProfileCancel = document.getElementById("btnSharedProfileCancel");
+const btnSharedProfileApply = document.getElementById("btnSharedProfileApply");
+const sharedProfileBadge = document.getElementById("sharedProfileBadge");
+const sharedProfileBtnCount = document.getElementById("sharedProfileBtnCount");
+const sharedProfileName = document.getElementById("sharedProfileName");
+const sharedProfileDesc = document.getElementById("sharedProfileDesc");
+const toastNotification = document.getElementById("toastNotification");
+
 // テスト入力DOM要素
 const testInputBox = document.getElementById("testInputBox");
 const btnClearTestInput = document.getElementById("btnClearTestInput");
@@ -1036,6 +1047,7 @@ function renderProfilesList() {
         <div class="profile-row-menu-container">
           <button type="button" class="btn-icon btn-kebab" title="その他のメニュー">…</button>
           <div class="profile-row-dropdown">
+            <button type="button" class="dropdown-item btn-action-share-url">🔗 共有リンクをコピー (URL)</button>
             <button type="button" class="dropdown-item btn-action-dup">📑 複製</button>
             <button type="button" class="dropdown-item btn-action-export">💾 単体書き出し</button>
             <button type="button" class="dropdown-item danger btn-action-del" ${currentConfig.profiles.length <= 1 ? "disabled style='opacity:0.4;cursor:not-allowed'" : ""}>🗑️ 削除</button>
@@ -1098,6 +1110,16 @@ function renderProfilesList() {
         dropdown.classList.add("open");
       }
     });
+
+    // 共有リンクコピー (URL)
+    const btnShareUrl = row.querySelector(".btn-action-share-url");
+    if (btnShareUrl) {
+      btnShareUrl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.remove("open");
+        copyProfileShareUrl(idx);
+      });
+    }
 
     // 複製
     const btnDup = row.querySelector(".btn-action-dup");
@@ -1407,6 +1429,207 @@ function addPresetProfile(preset) {
   currentConfig.profiles.push(cloned);
   switchProfile(currentConfig.profiles.length - 1, true);
   log(`プリセット「${preset.name}」を追加しました`, "success");
+}
+
+// ==========================================
+// URLパラメータ方式 プロファイル共有 & インポート
+// ==========================================
+function uint8ArrayToBase64(bytes) {
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+let toastTimer = null;
+function showToast(message, duration = 3000) {
+  const toast = document.getElementById("toastNotification");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+    toastTimer = null;
+  }, duration);
+}
+
+async function compressProfileToUrl(profile) {
+  const jsonStr = JSON.stringify(profile);
+  const stream = new Blob([jsonStr]).stream();
+  const compressedStream = stream.pipeThrough(new CompressionStream("deflate-raw"));
+  const buffer = await new Response(compressedStream).arrayBuffer();
+  const base64 = uint8ArrayToBase64(new Uint8Array(buffer));
+  const base64url = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const cleanUrl = new URL(window.location.origin + window.location.pathname);
+  cleanUrl.searchParams.set("profile", base64url);
+  return cleanUrl.toString();
+}
+
+async function decompressProfileFromUrl(base64url) {
+  let base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  const bytes = base64ToUint8Array(base64);
+  const stream = new Blob([bytes]).stream();
+  const decompressedStream = stream.pipeThrough(new DecompressionStream("deflate-raw"));
+  const text = await new Response(decompressedStream).text();
+  return JSON.parse(text);
+}
+
+async function copyProfileShareUrl(idx) {
+  syncCurrentToProfile();
+  const target = currentConfig.profiles[idx];
+  if (!target) return;
+
+  try {
+    const profileToShare = {
+      name: target.name,
+      keymap: JSON.parse(JSON.stringify(target.keymap)),
+      joystick: JSON.parse(JSON.stringify(target.joystick))
+    };
+    const shareUrl = await compressProfileToUrl(profileToShare);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast(`📋 プロファイル「${target.name}」の共有リンクをコピーしました！`);
+      log(`共有リンクをクリップボードにコピーしました (${shareUrl.length}文字)`, "success");
+    } else {
+      prompt("プロファイル共有リンクをコピーしてください:", shareUrl);
+    }
+  } catch (err) {
+    log(`共有リンクの生成に失敗しました: ${err.message}`, "error");
+    alert(`共有リンクの生成に失敗しました: ${err.message}`);
+  }
+}
+
+let pendingSharedProfile = null;
+
+function openSharedProfileModal(profile) {
+  pendingSharedProfile = profile;
+  const modal = document.getElementById("sharedProfileModal");
+  if (!modal) return;
+
+  const badgeEl = document.getElementById("sharedProfileBadge");
+  const countEl = document.getElementById("sharedProfileBtnCount");
+  const nameEl = document.getElementById("sharedProfileName");
+  const descEl = document.getElementById("sharedProfileDesc");
+
+  const mode = (profile.joystick && profile.joystick.mode) ? profile.joystick.mode.toUpperCase() : "KEYBOARD";
+  const target = (profile.joystick && profile.joystick.gamepad_target) ? profile.joystick.gamepad_target.toUpperCase() : "";
+  const badgeText = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
+  const btnCount = (profile.keymap && Array.isArray(profile.keymap.buttons)) ? profile.keymap.buttons.length : 13;
+
+  if (badgeEl) badgeEl.textContent = badgeText;
+  if (countEl) countEl.textContent = `${btnCount}ボタン設定済`;
+  if (nameEl) nameEl.textContent = profile.name || "共有プロファイル";
+  if (descEl) {
+    descEl.textContent = `スティック設定 (${badgeText}) および ${btnCount}個のキー割り当てが含まれています。`;
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeSharedProfileModal() {
+  const modal = document.getElementById("sharedProfileModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+  pendingSharedProfile = null;
+  cleanUpUrlParameters();
+}
+
+function cleanUpUrlParameters() {
+  if (window.history && window.history.replaceState) {
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+}
+
+function applySharedProfile() {
+  if (!pendingSharedProfile) {
+    closeSharedProfileModal();
+    return;
+  }
+  const profile = pendingSharedProfile;
+
+  const buttons = (profile.keymap && Array.isArray(profile.keymap.buttons)) ? profile.keymap.buttons.slice(0, 13) : [];
+  while (buttons.length < 13) {
+    buttons.push("");
+  }
+
+  const newProfile = {
+    name: profile.name || "共有プロファイル",
+    keymap: { buttons },
+    joystick: JSON.parse(JSON.stringify(profile.joystick || DEFAULT_CONFIG.joystick))
+  };
+
+  syncCurrentToProfile();
+  currentConfig.profiles.push(newProfile);
+  switchProfile(currentConfig.profiles.length - 1, true);
+
+  log(`共有リンクからプロファイル「${newProfile.name}」を追加しました`, "success");
+  showToast(`📥 プロファイル「${newProfile.name}」を追加しました`);
+
+  closeSharedProfileModal();
+}
+
+async function checkUrlForSharedProfile() {
+  try {
+    let encoded = "";
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has("profile")) {
+      encoded = searchParams.get("profile");
+    } else if (window.location.hash) {
+      const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+      const hashParams = new URLSearchParams(hash);
+      if (hashParams.has("profile")) {
+        encoded = hashParams.get("profile");
+      } else if (hash.startsWith("profile=")) {
+        encoded = hash.split("=")[1];
+      }
+    }
+
+    if (!encoded) return;
+
+    if (encoded.length > 10000) {
+      throw new Error("プロファイルデータが大きすぎます");
+    }
+
+    const decoded = await decompressProfileFromUrl(encoded);
+    if (!decoded || typeof decoded !== "object") {
+      throw new Error("プロファイルデータの形式が無効です");
+    }
+
+    let targetProfile = null;
+    if (decoded.profile && typeof decoded.profile === "object") {
+      targetProfile = decoded.profile;
+    } else if (decoded.keymap && decoded.joystick) {
+      targetProfile = decoded;
+    }
+
+    if (!targetProfile || !targetProfile.keymap || !Array.isArray(targetProfile.keymap.buttons)) {
+      throw new Error("有効なプロファイル定義が見つかりませんでした (keymap.buttons が必要です)");
+    }
+
+    openSharedProfileModal(targetProfile);
+  } catch (err) {
+    log(`共有プロファイルURLの解析に失敗しました: ${err.message}`, "error");
+    alert(`共有リンクからプロファイルデータを読み込めませんでした:\n${err.message}`);
+    cleanUpUrlParameters();
+  }
 }
 
 function escapeHtml(str) {
@@ -1847,6 +2070,14 @@ function initProfileExtraEvents() {
       if (e.target === presetModal) closePresetModal();
     });
   }
+  if (btnSharedProfileClose) btnSharedProfileClose.addEventListener("click", closeSharedProfileModal);
+  if (btnSharedProfileCancel) btnSharedProfileCancel.addEventListener("click", closeSharedProfileModal);
+  if (btnSharedProfileApply) btnSharedProfileApply.addEventListener("click", applySharedProfile);
+  if (sharedProfileModal) {
+    sharedProfileModal.addEventListener("click", (e) => {
+      if (e.target === sharedProfileModal) closeSharedProfileModal();
+    });
+  }
 }
 
 function initQuickActionBars() {
@@ -1909,6 +2140,7 @@ function initUI() {
   updateFormFromConfig();
   drawRadar();
   restoreDeviceButtons();
+  checkUrlForSharedProfile();
 }
 
 function renderButtonGrid() {
