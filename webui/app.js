@@ -2823,6 +2823,7 @@ async function connectSerial() {
   }
 
   try {
+    log("接続先デバイスの選択を待機中... (一覧から「RP2040-Zero - CircuitPython CDC control」を選択してください)", "info");
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: 115200 });
 
