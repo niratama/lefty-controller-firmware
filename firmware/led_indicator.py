@@ -35,9 +35,11 @@ DEFAULT_PROFILE_COLORS = [
 ]
 
 class LedIndicator:
-    def __init__(self, pin_num=16):
+    def __init__(self, pin_num=16, pixel_order="RGB"):
         self.pin_io = None
+        self.pin_num = pin_num
         self.np = None
+        self.pixel_order = pixel_order.upper() if isinstance(pixel_order, str) else "RGB"
         self.current_color = (0, 0, 0)
         self.base_color = (0, 140, 255)  # 通常点灯色
         self.brightness = 0.6            # 普段の明るさ (ケース内部からの漏れ光用)
@@ -54,6 +56,13 @@ class LedIndicator:
 
         self._init_hardware(pin_num)
 
+    def set_pixel_order(self, order):
+        if order and isinstance(order, str) and order.upper() in ("RGB", "GRB", "BGR"):
+            if self.pixel_order != order.upper():
+                self.pixel_order = order.upper()
+                self._init_hardware(self.pin_num)
+                self.set_base_color(self.base_color[0], self.base_color[1], self.base_color[2], apply_now=True)
+
     def _init_hardware(self, pin_num):
         if not board or not digitalio:
             return
@@ -68,7 +77,11 @@ class LedIndicator:
         # 1. neopixel ライブラリがあれば利用
         if neopixel:
             try:
-                self.np = neopixel.NeoPixel(pin_obj, 1, brightness=self.brightness, auto_write=True, pixel_order=neopixel.GRB)
+                # RP2040-Zero のオンボードLEDは RGB 配列
+                order = getattr(neopixel, self.pixel_order, None)
+                if not order:
+                    order = (0, 1, 2) if self.pixel_order == "RGB" else (1, 0, 2)
+                self.np = neopixel.NeoPixel(pin_obj, 1, brightness=self.brightness, auto_write=True, pixel_order=order)
                 return
             except Exception:
                 self.np = None
@@ -96,8 +109,14 @@ class LedIndicator:
                 pass
         elif self.pin_io and neopixel_write:
             try:
-                # WS2812B は GRB 順序
-                neopixel_write.neopixel_write(self.pin_io, bytearray([g_val, r_val, b_val]))
+                # RP2040-Zero の内蔵LEDは RGB 順序
+                if self.pixel_order == "GRB":
+                    raw_bytes = bytearray([g_val, r_val, b_val])
+                elif self.pixel_order == "BGR":
+                    raw_bytes = bytearray([b_val, g_val, r_val])
+                else:  # "RGB" (Waveshare RP2040-Zero 標準)
+                    raw_bytes = bytearray([r_val, g_val, b_val])
+                neopixel_write.neopixel_write(self.pin_io, raw_bytes)
             except Exception:
                 pass
         self.current_color = (r, g, b)

@@ -253,6 +253,8 @@ class LeftyController:
 
             self.stick_engine.load_config(cur_prof.get("joystick", {}))
             if hasattr(self, "led") and self.led:
+                if "led_order" in cfg:
+                    self.led.set_pixel_order(cfg["led_order"])
                 self.led.set_profile(act_idx, cur_prof.get("color"), flash=True)
         else:
             raw_buttons = cfg.get("keymap", {}).get("buttons", [])

@@ -51,5 +51,13 @@ class TestLedIndicator(unittest.TestCase):
         led.update()
         self.assertFalse(led.flashing)
 
+    def test_pixel_order(self):
+        led = LedIndicator(pixel_order="RGB")
+        self.assertEqual(led.pixel_order, "RGB")
+        led.set_pixel_order("GRB")
+        self.assertEqual(led.pixel_order, "GRB")
+        led.set_pixel_order("RGB")
+        self.assertEqual(led.pixel_order, "RGB")
+
 if __name__ == '__main__':
     unittest.main()
