@@ -402,5 +402,29 @@ class TestStickEngine(unittest.TestCase):
         active, _, _, info = self.engine.process(55000, 42000)
         self.assertEqual(info["gamepad"][4], 1)
 
+    def test_malformed_config_resilience(self):
+        # 不正な型や範囲外の値が渡されても例外を出さず安全に動作することを検証
+        self.engine.load_config({
+            "joystick": {
+                "mode": "invalid_mode",
+                "direction_mode": "invalid_dir",
+                "rotation": "90",
+                "deadzone": "bad_int",
+                "hysteresis": -500,
+                "mouse_speed": 9999,
+                "directions": {
+                    "up": {"th_walk": "not_a_num", "th_run": 999999, "key_walk": None, "key_run": 123}
+                }
+            }
+        })
+        self.assertEqual(self.engine.mode, "keyboard")
+        self.assertEqual(self.engine.direction_mode, "8way")
+        self.assertEqual(self.engine.rotation, 90)
+        self.assertEqual(self.engine.hysteresis, 0)
+        self.assertEqual(self.engine.mouse_speed, 127)
+        # process が例外なく実行できること
+        active, _, _, _ = self.engine.process(30000, 30000)
+        self.assertEqual(active, set())
+
 if __name__ == '__main__':
     unittest.main()

@@ -168,5 +168,90 @@ class TestSerialHandler(unittest.TestCase):
         self.assertIn("used", resp["nvm"])
         self.assertIn("free", resp["nvm"])
 
+    def test_calibrate_callback(self):
+        calibrated = []
+        def mock_calibrate():
+            self.engine.set_center(31111, 32222)
+            calibrated.append(True)
+
+        self.handler.on_calibrate = mock_calibrate
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            self.handler.handle_line(json.dumps({"cmd": "calibrate"}))
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(len(calibrated), 1)
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "calibrate")
+        self.assertEqual(resp["center"], [31111, 32222])
+
+    def test_buffer_overflow_protection(self):
+        # 32KB (32768 bytes) を超える改行なしデータが送り込まれた場合、バッファがリセットされメモリ枯渇を防ぐこと
+        huge_payload = "A" * 33000
+        self.handler.process_incoming_text(huge_payload)
+        self.assertEqual(self.handler.buffer, "")
+
+        # リセット後も正常に次のJSONコマンドを処理できること
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            self.handler.process_incoming_text(json.dumps({"cmd": "ping"}) + "\n")
+        finally:
+            sys.stdout = old_stdout
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["cmd"], "pong")
+
+    def test_plain_text_cli_commands_and_unknown_cmd(self):
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            self.handler.handle_line("help")
+            self.handler.handle_line("monitor_on")
+            self.assertTrue(self.handler.monitor_enabled)
+            self.handler.handle_line("monitor_off")
+            self.assertFalse(self.handler.monitor_enabled)
+            self.handler.handle_line(json.dumps({"cmd": "unknown_cmd_xyz"}))
+        finally:
+            sys.stdout = old_stdout
+
+        lines = [json.loads(line) for line in buffer.getvalue().strip().split("\n") if line.strip()]
+        self.assertEqual(len(lines), 4)
+        self.assertIn("help", lines[0])
+        self.assertEqual(lines[1]["monitor"], True)
+        self.assertEqual(lines[2]["monitor"], False)
+        self.assertEqual(lines[3]["status"], "error")
+        self.assertIn("Unknown command", lines[3]["message"])
+
+    def test_send_telemetry_and_error_json_escaping(self):
+        _, _, _, debug_info = self.engine.process(32768, 32768)
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            # monitor_enabled=False のときは何も出力されない
+            self.handler.monitor_enabled = False
+            self.handler.send_telemetry(32768, 32768, debug_info, [0])
+            self.assertEqual(buffer.getvalue(), "")
+
+            # monitor_enabled=True のときはテレメトリJSONが出力される
+            self.handler.monitor_enabled = True
+            self.handler.send_telemetry(32768, 32768, debug_info, [0])
+
+            # シリアライズ不能オブジェクトを渡した際も、例外文字列が安全にJSONエスケープされて出力されること
+            class BadObj:
+                pass
+            self.handler.send_response({"bad": BadObj()})
+        finally:
+            sys.stdout = old_stdout
+
+        lines = [json.loads(line) for line in buffer.getvalue().strip().split("\n") if line.strip()]
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0]["type"], "telemetry")
+        self.assertEqual(lines[0]["btns"], [0])
+        self.assertEqual(lines[1]["status"], "error")
+
 if __name__ == '__main__':
     unittest.main()
+

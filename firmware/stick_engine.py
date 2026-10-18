@@ -77,34 +77,82 @@ class StickEngine:
         if config:
             self.load_config(config)
 
+    @staticmethod
+    def _safe_int(val, default, min_val=None, max_val=None):
+        if isinstance(val, bool):
+            return default
+        try:
+            res = int(val)
+        except (ValueError, TypeError):
+            return default
+        if min_val is not None and res < min_val:
+            res = min_val
+        if max_val is not None and res > max_val:
+            res = max_val
+        return res
+
     def load_config(self, config):
         """設定辞書（joystick部分）からパラメータを更新"""
+        if not isinstance(config, dict):
+            return
         joy_cfg = config.get("joystick", {}) if "joystick" in config else config
-        self.mode = joy_cfg.get("mode", self.mode)
-        self.direction_mode = joy_cfg.get("direction_mode", self.direction_mode)
-        self.mouse_speed = joy_cfg.get("mouse_speed", self.mouse_speed)
-        self.deadzone = joy_cfg.get("deadzone", self.deadzone)
-        self.hysteresis = joy_cfg.get("hysteresis", self.hysteresis)
-        self.invert_x = joy_cfg.get("invert_x", self.invert_x)
-        self.invert_y = joy_cfg.get("invert_y", self.invert_y)
-        self.rotation = joy_cfg.get("rotation", self.rotation)
-        self.enable_run = joy_cfg.get("enable_run", self.enable_run)
-        self.gamepad_target = joy_cfg.get("gamepad_target", self.gamepad_target)
-        self.dpad_walk_btn = joy_cfg.get("dpad_walk_btn", self.dpad_walk_btn)
-        self.dpad_run_btn = joy_cfg.get("dpad_run_btn", self.dpad_run_btn)
+        if not isinstance(joy_cfg, dict):
+            return
+
+        mode = joy_cfg.get("mode", self.mode)
+        if isinstance(mode, str) and mode in ("keyboard", "gamepad", "mouse"):
+            self.mode = mode
+
+        dir_mode = joy_cfg.get("direction_mode", self.direction_mode)
+        if isinstance(dir_mode, str) and dir_mode in ("8way", "4way_snap", "4way_strict"):
+            self.direction_mode = dir_mode
+
+        self.mouse_speed = self._safe_int(joy_cfg.get("mouse_speed", self.mouse_speed), self.mouse_speed, 1, 127)
+        self.deadzone = self._safe_int(joy_cfg.get("deadzone", self.deadzone), self.deadzone, 0, 32767)
+        self.hysteresis = self._safe_int(joy_cfg.get("hysteresis", self.hysteresis), self.hysteresis, 0, 32767)
+        self.invert_x = bool(joy_cfg.get("invert_x", self.invert_x))
+        self.invert_y = bool(joy_cfg.get("invert_y", self.invert_y))
+        self.rotation = self._safe_int(joy_cfg.get("rotation", self.rotation), self.rotation) % 360
+        self.enable_run = bool(joy_cfg.get("enable_run", self.enable_run))
+
+        gp_target = joy_cfg.get("gamepad_target", self.gamepad_target)
+        if isinstance(gp_target, str) and gp_target in ("left_stick", "right_stick", "dpad", "z_axis"):
+            self.gamepad_target = gp_target
+
+        dpad_walk = joy_cfg.get("dpad_walk_btn", self.dpad_walk_btn)
+        if isinstance(dpad_walk, (str, list)):
+            self.dpad_walk_btn = dpad_walk
+        dpad_run = joy_cfg.get("dpad_run_btn", self.dpad_run_btn)
+        if isinstance(dpad_run, (str, list)):
+            self.dpad_run_btn = dpad_run
 
         dirs = joy_cfg.get("directions", {})
-        for d in ["up", "down", "left", "right"]:
-            if d in dirs:
-                cfg = dirs[d]
-                kw = cfg.get("key_walk", [])
-                kr = cfg.get("key_run", [])
-                self.dir_configs[d] = {
-                    "th_walk": cfg.get("th_walk", self.dir_configs[d]["th_walk"]),
-                    "th_run": cfg.get("th_run", self.dir_configs[d]["th_run"]),
-                    "key_walk": [kw] if isinstance(kw, str) else list(kw),
-                    "key_run": [kr] if isinstance(kr, str) else list(kr)
-                }
+        if isinstance(dirs, dict):
+            for d in ["up", "down", "left", "right"]:
+                cfg = dirs.get(d)
+                if isinstance(cfg, dict):
+                    kw = cfg.get("key_walk", self.dir_configs[d]["key_walk"])
+                    kr = cfg.get("key_run", self.dir_configs[d]["key_run"])
+                    if isinstance(kw, str):
+                        kw_list = [kw]
+                    elif isinstance(kw, (list, tuple)):
+                        kw_list = [str(x) for x in kw if isinstance(x, (str, int))]
+                    else:
+                        kw_list = list(self.dir_configs[d]["key_walk"])
+
+                    if isinstance(kr, str):
+                        kr_list = [kr]
+                    elif isinstance(kr, (list, tuple)):
+                        kr_list = [str(x) for x in kr if isinstance(x, (str, int))]
+                    else:
+                        kr_list = list(self.dir_configs[d]["key_run"])
+
+                    self.dir_configs[d] = {
+                        "th_walk": self._safe_int(cfg.get("th_walk"), self.dir_configs[d]["th_walk"], 0, 65535),
+                        "th_run": self._safe_int(cfg.get("th_run"), self.dir_configs[d]["th_run"], 0, 65535),
+                        "key_walk": kw_list,
+                        "key_run": kr_list
+                    }
 
     def calibrate(self, samples_x, samples_y):
         """

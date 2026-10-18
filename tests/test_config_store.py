@@ -163,5 +163,32 @@ class TestConfigStore(unittest.TestCase):
         self.assertIn("free", stat)
         self.assertGreater(stat["total"], 0)
 
+    def test_nvm_capacity_overflow(self):
+        # 4096バイトを超える巨大な設定データは NVM 保存を安全に拒否して False を返すこと
+        oversized_cfg = {"profiles": [{"name": "X" * 5000}]}
+        ok = config_store.save_to_nvm(oversized_cfg)
+        self.assertFalse(ok)
+
+    def test_nvm_corrupted_payload_and_fallback(self):
+        # マジックヘッダは正しいがレングスが領域外、またはJSONが破損しているケース
+        self.mock_mc.nvm[0:5] = config_store.NVM_MAGIC
+        self.mock_mc.nvm[5] = 0xFF
+        self.mock_mc.nvm[6] = 0xFF  # length = 65535 (> 4096)
+        self.assertIsNone(config_store.load_from_nvm())
+        self.assertFalse(config_store.get_nvm_status()["valid"])
+
+        # レングスは範囲内だが中身が壊れたJSONのケース
+        bad_bytes = b"{bad_json"
+        self.mock_mc.nvm[5] = 0
+        self.mock_mc.nvm[6] = len(bad_bytes)
+        self.mock_mc.nvm[7:7 + len(bad_bytes)] = bad_bytes
+        self.assertIsNone(config_store.load_from_nvm())
+
+        # ファイルもNVMも無効な場合、default_config にフォールバックすること
+        default_cfg = {"version": "1.6.0", "fallback": True}
+        loaded = config_store.load_config("/nonexistent_path.json", default_config=default_cfg)
+        self.assertEqual(loaded["fallback"], True)
+
 if __name__ == '__main__':
     unittest.main()
+

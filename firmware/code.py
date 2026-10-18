@@ -188,7 +188,8 @@ class LeftyController:
             self.stick_engine,
             self.button_manager,
             CONFIG_FILE,
-            on_config_updated=self.apply_config
+            on_config_updated=self.apply_config,
+            on_calibrate=self.auto_calibrate
         )
 
         # 状態追跡用
@@ -400,7 +401,7 @@ class LeftyController:
         return raw_btns, rx, ry
 
     def check_serial_input(self):
-        """シリアルからの受信をノンブロッキングで一括処理"""
+        """シリアルからの受信をノンブロッキングで一括処理 (Ctrl-C による REPL 脱出を防止)"""
         if IS_CIRCUITPYTHON:
             try:
                 while supervisor.runtime.serial_bytes_available:
@@ -410,7 +411,7 @@ class LeftyController:
                         self.serial_handler.process_incoming_text(chunk)
                     else:
                         break
-            except Exception:
+            except (Exception, KeyboardInterrupt):
                 pass
 
     def update_hid_keys(self, desired_keycodes):
@@ -493,7 +494,11 @@ class LeftyController:
 
         # 5.1 Combo (同時押し) の判定
         for c_idx, combo in enumerate(self.combos):
-            combo_pins = [self.button_pins_def[b] for b in combo["buttons"] if b < len(self.button_pins_def)]
+            combo_pins = [
+                self.button_pins_def[b]
+                for b in combo["buttons"]
+                if isinstance(b, int) and 0 <= b < len(self.button_pins_def)
+            ]
             if len(combo_pins) < 2:
                 continue
 
@@ -542,6 +547,7 @@ class LeftyController:
         active_defs = self.fn_button_defs if (is_fn_active and self.fn_button_defs) else self.button_defs
 
         # 5.3 各ボタンの Tap-Hold & 通常入力のパース
+        pending_tap_actions = []
         for idx, pin in enumerate(self.button_pins_def):
             if pin in masked_pins or idx >= len(active_defs):
                 if pin in just_released and pin in self.tap_hold_states:
@@ -594,28 +600,7 @@ class LeftyController:
                         # 短押し (Tap) 成立！
                         for pact in b_def["tap_actions"].get("profile_actions", []):
                             self.handle_profile_action(pact)
-
-                        tap_k = b_def["tap_actions"]["keyboard"]
-                        if tap_k and self.keyboard:
-                            try:
-                                self.keyboard.press(*tap_k)
-                                time.sleep(0.008)
-                                self.keyboard.release(*tap_k)
-                            except Exception:
-                                pass
-                        tap_m = b_def["tap_actions"]["mouse_buttons"]
-                        if tap_m and self.mouse:
-                            try:
-                                self.mouse.press(tap_m)
-                                time.sleep(0.008)
-                                self.mouse.release(tap_m)
-                            except Exception:
-                                pass
-                        if b_def["tap_actions"]["mouse_wheel"] and self.mouse:
-                            try:
-                                self.mouse.move(wheel=b_def["tap_actions"]["mouse_wheel"])
-                            except Exception:
-                                pass
+                        pending_tap_actions.append(b_def["tap_actions"])
 
                     if pin in self.tap_hold_states:
                         del self.tap_hold_states[pin]
@@ -642,6 +627,41 @@ class LeftyController:
                 gx, gy, gz, grz, ghat = 0, 0, 0, 0, 0
             self.gamepad.update(desired_gamepad_buttons, x=gx, y=gy, z=gz, rz=grz, hat=ghat)
 
+        # 6.4 Tap-Hold 短押し成立アクションのパルス送出（他ボタンで押下中のキー・ボタンは維持）
+        for tap_act in pending_tap_actions:
+            tap_k = [k for k in tap_act["keyboard"] if k not in desired_keycodes]
+            if tap_k and self.keyboard:
+                try:
+                    self.keyboard.press(*tap_k)
+                    time.sleep(0.008)
+                    self.keyboard.release(*tap_k)
+                except Exception:
+                    pass
+            tap_m = tap_act["mouse_buttons"] & ~desired_mouse_buttons
+            if tap_m and self.mouse:
+                try:
+                    self.mouse.press(tap_m)
+                    time.sleep(0.008)
+                    self.mouse.release(tap_m)
+                except Exception:
+                    pass
+            if tap_act["mouse_wheel"] and self.mouse:
+                try:
+                    self.mouse.move(wheel=tap_act["mouse_wheel"])
+                except Exception:
+                    pass
+            tap_gp = [
+                b_num for b_num in tap_act["gamepad_buttons"]
+                if 1 <= b_num <= 16 and not (desired_gamepad_buttons & (1 << (b_num - 1)))
+            ]
+            if tap_gp and self.gamepad:
+                try:
+                    self.gamepad.press_buttons(*tap_gp)
+                    time.sleep(0.008)
+                    self.gamepad.release_buttons(*tap_gp)
+                except Exception:
+                    pass
+
         # 7. テレメトリ送信（モニタ有効時、最大30Hz程度に制限）
         if self.serial_handler.monitor_enabled and (now - self.last_telemetry_time) >= 0.033:
             self.last_telemetry_time = now
@@ -652,9 +672,12 @@ class LeftyController:
         while True:
             try:
                 self.run_cycle()
-            except Exception as e:
+            except (Exception, KeyboardInterrupt) as e:
                 print(f"[ERROR in loop] {e}")
-            time.sleep(0.002)  # 約500Hzポーリング
+            try:
+                time.sleep(0.002)  # 約500Hzポーリング
+            except KeyboardInterrupt:
+                pass
 
 
 if __name__ == "__main__":
@@ -668,7 +691,10 @@ if __name__ == "__main__":
             for _ in range(10):
                 controller.run_cycle()
             print("[TEST] シミュレーション実行 正常終了")
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         print(f"[FATAL ERROR] {e}")
         while True:
-            time.sleep(1)
+            try:
+                time.sleep(1)
+            except KeyboardInterrupt:
+                pass

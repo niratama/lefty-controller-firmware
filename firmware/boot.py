@@ -60,6 +60,11 @@ try:
             storage.remount("/", readonly=False)
         except Exception as e_remount:
             print(f"[boot.py] remount warning: {e_remount}")
+        try:
+            import supervisor
+            supervisor.runtime.autoreload = False
+        except Exception:
+            pass
     else:
         # メンテナンスモード: 前面ボタン1を押しながら接続した場合はドライブをPCに表示
         print("[boot.py] メンテナンスモード: CIRCUITPY ドライブをマウントしました")

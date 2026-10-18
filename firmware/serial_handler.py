@@ -11,11 +11,12 @@ import config_store
 FIRMWARE_VERSION = "1.6.0"
 
 class SerialHandler:
-    def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None):
+    def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None, on_calibrate=None):
         self.stick_engine = stick_engine
         self.button_manager = button_manager
         self.config_path = config_path
         self.on_config_updated = on_config_updated
+        self.on_calibrate = on_calibrate
         self.monitor_enabled = False
         self.buffer = ""
 
@@ -155,7 +156,12 @@ class SerialHandler:
         self.send_response(resp)
 
     def _cmd_calibrate(self):
-        # 現在のADC値（未指定の場合は現在のセンター）を報告
+        # コールバックが設定されていれば実機のADC再サンプリングを実行
+        if self.on_calibrate:
+            try:
+                self.on_calibrate()
+            except Exception as e:
+                print(f"[WARN] on_calibrate failed: {e}")
         self.send_response({
             "status": "ok",
             "cmd": "calibrate",
@@ -311,7 +317,8 @@ class SerialHandler:
                 sys.stdout.flush()
         except Exception as e:
             try:
-                sys.stdout.write(f'{{"status":"error","message":"{e}"}}\n')
+                err_line = json.dumps({"status": "error", "message": str(e)})
+                sys.stdout.write(err_line + "\n")
                 if hasattr(sys.stdout, "flush"):
                     sys.stdout.flush()
             except Exception:

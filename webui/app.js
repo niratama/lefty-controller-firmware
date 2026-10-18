@@ -1087,17 +1087,37 @@ function ensureProfiles(cfg) {
       p.keymap.combos = [];
     }
 
-    if (p.joystick) {
-      if (!p.joystick.mode) p.joystick.mode = "keyboard";
-      if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
-      if (!p.joystick.direction_mode) p.joystick.direction_mode = "8way";
-      if (p.joystick.rotation === undefined) p.joystick.rotation = 90;
-      if (p.joystick.invert_x === undefined) p.joystick.invert_x = false;
-      if (p.joystick.invert_y === undefined) p.joystick.invert_y = false;
-      if (p.joystick.enable_run === undefined) p.joystick.enable_run = true;
-      if (!p.joystick.gamepad_target) p.joystick.gamepad_target = "left_stick";
-      if (p.joystick.dpad_walk_btn === undefined) p.joystick.dpad_walk_btn = "";
-      if (p.joystick.dpad_run_btn === undefined) p.joystick.dpad_run_btn = "Gamepad_2";
+    if (!p.joystick || typeof p.joystick !== "object" || Array.isArray(p.joystick)) {
+      p.joystick = JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick));
+    }
+    if (!p.joystick.mode || typeof p.joystick.mode !== "string") p.joystick.mode = "keyboard";
+    if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
+    if (!p.joystick.direction_mode || typeof p.joystick.direction_mode !== "string") p.joystick.direction_mode = "8way";
+    if (p.joystick.deadzone === undefined) p.joystick.deadzone = 2500;
+    if (p.joystick.hysteresis === undefined) p.joystick.hysteresis = 1500;
+    if (p.joystick.rotation === undefined) p.joystick.rotation = 90;
+    if (p.joystick.invert_x === undefined) p.joystick.invert_x = false;
+    if (p.joystick.invert_y === undefined) p.joystick.invert_y = false;
+    if (p.joystick.enable_run === undefined) p.joystick.enable_run = true;
+    if (!p.joystick.gamepad_target || typeof p.joystick.gamepad_target !== "string") p.joystick.gamepad_target = "left_stick";
+    if (p.joystick.dpad_walk_btn === undefined) p.joystick.dpad_walk_btn = "";
+    if (p.joystick.dpad_run_btn === undefined) p.joystick.dpad_run_btn = "Gamepad_2";
+
+    if (!p.joystick.directions || typeof p.joystick.directions !== "object" || Array.isArray(p.joystick.directions)) {
+      p.joystick.directions = JSON.parse(JSON.stringify(DEFAULT_CONFIG.joystick.directions));
+    } else {
+      ["up", "down", "left", "right"].forEach(dirKey => {
+        const defDir = DEFAULT_CONFIG.joystick.directions[dirKey];
+        const curDir = p.joystick.directions[dirKey];
+        if (!curDir || typeof curDir !== "object" || Array.isArray(curDir)) {
+          p.joystick.directions[dirKey] = JSON.parse(JSON.stringify(defDir));
+        } else {
+          if (typeof curDir.th_walk !== "number" || isNaN(curDir.th_walk)) curDir.th_walk = defDir.th_walk;
+          if (typeof curDir.th_run !== "number" || isNaN(curDir.th_run)) curDir.th_run = defDir.th_run;
+          if (curDir.key_walk === undefined || curDir.key_walk === null) curDir.key_walk = defDir.key_walk;
+          if (curDir.key_run === undefined || curDir.key_run === null) curDir.key_run = JSON.parse(JSON.stringify(defDir.key_run));
+        }
+      });
     }
   });
 
@@ -1484,7 +1504,7 @@ function renderProfilesList() {
         <input type="radio" name="profile_active_radio" class="profile-radio-btn" ${isAct ? "checked" : ""} title="このプロファイルを選択">
       </div>
       <div class="col-sync">
-        <label class="sync-checkbox-wrapper" title="${syncTitle}" onclick="event.stopPropagation()">
+        <label class="sync-checkbox-wrapper" title="${escapeHtml(syncTitle)}">
           <input type="checkbox" class="sync-checkbox" ${isSynced ? "checked" : ""} ${isLocked ? "disabled" : ""}>
           ${syncBadgeHtml}
         </label>
@@ -1494,8 +1514,8 @@ function renderProfilesList() {
         <input type="text" class="profile-row-name-input" value="${escapeHtml(p.name)}" placeholder="プロファイル名">
       </div>
       <div class="col-meta">
-        <span class="profile-mode-badge">${badgeText}</span>
-        <span class="profile-btn-count">${buttonCount} btns</span>
+        <span class="profile-mode-badge">${escapeHtml(badgeText)}</span>
+        <span class="profile-btn-count">${Number(buttonCount) || 13} btns</span>
       </div>
       <div class="col-actions">
         <button type="button" class="btn-icon btn-move-up" title="上へ移動" ${idx === 0 ? "disabled" : ""}>▲</button>
@@ -1513,6 +1533,10 @@ function renderProfilesList() {
     `;
 
     // 転送チェックボックス変更
+    const syncWrapper = row.querySelector(".sync-checkbox-wrapper");
+    if (syncWrapper) {
+      syncWrapper.addEventListener("click", (e) => e.stopPropagation());
+    }
     const syncCheckbox = row.querySelector(".sync-checkbox");
     if (syncCheckbox && !isLocked) {
       syncCheckbox.addEventListener("change", (e) => {
@@ -1885,7 +1909,7 @@ function openPresetModal() {
     item.innerHTML = `
       <div class="preset-card-header">
         <span class="preset-card-title">${escapeHtml(preset.name)}</span>
-        <span class="preset-card-mode">${modeBadge}</span>
+        <span class="preset-card-mode">${escapeHtml(modeBadge)}</span>
       </div>
       <p class="preset-card-desc">${escapeHtml(preset.description)}</p>
       <div class="preset-card-actions">
@@ -2033,6 +2057,8 @@ async function compressProfileToUrl(profile) {
   return cleanUrl.toString();
 }
 
+const MAX_DECOMPRESSED_PROFILE_BYTES = 65536; // 64KB 展開上限 (Decompression Bomb防止)
+
 async function decompressProfileFromUrl(base64url) {
   let base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4) {
@@ -2041,7 +2067,30 @@ async function decompressProfileFromUrl(base64url) {
   const bytes = base64ToUint8Array(base64);
   const stream = new Blob([bytes]).stream();
   const decompressedStream = stream.pipeThrough(new DecompressionStream("deflate-raw"));
-  const text = await new Response(decompressedStream).text();
+  const streamReader = decompressedStream.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { value, done } = await streamReader.read();
+    if (done) break;
+    if (value) {
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_DECOMPRESSED_PROFILE_BYTES) {
+        await streamReader.cancel();
+        throw new Error("展開後のプロファイルデータサイズが上限 (64KB) を超えています");
+      }
+      chunks.push(value);
+    }
+  }
+
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const text = new TextDecoder().decode(combined);
   return JSON.parse(text);
 }
 
@@ -3191,7 +3240,7 @@ function renderCombosList() {
     const btnDel = document.createElement("button");
     btnDel.type = "button";
     btnDel.className = "combo-btn-del";
-    btnDel.innerHTML = "🗑️ 削除";
+    btnDel.textContent = "🗑️ 削除";
     btnDel.title = "このコンボを削除";
 
     function saveCombo() {
@@ -3280,15 +3329,20 @@ function renderDirectionTable() {
   ];
 
   dirs.forEach(d => {
-    const cfg = currentConfig.joystick.directions[d.key];
+    const cfg = (currentConfig.joystick && currentConfig.joystick.directions && currentConfig.joystick.directions[d.key])
+      || DEFAULT_CONFIG.joystick.directions[d.key];
     const tr = document.createElement("tr");
+    const walkVal = escapeHtml(Array.isArray(cfg.key_walk) ? cfg.key_walk.join(", ") : cfg.key_walk);
+    const runVal = escapeHtml(Array.isArray(cfg.key_run) ? cfg.key_run.join(", ") : cfg.key_run);
+    const thWalkNum = Number(cfg.th_walk) || 3000;
+    const thRunNum = Number(cfg.th_run) || 26000;
 
     tr.innerHTML = `
-      <td><strong>${d.label}</strong></td>
-      <td><input type="number" id="th_walk_${d.key}" value="${cfg.th_walk}" step="500" min="1000" max="32000"></td>
-      <td><input type="text" id="kw_${d.key}" list="allKeysList" value="${Array.isArray(cfg.key_walk) ? cfg.key_walk.join(', ') : cfg.key_walk}"></td>
-      <td><input type="number" id="th_run_${d.key}" value="${cfg.th_run}" step="500" min="1000" max="32000"></td>
-      <td><input type="text" id="kr_${d.key}" list="allKeysList" value="${Array.isArray(cfg.key_run) ? cfg.key_run.join(', ') : cfg.key_run}"></td>
+      <td><strong>${escapeHtml(d.label)}</strong></td>
+      <td><input type="number" id="th_walk_${d.key}" value="${thWalkNum}" step="500" min="1000" max="32000"></td>
+      <td><input type="text" id="kw_${d.key}" list="allKeysList" value="${walkVal}"></td>
+      <td><input type="number" id="th_run_${d.key}" value="${thRunNum}" step="500" min="1000" max="32000"></td>
+      <td><input type="text" id="kr_${d.key}" list="allKeysList" value="${runVal}"></td>
     `;
 
     tbody.appendChild(tr);

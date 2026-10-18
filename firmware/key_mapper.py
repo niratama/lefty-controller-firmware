@@ -281,10 +281,13 @@ def parse_button_def(btn_def):
         if "tap" in btn_def or "hold" in btn_def:
             tap_str = btn_def.get("tap", "")
             hold_str = btn_def.get("hold", "")
-            hold_ms = int(btn_def.get("hold_ms", 300))
+            try:
+                hold_ms = int(btn_def.get("hold_ms", 300))
+            except (ValueError, TypeError):
+                hold_ms = 300
             return {
                 "is_tap_hold": True,
-                "hold_ms": max(50, hold_ms),
+                "hold_ms": max(50, min(10000, hold_ms)),
                 "actions": empty_actions,
                 "tap_actions": parse_actions(tap_str),
                 "hold_actions": parse_actions(hold_str)
@@ -313,12 +316,12 @@ def parse_button_def(btn_def):
             elif part.startswith("ms:"):
                 try:
                     hold_ms = int(part.split(":", 1)[1].strip())
-                except ValueError:
+                except (ValueError, TypeError):
                     hold_ms = 300
 
         return {
             "is_tap_hold": True,
-            "hold_ms": max(50, hold_ms),
+            "hold_ms": max(50, min(10000, hold_ms)),
             "actions": empty_actions,
             "tap_actions": parse_actions(tap_str),
             "hold_actions": parse_actions(hold_str)
@@ -334,7 +337,7 @@ def parse_button_def(btn_def):
     }
 
 
-def parse_combos(combos_list):
+def parse_combos(combos_list, max_buttons=13):
     """
     コンボ設定のリストをパースして前処理済みリストを返します。
     combos_list: [
@@ -351,12 +354,28 @@ def parse_combos(combos_list):
         btns = item.get("buttons", [])
         if not isinstance(btns, list) or len(btns) < 2:
             continue
+        valid_btns = []
+        for b in btns:
+            if isinstance(b, bool):
+                continue
+            try:
+                b_int = int(b)
+                if 0 <= b_int < max_buttons and b_int not in valid_btns:
+                    valid_btns.append(b_int)
+            except (ValueError, TypeError):
+                continue
+        if len(valid_btns) < 2:
+            continue
+
         act = item.get("action", "")
-        hold_ms = int(item.get("hold_ms", 0))
+        try:
+            hold_ms = int(item.get("hold_ms", 0))
+        except (ValueError, TypeError):
+            hold_ms = 0
 
         parsed.append({
-            "buttons": sorted([int(b) for b in btns]),
-            "hold_ms": max(0, hold_ms),
+            "buttons": sorted(valid_btns),
+            "hold_ms": max(0, min(10000, hold_ms)),
             "actions": parse_actions(act)
         })
 
