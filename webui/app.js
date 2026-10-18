@@ -573,6 +573,7 @@ const btnClearLog = document.getElementById("btnClearLog");
 const navItems = document.querySelectorAll(".nav-item[data-tab]");
 const tabPanes = document.querySelectorAll(".tab-pane");
 const sidebarActiveProfileName = document.getElementById("sidebarActiveProfileName");
+const sidebarProfileSelect = document.getElementById("sidebarProfileSelect");
 
 // プロファイルDOM要素
 const profileSelect = document.getElementById("profileSelect");
@@ -588,6 +589,7 @@ const btnOpenPresetModal = document.getElementById("btnOpenPresetModal");
 const presetModal = document.getElementById("presetModal");
 const btnPresetModalClose = document.getElementById("btnPresetModalClose");
 const presetCardsGrid = document.getElementById("presetCardsGrid");
+const profilesListContainer = document.getElementById("profilesListContainer");
 const profilesListGrid = document.getElementById("profilesListGrid");
 
 // テスト入力DOM要素
@@ -997,65 +999,181 @@ function updateProfileLabels() {
   if (sidebarActiveProfileName) {
     sidebarActiveProfileName.textContent = curName;
   }
+  if (sidebarProfileSelect) {
+    sidebarProfileSelect.value = currentConfig.active_profile;
+  }
 }
 
 function renderProfilesList() {
-  if (!profilesListGrid) return;
-  profilesListGrid.innerHTML = "";
+  const container = profilesListContainer || profilesListGrid;
+  if (!container) return;
+  container.innerHTML = "";
   ensureProfiles(currentConfig);
+
   currentConfig.profiles.forEach((p, idx) => {
-    const card = document.createElement("div");
-    card.className = "profile-card-item" + (idx === currentConfig.active_profile ? " active" : "");
+    const row = document.createElement("div");
+    row.className = "profile-row-item" + (idx === currentConfig.active_profile ? " active" : "");
     const mode = (p.joystick && p.joystick.mode) ? p.joystick.mode.toUpperCase() : "KEYBOARD";
     const target = (p.joystick && p.joystick.gamepad_target) ? p.joystick.gamepad_target.toUpperCase() : "";
     const badgeText = mode === "GAMEPAD" && target ? `GP: ${target}` : mode;
+    const buttonCount = p.keymap && p.keymap.buttons ? p.keymap.buttons.length : 13;
 
-    card.innerHTML = `
-      <div class="profile-card-top">
-        <span class="profile-card-index">#${idx + 1}</span>
-        <span class="profile-card-badge">${badgeText}</span>
+    row.innerHTML = `
+      <div class="col-status">
+        <input type="radio" name="profile_active_radio" class="profile-radio-btn" ${idx === currentConfig.active_profile ? "checked" : ""} title="このプロファイルを選択">
       </div>
-      <div class="profile-card-name">${escapeHtml(p.name)}</div>
-      <div class="profile-card-footer">
-        <span>${p.keymap ? p.keymap.buttons.length : 13} ボタン</span>
-        <span>${idx === currentConfig.active_profile ? "✓ 選択中" : "クリックして選択"}</span>
+      <div class="col-index">#${idx + 1}</div>
+      <div class="col-name">
+        <input type="text" class="profile-row-name-input" value="${escapeHtml(p.name)}" placeholder="プロファイル名">
+      </div>
+      <div class="col-meta">
+        <span class="profile-mode-badge">${badgeText}</span>
+        <span class="profile-btn-count">${buttonCount} btns</span>
+      </div>
+      <div class="col-actions">
+        <button type="button" class="btn-icon btn-move-up" title="上へ移動" ${idx === 0 ? "disabled" : ""}>▲</button>
+        <button type="button" class="btn-icon btn-move-down" title="下へ移動" ${idx === currentConfig.profiles.length - 1 ? "disabled" : ""}>▼</button>
+        <div class="profile-row-menu-container">
+          <button type="button" class="btn-icon btn-kebab" title="その他のメニュー">…</button>
+          <div class="profile-row-dropdown">
+            <button type="button" class="dropdown-item btn-action-dup">📑 複製</button>
+            <button type="button" class="dropdown-item btn-action-export">💾 単体書き出し</button>
+            <button type="button" class="dropdown-item danger btn-action-del" ${currentConfig.profiles.length <= 1 ? "disabled style='opacity:0.4;cursor:not-allowed'" : ""}>🗑️ 削除</button>
+          </div>
+        </div>
       </div>
     `;
-    card.addEventListener("click", () => {
+
+    // ラジオボタン変更
+    const radioBtn = row.querySelector(".profile-radio-btn");
+    radioBtn.addEventListener("change", () => {
       if (idx !== currentConfig.active_profile) {
         switchProfile(idx, true);
       }
     });
-    profilesListGrid.appendChild(card);
+
+    // 行クリックで選択（input, button, dropdownクリックは除外）
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("input") || e.target.closest("button") || e.target.closest(".profile-row-dropdown")) {
+        return;
+      }
+      if (idx !== currentConfig.active_profile) {
+        switchProfile(idx, true);
+      }
+    });
+
+    // 名前編集
+    const nameInput = row.querySelector(".profile-row-name-input");
+    nameInput.addEventListener("change", (e) => {
+      renameProfileAt(idx, e.target.value);
+    });
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.target.blur();
+      }
+    });
+
+    // 上へ並び替え
+    const btnUp = row.querySelector(".btn-move-up");
+    btnUp.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveProfileUpAt(idx);
+    });
+
+    // 下へ並び替え
+    const btnDown = row.querySelector(".btn-move-down");
+    btnDown.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveProfileDownAt(idx);
+    });
+
+    // メニュー開閉
+    const btnKebab = row.querySelector(".btn-kebab");
+    const dropdown = row.querySelector(".profile-row-dropdown");
+    btnKebab.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = dropdown.classList.contains("open");
+      document.querySelectorAll(".profile-row-dropdown.open").forEach(d => d.classList.remove("open"));
+      if (!isOpen) {
+        dropdown.classList.add("open");
+      }
+    });
+
+    // 複製
+    const btnDup = row.querySelector(".btn-action-dup");
+    btnDup.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.remove("open");
+      duplicateProfileAt(idx);
+    });
+
+    // 単体エクスポート
+    const btnExport = row.querySelector(".btn-action-export");
+    btnExport.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.remove("open");
+      exportSingleProfileAt(idx);
+    });
+
+    // 削除
+    const btnDel = row.querySelector(".btn-action-del");
+    btnDel.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.remove("open");
+      deleteProfileAt(idx);
+    });
+
+    container.appendChild(row);
   });
 }
 
 function renderProfileSelect() {
-  if (!profileSelect) return;
-  profileSelect.innerHTML = "";
   ensureProfiles(currentConfig);
-  currentConfig.profiles.forEach((p, idx) => {
-    const opt = document.createElement("option");
-    opt.value = idx;
-    opt.textContent = `${idx + 1}: ${p.name}`;
-    if (idx === currentConfig.active_profile) opt.selected = true;
-    profileSelect.appendChild(opt);
-  });
+
+  // サイドバーのプロファイル選択プルダウン更新
+  if (sidebarProfileSelect) {
+    sidebarProfileSelect.innerHTML = "";
+    currentConfig.profiles.forEach((p, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `${idx + 1}: ${p.name}`;
+      if (idx === currentConfig.active_profile) opt.selected = true;
+      sidebarProfileSelect.appendChild(opt);
+    });
+  }
+
+  // 互換性のため（旧profileSelectが存在する場合）
+  if (profileSelect) {
+    profileSelect.innerHTML = "";
+    currentConfig.profiles.forEach((p, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `${idx + 1}: ${p.name}`;
+      if (idx === currentConfig.active_profile) opt.selected = true;
+      profileSelect.appendChild(opt);
+    });
+  }
   if (profileNameInput && currentConfig.profiles[currentConfig.active_profile]) {
     profileNameInput.value = currentConfig.profiles[currentConfig.active_profile].name;
   }
+
   updateProfileLabels();
   renderProfilesList();
 }
 
-function moveProfileUp() {
+function moveProfileUpAt(idx) {
+  if (idx <= 0) return;
   syncCurrentToProfile();
-  const curIdx = currentConfig.active_profile;
-  if (curIdx <= 0) return;
-  const temp = currentConfig.profiles[curIdx];
-  currentConfig.profiles[curIdx] = currentConfig.profiles[curIdx - 1];
-  currentConfig.profiles[curIdx - 1] = temp;
-  currentConfig.active_profile = curIdx - 1;
+  const curActive = currentConfig.active_profile;
+  const temp = currentConfig.profiles[idx];
+  currentConfig.profiles[idx] = currentConfig.profiles[idx - 1];
+  currentConfig.profiles[idx - 1] = temp;
+
+  if (curActive === idx) {
+    currentConfig.active_profile = idx - 1;
+  } else if (curActive === idx - 1) {
+    currentConfig.active_profile = idx;
+  }
   currentConfig.keymap = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].keymap));
   currentConfig.joystick = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].joystick));
 
@@ -1073,14 +1191,19 @@ function moveProfileUp() {
   log(`プロファイル「${temp.name}」を上へ並び替えました`, "info");
 }
 
-function moveProfileDown() {
+function moveProfileDownAt(idx) {
+  if (idx >= currentConfig.profiles.length - 1) return;
   syncCurrentToProfile();
-  const curIdx = currentConfig.active_profile;
-  if (curIdx >= currentConfig.profiles.length - 1) return;
-  const temp = currentConfig.profiles[curIdx];
-  currentConfig.profiles[curIdx] = currentConfig.profiles[curIdx + 1];
-  currentConfig.profiles[curIdx + 1] = temp;
-  currentConfig.active_profile = curIdx + 1;
+  const curActive = currentConfig.active_profile;
+  const temp = currentConfig.profiles[idx];
+  currentConfig.profiles[idx] = currentConfig.profiles[idx + 1];
+  currentConfig.profiles[idx + 1] = temp;
+
+  if (curActive === idx) {
+    currentConfig.active_profile = idx + 1;
+  } else if (curActive === idx + 1) {
+    currentConfig.active_profile = idx;
+  }
   currentConfig.keymap = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].keymap));
   currentConfig.joystick = JSON.parse(JSON.stringify(currentConfig.profiles[currentConfig.active_profile].joystick));
 
@@ -1096,6 +1219,86 @@ function moveProfileDown() {
     sendJson({ cmd: "set_config", config: currentConfig });
   }
   log(`プロファイル「${temp.name}」を下へ並び替えました`, "info");
+}
+
+function duplicateProfileAt(idx) {
+  syncCurrentToProfile();
+  const src = currentConfig.profiles[idx];
+  if (!src) return;
+  const duplicated = {
+    name: `${src.name} (コピー)`,
+    keymap: JSON.parse(JSON.stringify(src.keymap)),
+    joystick: JSON.parse(JSON.stringify(src.joystick))
+  };
+  currentConfig.profiles.splice(idx + 1, 0, duplicated);
+  switchProfile(idx + 1, true);
+  log(`プロファイルを複製しました: ${duplicated.name}`, "success");
+}
+
+function exportSingleProfileAt(idx) {
+  syncCurrentToProfile();
+  const target = currentConfig.profiles[idx];
+  if (!target) return;
+  const singleData = {
+    version: WEBUI_VERSION,
+    profile: JSON.parse(JSON.stringify(target))
+  };
+  const safeName = target.name.replace(/[/\\?%*:|"<>]/g, "_").trim() || "profile";
+  const blob = new Blob([JSON.stringify(singleData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `lefty_profile_${safeName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  log(`プロファイル「${target.name}」を単体エクスポートしました`, "info");
+}
+
+function deleteProfileAt(idx) {
+  if (currentConfig.profiles.length <= 1) {
+    alert("プロファイルは最低1つ必要です。");
+    return;
+  }
+  syncCurrentToProfile();
+  const target = currentConfig.profiles[idx];
+  if (!target) return;
+  if (confirm(`プロファイル「${target.name}」を削除しますか？`)) {
+    currentConfig.profiles.splice(idx, 1);
+    let newActive = currentConfig.active_profile;
+    if (newActive >= currentConfig.profiles.length) {
+      newActive = currentConfig.profiles.length - 1;
+    } else if (newActive === idx) {
+      newActive = Math.max(0, idx - 1);
+    } else if (newActive > idx) {
+      newActive -= 1;
+    }
+    switchProfile(newActive, true);
+    log(`プロファイル「${target.name}」を削除しました`, "warn");
+  }
+}
+
+function renameProfileAt(idx, newName) {
+  const name = newName.trim() || `プロファイル ${idx + 1}`;
+  if (!currentConfig.profiles[idx]) return;
+  currentConfig.profiles[idx].name = name;
+  if (idx === currentConfig.active_profile) {
+    updateProfileLabels();
+  }
+  renderProfileSelect();
+  saveToLocalStorage(currentConfig, `名前変更: ${name}`);
+  if (serialPort && writer) {
+    setDeviceOpLoading("save", true, "", "名前変更をデバイスへ反映中...");
+    sendJson({ cmd: "set_config", config: currentConfig });
+  }
+  log(`プロファイル #${idx + 1} の名前を「${name}」に変更しました`, "info");
+}
+
+function moveProfileUp() {
+  moveProfileUpAt(currentConfig.active_profile);
+}
+
+function moveProfileDown() {
+  moveProfileDownAt(currentConfig.active_profile);
 }
 
 function exportSingleProfile() {
@@ -1941,6 +2144,20 @@ function updateFormFromConfig() {
 }
 
 // プロファイル操作リスナー
+if (sidebarProfileSelect) {
+  sidebarProfileSelect.addEventListener("change", (e) => {
+    const newIdx = parseInt(e.target.value, 10);
+    switchProfile(newIdx, true);
+  });
+}
+
+// ドロップダウンメニュー外クリックで閉じる
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".profile-row-menu-container")) {
+    document.querySelectorAll(".profile-row-dropdown.open").forEach(d => d.classList.remove("open"));
+  }
+});
+
 if (profileSelect) {
   profileSelect.addEventListener("change", (e) => {
     const newIdx = parseInt(e.target.value, 10);

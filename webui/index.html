@@ -69,8 +69,10 @@
         </nav>
         <div class="sidebar-footer">
           <div class="sidebar-profile-indicator">
-            <span class="indicator-label">選択中プロファイル:</span>
-            <strong class="indicator-name current-profile-name-display" id="sidebarActiveProfileName">プロファイル 1</strong>
+            <label for="sidebarProfileSelect" class="indicator-label">選択中プロファイル:</label>
+            <select id="sidebarProfileSelect" class="sidebar-profile-select">
+              <!-- JSで動的生成 -->
+            </select>
           </div>
         </div>
       </aside>
@@ -83,50 +85,30 @@
         <!-- ============================================== -->
         <div id="tabProfiles" class="tab-pane active">
           <section class="card profile-management-card">
-            <div class="card-header">
-              <h2>📁 プロファイル管理</h2>
-              <span class="card-subtitle">ゲームや用途に合わせて複数プロファイルを登録・切り替え・並び替えできます</span>
-            </div>
-
-            <!-- プロファイル選択・名称編集・並び替え -->
-            <div class="profile-toolbar">
-              <div class="profile-selector-row">
-                <label for="profileSelect"><strong>対象プロファイル:</strong></label>
-                <select id="profileSelect" class="profile-select">
-                  <!-- JSで動的生成 -->
-                </select>
-                <input type="text" id="profileNameInput" class="profile-name-input" placeholder="プロファイル名">
+            <div class="card-header profile-management-header">
+              <div class="card-header-titles">
+                <h2>📁 プロファイル管理</h2>
+                <span class="card-subtitle">ゲームや用途に合わせて複数プロファイルを登録・切り替え・並び替えできます</span>
               </div>
-
-              <div class="profile-toolbar-btns">
-                <div class="btn-group-reorder">
-                  <button type="button" id="btnMoveProfileUp" class="btn btn-secondary" title="プロファイルを上に並び替え">▲ 上へ</button>
-                  <button type="button" id="btnMoveProfileDown" class="btn btn-secondary" title="プロファイルを下に並び替え">▼ 下へ</button>
-                </div>
-                <div class="btn-group-actions">
-                  <button type="button" id="btnAddProfile" class="btn btn-secondary">＋ 新規追加</button>
-                  <button type="button" id="btnDuplicateProfile" class="btn btn-secondary">複製</button>
-                  <button type="button" id="btnDeleteProfile" class="btn btn-danger">削除</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 単体エクスポート / インポート / プリセット読み込み -->
-            <div class="profile-io-bar">
-              <div class="io-bar-title">📦 プロファイル単体の保存・共有</div>
-              <div class="io-bar-actions">
-                <button type="button" id="btnExportSingleProfile" class="btn btn-outline">💾 選択中プロファイルを単体書出 (JSON)</button>
-                <label class="btn btn-outline file-btn">
-                  📥 プロファイル単体読込 (JSON) <input type="file" id="fileImportSingleProfile" accept=".json" style="display: none;">
-                </label>
+              <div class="profile-header-actions">
+                <button type="button" id="btnAddProfile" class="btn btn-primary">＋ 新規追加</button>
                 <button type="button" id="btnOpenPresetModal" class="btn btn-primary-outline">📚 プリセットから追加...</button>
+                <label class="btn btn-outline file-btn">
+                  📥 単体読込 (JSON) <input type="file" id="fileImportSingleProfile" accept=".json" style="display: none;">
+                </label>
               </div>
             </div>
 
-            <!-- プロファイル一覧カードリスト -->
-            <div class="profiles-overview-section">
-              <h3>登録済みプロファイル一覧</h3>
-              <div class="profiles-list-grid" id="profilesListGrid">
+            <!-- プロファイル一覧リスト -->
+            <div class="profiles-list-section">
+              <div class="profiles-list-header-row">
+                <span class="col-status">状態</span>
+                <span class="col-index">#</span>
+                <span class="col-name">プロファイル名（直接編集可能）</span>
+                <span class="col-meta">動作モード</span>
+                <span class="col-actions">操作</span>
+              </div>
+              <div class="profiles-list-container" id="profilesListContainer">
                 <!-- JSで動的生成 -->
               </div>
             </div>
