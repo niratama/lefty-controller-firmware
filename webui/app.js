@@ -684,6 +684,17 @@ function sanitizeConfig(cfg) {
   return cfg;
 }
 
+// RP2040内蔵Flash(microcontroller.nvm)の容量制限 (合計4096バイト、ヘッダ7バイト)
+const MAX_NVM_PAYLOAD_BYTES = 3900;
+
+function getConfigJsonByteLength(cfg) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(cfg)).length;
+  } catch (e) {
+    return JSON.stringify(cfg || "").length;
+  }
+}
+
 // プロファイル構造の保証 (後方互換性 & ハードウェアピン分離)
 function ensureProfiles(cfg) {
   if (!cfg || typeof cfg !== "object") {
@@ -1512,32 +1523,17 @@ function getPendingOrExtraProfiles(deviceConfig) {
   const result = [];
   const devProfiles = (deviceConfig && Array.isArray(deviceConfig.profiles)) ? deviceConfig.profiles : [];
 
-  // 1. 保留リスト (pending) からデバイスに存在しないプロファイルを収集
+  // 保留リスト (ユーザーが明示的に共有リンク/インポートで追加したもの) からデバイスに存在しないプロファイルのみを収集
   pending.forEach(p => {
     if (!p) return;
-    const existsOnDevice = p.id ? devProfiles.some(dp => dp.id === p.id) : false;
+    const existsOnDevice = p.id
+      ? devProfiles.some(dp => dp.id === p.id)
+      : devProfiles.some(dp => dp.name === p.name);
     if (!existsOnDevice) {
       result.push(p);
     }
   });
 
-  // 2. 現在メモリ上の currentConfig (localStorage復元含む) からデバイスに存在しないプロファイルを収集
-  if (currentConfig && Array.isArray(currentConfig.profiles)) {
-    currentConfig.profiles.forEach((p, idx) => {
-      if (!p) return;
-      // すでに result に含まれていればスキップ
-      if (p.id && result.some(rp => rp.id === p.id)) return;
-      if (!p.id && result.some(rp => rp.name === p.name)) return;
-
-      const existsOnDevice = p.id
-        ? devProfiles.some(dp => dp.id === p.id)
-        : devProfiles.some(dp => dp.name === p.name);
-
-      if (!existsOnDevice) {
-        result.push(JSON.parse(JSON.stringify(p)));
-      }
-    });
-  }
   return result;
 }
 
@@ -3339,6 +3335,7 @@ function handleReceivedLine(line) {
 
       if (pendingToMerge.length > 0) {
         let addedNames = [];
+        let skippedNames = [];
         pendingToMerge.forEach(p => {
           let finalName = p.name || "共有プロファイル";
           let counter = 2;
@@ -3347,31 +3344,58 @@ function handleReceivedLine(line) {
           }
           const clonedP = JSON.parse(JSON.stringify(p));
           clonedP.name = finalName;
+
+          // NVM容量チェック (4096 bytes制限)
+          const testProfiles = [...deviceConfig.profiles, clonedP];
+          const testConfig = { ...deviceConfig, profiles: testProfiles };
+          if (getConfigJsonByteLength(testConfig) > MAX_NVM_PAYLOAD_BYTES) {
+            skippedNames.push(finalName);
+            return;
+          }
+
           deviceConfig.profiles.push(clonedP);
           addedNames.push(finalName);
         });
 
-        deviceConfig.active_profile = deviceConfig.profiles.length - 1;
-        deviceConfig.keymap = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].keymap));
-        deviceConfig.joystick = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].joystick));
+        if (skippedNames.length > 0) {
+          const skipStr = skippedNames.map(n => `「${n}」`).join(", ");
+          showToast(`⚠️ マイコン容量制限(4KB)のため、プロファイル ${skipStr} は同期できませんでした`, 7000);
+          log(`マイコン内蔵メモリ(NVM 4KB)の空き容量不足のため、プロファイル ${skipStr} の追加をスキップしました。既存の不要なプロファイルを削除してください。`, "warn");
+        }
 
-        currentConfig = deviceConfig;
-        renderProfileSelect();
-        renderHwButtonGrid();
-        renderButtonGrid();
-        renderDirectionTable();
-        updateFormFromConfig();
-        drawRadar();
-        saveToLocalStorage(currentConfig, "デバイス読込 & プロファイル統合");
-        setDeviceOpLoading("load", false, "読込・統合完了!");
+        if (addedNames.length > 0) {
+          deviceConfig.active_profile = deviceConfig.profiles.length - 1;
+          deviceConfig.keymap = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].keymap));
+          deviceConfig.joystick = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].joystick));
 
-        // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
-        setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
-        sendJson({ cmd: "set_config", config: currentConfig });
+          currentConfig = deviceConfig;
+          renderProfileSelect();
+          renderHwButtonGrid();
+          renderButtonGrid();
+          renderDirectionTable();
+          updateFormFromConfig();
+          drawRadar();
+          saveToLocalStorage(currentConfig, "デバイス読込 & プロファイル統合");
+          setDeviceOpLoading("load", false, "読込・統合完了!");
 
-        const namesStr = addedNames.map(n => `「${n}」`).join(", ");
-        log(`デバイスの設定 (${deviceConfig.profiles.length - addedNames.length}件) に未反映プロファイル ${namesStr} を統合し、デバイスへ保存・反映しました`, "success");
-        showToast(`📥 プロファイル ${namesStr} をデバイスへ保存・反映しました！`, 5000);
+          // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
+          setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
+          sendJson({ cmd: "set_config", config: currentConfig });
+
+          const namesStr = addedNames.map(n => `「${n}」`).join(", ");
+          log(`デバイスの設定 (${deviceConfig.profiles.length - addedNames.length}件) に未反映プロファイル ${namesStr} を統合し、デバイスへ保存・反映しました`, "success");
+          showToast(`📥 プロファイル ${namesStr} をデバイスへ保存・反映しました！`, 5000);
+        } else {
+          currentConfig = deviceConfig;
+          renderProfileSelect();
+          renderHwButtonGrid();
+          renderButtonGrid();
+          renderDirectionTable();
+          updateFormFromConfig();
+          drawRadar();
+          saveToLocalStorage(currentConfig, "デバイス読込同期");
+          setDeviceOpLoading("load", false, "読込完了!");
+        }
 
         if (autoStartMonitorPending) {
           autoStartMonitorPending = false;
@@ -3409,7 +3433,12 @@ function handleReceivedLine(line) {
       if (msg.saved_to_file) saveDest += " & config.json";
       saveToLocalStorage(currentConfig, "デバイス保存同期");
       setDeviceOpLoading("save", false, "保存完了!");
-      log(`設定がデバイスに反映されました (${saveDest})`, "success");
+      if (!msg.saved_to_nvm && !msg.saved_to_file) {
+        log("⚠️ デバイスへの永続保存に失敗しました (RAM上でのみ有効です)。Flash(NVM)容量 (4KB) を超過している可能性があります。", "warn");
+        showToast("⚠️ デバイス永続保存に失敗 (RAM上のみ反映)", 5000);
+      } else {
+        log(`設定がデバイスに反映されました (${saveDest})`, "success");
+      }
       if (msg.warning) log(`情報: ${msg.warning}`, msg.saved_to_nvm ? "info" : "warn");
     } else if (msg.cmd === "calibrate" && msg.status === "ok") {
       setDeviceOpLoading("calibrate", false, "補正完了!");
@@ -3446,6 +3475,12 @@ btnLoadConfig.addEventListener("click", () => {
 
 btnSaveConfig.addEventListener("click", () => {
   syncCurrentToProfile();
+  const byteLen = getConfigJsonByteLength(currentConfig);
+  if (byteLen > MAX_NVM_PAYLOAD_BYTES) {
+    if (!confirm(`⚠️ 設定データのサイズ (${byteLen} bytes) がマイコンFlash(NVM)の上限 (4096 bytes) に近づいています。容量不足で保存に失敗する可能性があります。\n\n続行しますか？`)) {
+      return;
+    }
+  }
   setDeviceOpLoading("save", true, "", "デバイスへ設定を保存中 (Flash書き込み待機)...");
   log("デバイスへ設定を送信・保存中...", "info");
   sendJson({ cmd: "set_config", config: currentConfig });
