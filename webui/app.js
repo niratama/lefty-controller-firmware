@@ -1908,6 +1908,7 @@ function initUI() {
   renderDirectionTable();
   updateFormFromConfig();
   drawRadar();
+  restoreDeviceButtons();
 }
 
 function renderButtonGrid() {
