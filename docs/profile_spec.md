@@ -26,9 +26,9 @@
 ### 1.4 内蔵Flashストレージ永続化 & 高度な入力拡張 (v1.6.0〜)
 * **Flashストレージ (config.json) への直接永続化:** 4KB NVM制限を撤廃し、マイコン内蔵Flash上の `config.json` をプライマリストレージとして保存。約1.4MBの広大な容量により多数のプロファイルを余裕を持ってマイコンへ保持可能。
 * **メンテナンスモード連携:** PCへUSBマウント時に PC 上で `config.json` を直接手動編集・バックアップ可能。
-* **同時押しコンボ (Combos):** 複数ボタンの同時押し（例: 側面上＋側面下でプロファイル切替）に対応。
-* **長押し・短押し判定 (Tap-Hold):** ボタンの短押しと長押し（一定時間長押しで別アクション発火）に対応。
-* **Fnレイヤー (Fn Layer):** 一時切り替え（Momentary）やトグル切り替えによるセカンダリキーバインド層に対応。
+* **同時押しコンボ (Combos):** 2ボタンの同時押し（例: 側面上＋側面下長押しでプロファイル切替）に対応。
+* **長押し・短押し判定 (Tap-Hold):** ボタンの短押し（Tap）と長押し（Hold: 一定時間押下で別アクション発火）に対応。
+* **Fnレイヤー (Fn Layer):** `layer:fn` を割り当てたボタンを押している間だけ切り替わるモーメンタリ（Momentary）方式のセカンダリキーバインド層（`fn_buttons`）に対応。
 
 ---
 
@@ -67,21 +67,33 @@
 
 ## 3. プロファイルオブジェクト仕様 (Profile Object)
 
-各プロファイルは `id`, `name`, `keymap`, `joystick` の要素で構成されます。
+各プロファイルは `id`, `name`, `device_sync`, `keymap`, `joystick` の要素で構成されます。
 
 ```json
 {
   "id": "prof_fps_default",
   "name": "プロファイル 1 (FPS/汎用)",
+  "device_sync": true,
   "keymap": {
     "buttons": [
       "1", "2", "x", "e", "Tab", "f", "q", "4", "3",
       "Space", "z", "LCtrl", "LAlt"
+    ],
+    "fn_buttons": [
+      "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9",
+      "Space", "z", "LCtrl", "LAlt"
+    ],
+    "combos": [
+      { "buttons": [9, 11], "action": "profile_next", "hold_ms": 600 }
     ]
   },
   "joystick": {
     "mode": "keyboard",
     "direction_mode": "8way",
+    "enable_run": true,
+    "gamepad_target": "left_stick",
+    "dpad_walk_btn": "",
+    "dpad_run_btn": "Gamepad_2",
     "mouse_speed": 12,
     "deadzone": 2500,
     "hysteresis": 1500,
@@ -100,29 +112,41 @@
 
 ---
 
-### 3.1 `name` フィールド
-* **型:** `string`
-* **説明:** プロファイルの表示名。WebUI のドロップダウン選択肢やログ出力で使用されます。
-* **例:** `"プロファイル 1 (FPS/汎用)"`, `"APEX Legends"`, `"Blender作業用"`
+### 3.1 `id`, `name`, `device_sync` フィールド
+* **`id`** (`string`): プロファイルの一意識別子（例: `"prof_fps_default"`）。`profile_switch:<id>` によるダイレクト切り替えや共有URLインポート時の識別に使用されます。
+* **`name`** (`string`): プロファイルの表示名。WebUI のドロップダウン選択肢やログ出力で使用されます（例: `"プロファイル 1 (FPS/汎用)"`）。
+* **`device_sync`** (`boolean`, 省略時 `true`): マイコンへの転送対象フラグ。`false` に設定するとブラウザ（`localStorage`）上にのみ保管され、マイコンへの送信ペイロードから除外されます（ただし現在アクティブなプロファイルや `profile_switch:<id>` で参照されているプロファイルは強制的に同期されます）。
 
 ---
 
 ### 3.2 `keymap` オブジェクト
-コントローラの物理スイッチ（13ボタン）のキー割り当てを管理します。
+コントローラの物理スイッチ（13ボタン）の通常レイヤー、Fn裏面レイヤー、および2ボタン同時押しコンボを管理します。
 
 ```json
 "keymap": {
-  "buttons": [ ... ]
+  "buttons": [ ... ],
+  "fn_buttons": [ ... ],
+  "combos": [ ... ]
 }
 ```
 
-#### `buttons` 配列
-* **型:** `Array<string | Array<string>>`
-* **要素数:** 固定 **13個**
+#### `buttons` / `fn_buttons` 配列
+* **型:** `Array<string | Array<string> | object>`
+* **要素数:** 固定 **13個**（`buttons`: 通常レイヤー、`fn_buttons`: `layer:fn` ボタン押下中に有効となるFnレイヤー）
 * **各要素の指定形式:**
-  1. **単一キー/アクション（文字列）:** `"1"`, `"Space"`, `"LCtrl"`, `"Mouse_Left"`, `"Gamepad_1"` など
-  2. **同時押しコンボ（文字列配列）:** `["Shift", "W"]`, `["LCtrl", "c"]` など（WebUI ではカンマ区切り `LCtrl, c` と相互変換）
-  3. **未割当・無効:** `""` (空文字) または `"None"`
+  1. **単一キー/アクション（文字列）:** `"1"`, `"Space"`, `"LCtrl"`, `"Mouse_Left"`, `"Gamepad_1"`, `"profile_next"`, `"layer:fn"` など
+  2. **複数キー同時押し（文字列配列 または カンマ区切り文字列）:** `["Shift", "W"]`, `["LCtrl", "c"]` または `"LCtrl, c"`
+  3. **短押し・長押し (Tap-Hold) 定義:**
+     * **パイプ区切り文字列形式:** `"tap:Space|hold:LCtrl|ms:300"`（`ms:` 省略時はデフォルト `300` ms）
+     * **オブジェクト形式:** `{"tap": "Space", "hold": "LCtrl", "hold_ms": 300}`
+  4. **未割当・無効:** `""` (空文字) または `"None"`
+
+#### `combos` 配列（2ボタン同時押しコンボ）
+* **型:** `Array<object>`（省略可）
+* **各要素のプロパティ:**
+  * `buttons`: `[number, number]` — 同時押しする2つのボタンインデックス（`0` 〜 `12` の相異なる整数2つ）。構成ボタンが同時に押されている間、単体ボタンとしての出力は自動的にマスク（抑制）されます。
+  * `action`: `string | Array<string>` — 発動するキーまたはアクション（例: `"profile_next"`, `"Escape"`, `["LCtrl", "Shift", "Tab"]`）。
+  * `hold_ms`: `number` — 同時押し継続判定時間（ミリ秒、省略時 `0` = 即時発動）。
 
 #### 物理ボタンと配列インデックスの対応表
 
@@ -259,6 +283,17 @@
   * `Gamepad_Select` / `Gamepad_Back` (= 9), `Gamepad_Start` (= 10)
   * `Gamepad_L3` / `Gamepad_LS` (= 11), `Gamepad_R3` / `Gamepad_RS` (= 12)
 
+### 5.7 プロファイル切替・レイヤー制御・高度入力書式
+* **プロファイル切替アクション:**
+  * `profile_next` (または `prof_next`, `next_profile`): 次のプロファイルへ循環切り替え
+  * `profile_prev` (または `prof_prev`, `prev_profile`): 前のプロファイルへ循環切り替え
+  * `profile_default` (または `prof_default`, `default_profile`): 初期プロファイル（インデックス `0`）へ復帰
+  * `profile_switch:<IDまたは名前>` (または `prof_switch:<ID>`): 指定したプロファイルID（例: `profile_switch:prof_gamepad_default`）へ直接切り替え
+* **Fnレイヤー切り替え:**
+  * `layer:fn` (または `fn`, `fn_layer`): 押している間だけ `keymap.fn_buttons` の割り当てを有効化（モーメンタリ動作）
+* **短押し・長押し (Tap-Hold) 書式:**
+  * `tap:<短押しアクション>|hold:<長押しアクション>|ms:<長押し判定ミリ秒>`（例: `tap:Space|hold:LCtrl|ms:300`）
+
 ---
 
 ## 6. プロファイル初期プリセット例
@@ -268,9 +303,13 @@
 ```json
 [
   {
+    "id": "prof_fps_default",
     "name": "プロファイル 1 (FPS/汎用)",
     "keymap": {
-      "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
+      "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"],
+      "combos": [
+        { "buttons": [9, 11], "action": "profile_next", "hold_ms": 600 }
+      ]
     },
     "joystick": {
       "mode": "keyboard",
@@ -290,6 +329,7 @@
     }
   },
   {
+    "id": "prof_gamepad_default",
     "name": "プロファイル 2 (ゲームパッド)",
     "keymap": {
       "buttons": [
@@ -316,6 +356,7 @@
     }
   },
   {
+    "id": "prof_mouse_default",
     "name": "プロファイル 3 (マウス & 作業用)",
     "keymap": {
       "buttons": [
@@ -350,29 +391,44 @@
 
 設定およびプロファイル情報は以下の3系統で管理・同期されます。
 
-### 7.1 マイコン内蔵 Flash (NVM: `microcontroller.nvm`)
-CircuitPython が USB マスストレージ接続時にローカルファイルを Read-Only にロックする制約を回避するため、設定の保存時は内蔵 Flash の EEPROM 領域へバイナリ保存されます。
-* **ヘッダ:** `LFTY1` (5バイトマジックヘッダ) + ペイロード長 (2バイト Big-Endian)
-* **ボディ:** UTF-8 エンコードされた JSON 文字列
+### 7.1 マイコン内蔵 Flash ストレージ (`config.json` プライマリ + `microcontroller.nvm` バックアップ)
+* **メイン保存先 (`config.json`):** 通常運用モードでは `boot.py` により `CIRCUITPY` ドライブの PC マウントが無効化され、マイコン側からのファイルシステム書き込みが許可されます（総容量 約1.4MB）。`load_config()` 時も `config.json` が最優先で読み込まれるため、メンテナンスモードで PC から直接 `config.json` を編集した場合も即座に反映されます。
+* **サブ保存先 (`microcontroller.nvm`):** メンテナンスモード（PC が USB マスストレージとしてマウント中でファイルシステムが Read-Only の状態）でも設定保存を可能にするため、ペイロードが 4,096 bytes 以内に収まる場合は RP2040 内蔵 EEPROM 領域（`microcontroller.nvm`）へもバックアップ保存されます。
+  * **ヘッダ:** `LFTY1` (5バイトマジックヘッダ) + ペイロード長 (2バイト Big-Endian)
+  * **ボディ:** UTF-8 エンコードされた JSON 文字列
 
 ### 7.2 Web Serial API 通信プロトコル (JSON Lines)
-ブラウザ上の WebUI とファームウェア間で送受信されるコマンドです。
+ブラウザ上の WebUI とファームウェア間で改行区切り JSON として送受信されるコマンドおよび非同期イベントです。
 
 * **設定取得 (`get_config`):**
   ```json
   {"cmd": "get_config"}
   ```
-  ファームウェアから `{"status": "ok", "cmd": "get_config", "config": { ... }}` が返送されます。
+  ファームウェアから `{"status": "ok", "cmd": "get_config", "version": "1.6.0", "config": { ... }, "storage": { ... }, "nvm": { ... }}` が返送されます。
 * **設定反映 (`set_config`):**
   ```json
   {"cmd": "set_config", "config": { ... }}
   ```
-  ファームウェアが即時にメモリ上へ反映（Hot Reload）し、NVM（および可能であれば `config.json`）へ永続化します。
+  ファームウェアが即時にメモリ上へ反映（Hot Reload）し、`config.json`（および4KB以内の場合は NVM）へ永続化します。
 * **設定初期化 (`reset_config`):**
   ```json
   {"cmd": "reset_config"}
   ```
-  マイコン内蔵 Flash (NVM) のマジックヘッダをクリアし、出荷時初期設定（`DEFAULT_CONFIG`）にリセットします。
+  NVM および `config.json` を出荷時初期設定（`DEFAULT_CONFIG`）にリセットします。
+* **ゼロ点キャリブレーション (`calibrate`):**
+  ```json
+  {"cmd": "calibrate"}
+  ```
+  実機の ADC を再サンプリングしてスティックの中心座標を更新し、`{"status": "ok", "cmd": "calibrate", "center": [cx, cy]}` を返送します。
+* **リアルタイムモニタリング切替 (`monitor`):**
+  ```json
+  {"cmd": "monitor", "enable": true}
+  ```
+  有効化中（最大約30Hz）は `{"type": "telemetry", "raw": [rx, ry], "dx": dx, "dy": dy, "states": {...}, "keys": [...], "btns": [...]}` をストリーミング送信します。
+* **ストレージ・バージョン・疎通確認 (`storage_status` / `nvm_status` / `version` / `ping`):**
+  ストレージ空き容量やファームウェアバージョンの取得、疎通確認（`pong` 応答）を行います。
+* **デバイス側プロファイル切替通知イベント (`profile_switched`):**
+  物理ボタンやコンボ操作によってデバイス上でプロファイルが切り替わった際、`{"type": "profile_switched", "active_profile": idx, "id": "...", "name": "..."}` が WebUI へ非同期通知されます。
 
 ### 7.3 ブラウザ側 localStorage と JSON エクスポート / インポート
 * WebUI では操作内容がブラウザの `localStorage` に常時自動キャッシュされます。

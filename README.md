@@ -41,14 +41,17 @@ PIC18F2450（5V系）搭載の既存左手コントローラーを、**Waveshare
 ```text
 lefty-controller-firmware/
 ├── firmware/                  # RP2040-Zero に書き込むファームウェア一式
-│   ├── boot.py                # USB Composite HID (Keyboard + Mouse + Gamepad 7バイトレポート) 構成
-│   ├── code.py                # メインプログラム (スキャンループ・通信・HIDディスパッチ)
+│   ├── boot.py                # USB Composite HID (Keyboard + Mouse + Gamepad 7バイトレポート) & マウント制御
+│   ├── code.py                # メインプログラム (スキャンループ・高度入力判定・通信・HIDディスパッチ)
+│   ├── config_store.py        # 設定の永続化管理 (config.json プライマリ + 内蔵Flash NVM バックアップ)
+│   ├── led_indicator.py       # オンボードRGB LED (WS2812) によるプロファイル発光フィードバック制御
+│   ├── ws2812.py              # RP2040 PIOベース WS2812 LED ドライバ
 │   ├── hid_keyboard.py        # 外部依存ゼロのネイティブHIDキーボードドライバ
 │   ├── hid_mouse.py           # 外部依存ゼロのネイティブHIDマウスドライバ
 │   ├── hid_gamepad.py         # 外部依存ゼロのネイティブHIDゲームパッドドライバ (Hatスイッチ対応)
 │   ├── stick_engine.py        # スティック判定エンジン (WASD / 各種ターゲット軸 / D-Pad / マウス)
 │   ├── debouncer.py           # 13ボタンの高速デバウンス処理 (Eager Debounce)
-│   ├── key_mapper.py          # キーボード/マウス/ゲームパッド入力文字列パース
+│   ├── key_mapper.py          # キーボード/マウス/ゲームパッド/高度入力 (Combo/Tap-Hold/Fn) パース
 │   ├── serial_handler.py      # Web Serial API 連携・JSONプロトコルハンドラ
 │   ├── diagnostic.py          # 導通テスト & ADCプロファイリングツール
 │   └── config.json            # 動作設定ファイル (3つのプリセットプロファイル内蔵)
@@ -56,18 +59,23 @@ lefty-controller-firmware/
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-├── tests/                     # PC上で即時実行可能な自動テストスイート (48テスト)
-│   ├── test_stick_engine.py   # スティック多段判定・ターゲット軸・ハット・Run無効化検証
+├── tests/                     # PC上で即時実行可能な自動テストスイート (全78テスト)
+│   ├── test_advanced_inputs.py# LeftyController統合テスト & Combo/Tap-Hold/Fnレイヤー検証
+│   ├── test_stick_engine.py   # スティック多段判定・ターゲット軸・ハット・異常設定耐性検証
 │   ├── test_debouncer.py      # デバウンス・チャタリング耐性検証
 │   ├── test_key_mapper.py     # キー/マウス/ゲームパッドマッピング検証
 │   ├── test_hid_keyboard.py   # キーボードレポート生成検証
 │   ├── test_hid_mouse.py      # マウスレポート生成検証
 │   ├── test_hid_gamepad.py    # ゲームパッド7バイトレポート・Hatスイッチ検証
-│   ├── test_serial_handler.py # シリアル通信プロトコル検証
-│   └── test_config.py         # 設定ファイル整合性検証
+│   ├── test_serial_handler.py # シリアル通信プロトコル・バッファ上限保護検証
+│   ├── test_config_store.py   # config.json / NVM 永続化・データ破損フォールバック検証
+│   ├── test_led_indicator.py  # オンボードRGB LED パルス点滅ステートマシン検証
+│   ├── test_config.py         # 設定ファイル整合性検証
+│   └── test_webui_security.py # WebUI XSS/CSP/展開サイズ制限 & boot.py セキュリティ検証
 ├── docs/
-│   ├── handover_spec.md       # 引き継ぎ仕様書ドキュメント
-│   └── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.2.0〜)
+│   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.6.0〜)
+│   ├── webui_manual.md        # WebUI 設定ツール 操作マニュアル
+│   └── handover_spec.md       # 初期引き継ぎ要件定義書 (アーカイブ)
 └── README.md
 ```
 
@@ -117,7 +125,7 @@ lefty-controller-firmware/
    * ドライブ名が `CIRCUITPY` に変われば導入完了です。
 
 2. **ファームウェアファイルのコピー:**
-   * **初回セットアップ時:** 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `config_store.py`, `ws2812.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
+   * **初回セットアップ時:** 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `config_store.py`, `led_indicator.py`, `ws2812.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
    * **ファームウェア更新時（2回目以降）:** **`config.json` 以外のファイル** を上書きコピーしてください。`config.json` にはユーザー自身が作成・保存したプロファイルやカスタム設定が含まれているため、上書きすると設定が初期化されてしまいます（`config.json` のスキーマバージョンは WebUI 接続保存時やファームウェア側で自動的に引き継ぎ・更新されます）。
    * **注意:** `boot.py` の更新によりUSB複合デバイス（Keyboard + Mouse + Gamepad）およびドライブマウント制御が構成されるため、**書き込み後に一度USBケーブルを抜き差ししてください。**
 
@@ -152,10 +160,10 @@ Google Chrome または Microsoft Edge 等の Web Serial API 対応ブラウザ�
 ### 主な機能
 * **デバイスと接続:**
   * 「デバイスと接続」ボタンを押し、一覧から **「Lefty Controller - Config Port」**（または「RP2040-Zero - CircuitPython CDC control」）を選択。
-* **プロファイル切り替え・並び替え:**
-  * プロファイルの切り替え、直接名前編集、並び替え、複製、単体JSON書き出し・インポート。
-* **キーマップ設定 (13ボタン):**
-  * キーカタログからクリックでキー/マウス/ゲームパッド入力を直感的にマッピング。
+* **プロファイル切り替え・並び替え・URL共有:**
+  * プロファイルの切り替え、直接名前編集、並び替え、複製、単体JSON書き出し・インポート、およびURLリンク（`?profile=...`）によるワンクリック共有。
+* **キーマップ設定 (13ボタン / Fnレイヤー / Tap-Hold / 同時押しコンボ):**
+  * キーカタログからクリックでキー/マウス/ゲームパッド入力を直感的にマッピング。通常レイヤーとFn裏面レイヤーの切り替え、短押し・長押し（Tap-Hold）の個別割り当て、2ボタン同時押しコンボに対応。
 * **スティック・ビジュアライザ & 動作設定:**
   * スティックの現在の倒しこみ座標（Delta X, Delta Y）、動作モード、出力量を円形レーダー上にリアルタイム描画。ゼロ点キャリブレーション機能付き。
 * **設定の即時反映 (Hot Reload):**
@@ -168,7 +176,7 @@ Google Chrome または Microsoft Edge 等の Web Serial API 対応ブラウザ�
 
 ## 6. 単体テストの実行
 
-PCローカル（Python 3環境）で以下のコマンドを実行することで、ハードウェア実機がなくても全コアロジックをテストできます：
+PCローカル（Python 3 および Node.js 環境）で以下のコマンドを実行することで、ハードウェア実機がなくてもファームウェアおよび WebUI の全コアロジック・セキュリティ防御をテストできます：
 
 ```bash
 python3 -m unittest discover tests -v
