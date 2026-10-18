@@ -23,6 +23,7 @@
         <span id="connStatus" class="badge badge-disconnected">未接続</span>
         <button id="btnConnect" class="btn btn-primary">デバイスと接続 (Web Serial)</button>
         <button id="btnDisconnect" class="btn btn-secondary" disabled>切断</button>
+        <button id="btnToggleMonitor" class="btn btn-outline btn-monitor btn-toggle-monitor" disabled title="リアルタイムのスティック・ボタン入力状態の受信を切り替えます">モニタリング開始</button>
       </div>
     </header>
 
@@ -202,8 +203,7 @@
                   <span id="stateRight" class="state-pill">RIGHT: NEUTRAL</span>
                 </div>
                 <div class="stick-action-btns">
-                  <button id="btnCalibrate" class="btn btn-outline" disabled>ゼロ点キャリブレーション実行</button>
-                  <button id="btnToggleMonitor" class="btn btn-outline" disabled>モニタリング開始</button>
+                  <button id="btnCalibrate" class="btn btn-outline" disabled style="width: 100%;">ゼロ点キャリブレーション実行</button>
                 </div>
               </div>
 

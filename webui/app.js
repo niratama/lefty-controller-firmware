@@ -2723,17 +2723,43 @@ function restoreDeviceButtons() {
 }
 
 // モニタリング制御ヘルパー
+function updateMonitorUI(active) {
+  const monitorBtns = document.querySelectorAll(".btn-toggle-monitor, #btnToggleMonitor");
+  monitorBtns.forEach(btn => {
+    if (active) {
+      btn.textContent = "モニタリング停止";
+      btn.classList.add("monitoring-active");
+      btn.title = "リアルタイムモニタリング中（クリックで停止）";
+    } else {
+      btn.textContent = "モニタリング開始";
+      btn.classList.remove("monitoring-active");
+      btn.title = "リアルタイムモニタリングを開始（スティック・ボタン入力状態を受信）";
+    }
+  });
+}
+
+function setMonitorDisabled(disabled) {
+  const monitorBtns = document.querySelectorAll(".btn-toggle-monitor, #btnToggleMonitor");
+  monitorBtns.forEach(btn => {
+    btn.disabled = disabled;
+    if (disabled) {
+      btn.classList.remove("monitoring-active");
+      btn.textContent = "モニタリング開始";
+    }
+  });
+}
+
 function startMonitoring() {
   if (!serialPort || !writer || isMonitoring) return;
   isMonitoring = true;
-  if (btnToggleMonitor) btnToggleMonitor.textContent = "モニタリング停止";
+  updateMonitorUI(true);
   sendJson({ cmd: "monitor", enable: true });
 }
 
 function stopMonitoring() {
   if (!serialPort || !writer || !isMonitoring) return;
   isMonitoring = false;
-  if (btnToggleMonitor) btnToggleMonitor.textContent = "モニタリング開始";
+  updateMonitorUI(false);
   sendJson({ cmd: "monitor", enable: false });
 }
 
@@ -2809,7 +2835,7 @@ async function connectSerial() {
     btnLoadConfig.disabled = false;
     btnSaveConfig.disabled = false;
     btnCalibrate.disabled = false;
-    btnToggleMonitor.disabled = false;
+    setMonitorDisabled(false);
 
     log("シリアルポートを開きました (115200bps)", "success");
 
@@ -2852,7 +2878,7 @@ async function disconnectSerial() {
     if (isMonitoring) {
       await sendJson({ cmd: "monitor", enable: false });
       isMonitoring = false;
-      btnToggleMonitor.textContent = "モニタリング開始";
+      updateMonitorUI(false);
     }
 
     if (reader) {
@@ -2882,7 +2908,7 @@ async function disconnectSerial() {
     btnLoadConfig.disabled = true;
     btnSaveConfig.disabled = true;
     btnCalibrate.disabled = true;
-    btnToggleMonitor.disabled = true;
+    setMonitorDisabled(true);
 
     log("シリアルポートを切断しました", "info");
   } catch (err) {
@@ -3023,12 +3049,15 @@ btnCalibrate.addEventListener("click", () => {
   sendJson({ cmd: "calibrate" });
 });
 
-btnToggleMonitor.addEventListener("click", () => {
-  if (isMonitoring) {
-    stopMonitoring();
-  } else {
-    startMonitoring();
-  }
+const monitorBtns = document.querySelectorAll(".btn-toggle-monitor, #btnToggleMonitor");
+monitorBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (isMonitoring) {
+      stopMonitoring();
+    } else {
+      startMonitoring();
+    }
+  });
 });
 
 btnExportJson.addEventListener("click", () => {
