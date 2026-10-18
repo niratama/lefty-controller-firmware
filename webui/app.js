@@ -1374,7 +1374,14 @@ function importSingleProfile(file) {
       currentConfig.profiles.push(newProfile);
       switchProfile(currentConfig.profiles.length - 1, true);
 
-      log(`プロファイル「${newProfile.name}」を単体インポートしました`, "success");
+      if (!serialPort || !writer) {
+        addPendingImportedProfile(newProfile);
+        log(`プロファイル「${newProfile.name}」をインポートしました。デバイス接続時にデバイスへ自動同期されます。`, "info");
+        showToast(`📥 プロファイル「${newProfile.name}」をインポートしました（接続時に自動同期）`, 4000);
+      } else {
+        log(`プロファイル「${newProfile.name}」を単体インポートしました`, "success");
+        showToast(`📥 プロファイル「${newProfile.name}」を単体インポートしました`);
+      }
     } catch (err) {
       log(`プロファイル単体のインポートに失敗しました: ${err.message}`, "error");
       alert(`プロファイルの読み込みに失敗しました: ${err.message}`);
@@ -1428,7 +1435,76 @@ function addPresetProfile(preset) {
   };
   currentConfig.profiles.push(cloned);
   switchProfile(currentConfig.profiles.length - 1, true);
-  log(`プリセット「${preset.name}」を追加しました`, "success");
+
+  if (!serialPort || !writer) {
+    addPendingImportedProfile(cloned);
+    log(`プリセット「${preset.name}」を追加しました。デバイス接続時にデバイスへ自動同期されます。`, "info");
+    showToast(`📚 プリセット「${preset.name}」を追加しました（接続時に自動同期）`, 4000);
+  } else {
+    log(`プリセット「${preset.name}」を追加しました`, "success");
+    showToast(`📚 プリセット「${preset.name}」を追加しました`);
+  }
+}
+
+// ==========================================
+// 未接続時に追加されたプロファイルの自動保留・マージ管理
+// ==========================================
+const PENDING_PROFILES_KEY = "lefty_pending_imported_profiles";
+
+function loadPendingImportedProfiles() {
+  try {
+    const raw = localStorage.getItem(PENDING_PROFILES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn("loadPendingImportedProfiles failed:", e);
+  }
+  return [];
+}
+
+function savePendingImportedProfiles(list) {
+  try {
+    localStorage.setItem(PENDING_PROFILES_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn("savePendingImportedProfiles failed:", e);
+  }
+}
+
+function addPendingImportedProfile(profile) {
+  const list = loadPendingImportedProfiles();
+  const exists = list.some(p => p.name === profile.name && JSON.stringify(p.keymap) === JSON.stringify(profile.keymap));
+  if (!exists) {
+    list.push(JSON.parse(JSON.stringify(profile)));
+    savePendingImportedProfiles(list);
+  }
+}
+
+function clearPendingImportedProfiles() {
+  try {
+    localStorage.removeItem(PENDING_PROFILES_KEY);
+  } catch (e) {}
+}
+
+function getPendingOrExtraProfiles(deviceConfig) {
+  const pending = loadPendingImportedProfiles();
+  const result = [...pending];
+
+  // さらに、現在メモリ上の currentConfig にデバイス側に存在しないプロファイルがあれば補完
+  if (currentConfig && Array.isArray(currentConfig.profiles)) {
+    currentConfig.profiles.forEach(p => {
+      if (!p || !p.name) return;
+      const inPending = result.some(rp => rp.name === p.name);
+      const inDevice = deviceConfig.profiles && deviceConfig.profiles.some(dp => dp.name === p.name);
+      // デフォルト初期プリセットそのままのプロファイルは除外（重複防止）
+      const isDefault = PRESET_PROFILES && PRESET_PROFILES.some(def => def.name === p.name);
+      if (!inPending && !inDevice && !isDefault) {
+        result.push(JSON.parse(JSON.stringify(p)));
+      }
+    });
+  }
+  return result;
 }
 
 // ==========================================
@@ -1580,8 +1656,14 @@ function applySharedProfile() {
   currentConfig.profiles.push(newProfile);
   switchProfile(currentConfig.profiles.length - 1, true);
 
-  log(`共有リンクからプロファイル「${newProfile.name}」を追加しました`, "success");
-  showToast(`📥 プロファイル「${newProfile.name}」を追加しました`);
+  if (!serialPort || !writer) {
+    addPendingImportedProfile(newProfile);
+    log(`共有リンクからプロファイル「${newProfile.name}」を追加しました。デバイス接続時にデバイスへ自動同期されます。`, "info");
+    showToast(`📥 プロファイル「${newProfile.name}」を追加しました（接続時に自動同期）`, 4000);
+  } else {
+    log(`共有リンクからプロファイル「${newProfile.name}」を追加しました`, "success");
+    showToast(`📥 プロファイル「${newProfile.name}」を追加しました`);
+  }
 
   closeSharedProfileModal();
 }
@@ -3209,12 +3291,81 @@ function handleReceivedLine(line) {
     if (msg.cmd === "get_config" && msg.status === "ok") {
       stopLoadRetry();
       checkFirmwareVersion(msg.version);
-      currentConfig = ensureProfiles(msg.config);
+      const deviceConfig = ensureProfiles(msg.config);
+
+      // 未反映プロファイル（共有リンク/JSON/プリセット追加）があるか確認してマージ
+      const pendingToMerge = getPendingOrExtraProfiles(deviceConfig);
+      clearPendingImportedProfiles();
+
+      if (pendingToMerge.length > 0) {
+        let addedNames = [];
+        pendingToMerge.forEach(p => {
+          // すでに完全に同一のプロファイルがデバイスにあるか確認
+          const exactMatchIdx = deviceConfig.profiles.findIndex(dp =>
+            dp.name === p.name &&
+            JSON.stringify(dp.keymap) === JSON.stringify(p.keymap) &&
+            JSON.stringify(dp.joystick) === JSON.stringify(p.joystick)
+          );
+
+          if (exactMatchIdx !== -1) {
+            deviceConfig.active_profile = exactMatchIdx;
+          } else {
+            let finalName = p.name;
+            let counter = 2;
+            while (deviceConfig.profiles.some(dp => dp.name === finalName)) {
+              finalName = `${p.name} (${counter++})`;
+            }
+            const clonedP = JSON.parse(JSON.stringify(p));
+            clonedP.name = finalName;
+            deviceConfig.profiles.push(clonedP);
+            addedNames.push(finalName);
+          }
+        });
+
+        if (addedNames.length > 0) {
+          deviceConfig.active_profile = deviceConfig.profiles.length - 1;
+        }
+        deviceConfig.keymap = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].keymap));
+        deviceConfig.joystick = JSON.parse(JSON.stringify(deviceConfig.profiles[deviceConfig.active_profile].joystick));
+
+        currentConfig = deviceConfig;
+        renderProfileSelect();
+        renderHwButtonGrid();
+        renderButtonGrid();
+        renderDirectionTable();
+        updateFormFromConfig();
+        drawRadar();
+        saveToLocalStorage(currentConfig, "デバイス読込 & プロファイル統合");
+        setDeviceOpLoading("load", false, "読込・統合完了!");
+
+        if (addedNames.length > 0) {
+          // デバイスへ統合設定を即座に書き込み保存 (Hot Reload & 永続化)
+          setDeviceOpLoading("save", true, "", `未反映プロファイル (${addedNames.length}件) をデバイスへ保存中...`);
+          sendJson({ cmd: "set_config", config: currentConfig });
+
+          const namesStr = addedNames.map(n => `「${n}」`).join(", ");
+          log(`デバイスの設定を読み込み、未反映のプロファイル ${namesStr} をデバイスに追加・保存しました`, "success");
+          showToast(`📥 プロファイル ${namesStr} をデバイスへ保存・反映しました！`, 5000);
+        } else {
+          log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
+        }
+
+        if (autoStartMonitorPending) {
+          autoStartMonitorPending = false;
+          setTimeout(() => {
+            startMonitoring();
+          }, 300);
+        }
+        return;
+      }
+
+      currentConfig = deviceConfig;
       renderProfileSelect();
       renderHwButtonGrid();
       renderButtonGrid();
       renderDirectionTable();
       updateFormFromConfig();
+      drawRadar();
       saveToLocalStorage(currentConfig, "デバイス読込同期");
       setDeviceOpLoading("load", false, "読込完了!");
       log("デバイスから設定を正常に読み込みました (localStorageに同期)", "success");
