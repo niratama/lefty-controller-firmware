@@ -117,7 +117,8 @@ lefty-controller-firmware/
    * ドライブ名が `CIRCUITPY` に変われば導入完了です。
 
 2. **ファームウェアファイルのコピー:**
-   * 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
+   * **初回セットアップ時:** 本リポジトリの `firmware/` 内の全ファイル（`code.py`, `boot.py`, `config.json`, `stick_engine.py`, `debouncer.py`, `key_mapper.py`, `serial_handler.py`, `config_store.py`, `ws2812.py`, `hid_keyboard.py`, `hid_mouse.py`, `hid_gamepad.py`）を `CIRCUITPY` ドライブのルートにコピーします。
+   * **ファームウェア更新時（2回目以降）:** **`config.json` 以外のファイル** を上書きコピーしてください。`config.json` にはユーザー自身が作成・保存したプロファイルやカスタム設定が含まれているため、上書きすると設定が初期化されてしまいます（`config.json` のスキーマバージョンは WebUI 接続保存時やファームウェア側で自動的に引き継ぎ・更新されます）。
    * **注意:** `boot.py` の更新によりUSB複合デバイス（Keyboard + Mouse + Gamepad）およびドライブマウント制御が構成されるため、**書き込み後に一度USBケーブルを抜き差ししてください。**
 
 ### 4.2 USBドライブ（CIRCUITPY）のマウント制御とメンテナンスモード

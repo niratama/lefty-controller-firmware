@@ -1043,9 +1043,8 @@ function ensureProfiles(cfg) {
     cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   }
   cfg = sanitizeConfig(cfg);
-  if (!cfg.version) {
-    cfg.version = WEBUI_VERSION;
-  }
+  // スキーマバージョンを常に最新 (WEBUI_VERSION) に昇格
+  cfg.version = WEBUI_VERSION;
   if (!cfg.profiles || !Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
     cfg.profiles = [
       {

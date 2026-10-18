@@ -125,6 +125,9 @@ class SerialHandler:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
 
     def _cmd_set_config(self, new_config):
+        if isinstance(new_config, dict) and not new_config.get("version"):
+            new_config["version"] = FIRMWARE_VERSION
+
         # 1. スティックエンジンおよびキーマップ設定をホットリロード
         if self.on_config_updated:
             try:
