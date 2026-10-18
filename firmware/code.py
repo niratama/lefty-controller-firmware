@@ -14,6 +14,7 @@ from stick_engine import StickEngine
 from debouncer import ButtonManager
 from key_mapper import parse_keys, parse_key, parse_actions
 from serial_handler import SerialHandler
+from led_indicator import LedIndicator
 import config_store
 
 try:
@@ -174,6 +175,7 @@ class LeftyController:
         # モジュール初期化
         self.stick_engine = StickEngine()
         self.button_manager = ButtonManager(self.button_pins_def, debounce_ms=10)
+        self.led = LedIndicator()
         self.serial_handler = SerialHandler(
             self.stick_engine,
             self.button_manager,
@@ -210,9 +212,13 @@ class LeftyController:
             cur_prof = cfg["profiles"][act_idx]
             self.button_keymap = cur_prof.get("keymap", {}).get("buttons", [])
             self.stick_engine.load_config(cur_prof.get("joystick", {}))
+            if hasattr(self, "led") and self.led:
+                self.led.set_profile(act_idx, cur_prof.get("color"), flash=True)
         else:
             self.button_keymap = cfg.get("keymap", {}).get("buttons", [])
             self.stick_engine.load_config(cfg.get("joystick", {}))
+            if hasattr(self, "led") and self.led:
+                self.led.set_profile(0, flash=True)
 
         # プロファイル切替時の残存キー・ボタンを安全に全解放
         if self.keyboard:
@@ -354,6 +360,10 @@ class LeftyController:
     def run_cycle(self):
         now = time.monotonic()
         now_ms = now * 1000.0
+
+        # 0. オンボードRGB LED更新 (非ブロッキングパルス点滅)
+        if hasattr(self, "led") and self.led:
+            self.led.update()
 
         # 1. シリアル通信処理
         self.check_serial_input()
