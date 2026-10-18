@@ -1,6 +1,6 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.3.0";
+const WEBUI_VERSION = "1.4.0";
 const MIN_RECOMMENDED_FW_VERSION = "1.3.0";
 
 // ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
@@ -259,7 +259,7 @@ function generateProfileId() {
 }
 
 const DEFAULT_CONFIG = {
-  version: "1.3.0",
+  version: "1.4.0",
   active_profile: 0,
   profiles: [
     {
@@ -1017,17 +1017,28 @@ function checkFirmwareVersion(fwVersion) {
   const cmpWeb = compareVersions(fwVersion, WEBUI_VERSION);
 
   if (cmpRec < 0) {
-    // 推奨バージョンより古い
+    // 必須推奨バージョンより古い (v1.3.0未満)
     fwVersionBadge.className = "badge badge-fw-version outdated";
     fwVersionBadge.textContent = `FW: v${fwVersion} (要更新)`;
-    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です。`;
+    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが必要です。`;
 
     if (versionAlertBanner) {
       if (versionAlertTitle) versionAlertTitle.textContent = "⚠️ ファームウェアの更新が推奨されます";
-      if (versionAlertDetail) versionAlertDetail.textContent = `マイコン側: v${fwVersion} / WebUI推奨: v${WEBUI_VERSION}`;
+      if (versionAlertDetail) versionAlertDetail.textContent = `マイコン側: v${fwVersion} / WebUI最小推奨: v${MIN_RECOMMENDED_FW_VERSION}`;
       versionAlertBanner.style.display = "flex";
     }
-    log(`⚠️ ファームウェア更新が利用可能です: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "warn");
+    log(`⚠️ ファームウェアの更新が推奨されます: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "warn");
+
+  } else if (cmpWeb < 0) {
+    // 動作可能だが最新版 (v1.4.0) へのアップデートが利用可能
+    fwVersionBadge.className = "badge badge-fw-version up-to-date";
+    fwVersionBadge.textContent = `FW: v${fwVersion} (更新可能)`;
+    fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です（NVM実測容量モニター機能など）。`;
+
+    if (versionAlertBanner) {
+      versionAlertBanner.style.display = "none";
+    }
+    log(`ℹ️ ファームウェア更新が利用可能です: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "info");
 
   } else if (cmpWeb > 0) {
     // ファームウェアの方がWebUIより新しい

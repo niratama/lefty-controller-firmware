@@ -8,7 +8,7 @@ import sys
 import json
 import config_store
 
-FIRMWARE_VERSION = "1.3.0"
+FIRMWARE_VERSION = "1.4.0"
 
 class SerialHandler:
     def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None):
@@ -158,6 +158,7 @@ class SerialHandler:
             "active_profile": 0,
             "profiles": [
                 {
+                    "id": "prof_fps_default",
                     "name": "プロファイル 1 (FPS/汎用)",
                     "keymap": {
                         "buttons": ["1", "2", "x", "e", "Tab", "f", "q", "4", "3", "Space", "z", "LCtrl", "LAlt"]
@@ -184,6 +185,7 @@ class SerialHandler:
                     }
                 },
                 {
+                    "id": "prof_gamepad_default",
                     "name": "プロファイル 2 (ゲームパッド)",
                     "keymap": {
                         "buttons": [
@@ -214,6 +216,7 @@ class SerialHandler:
                     }
                 },
                 {
+                    "id": "prof_mouse_default",
                     "name": "プロファイル 3 (マウス & 作業用)",
                     "keymap": {
                         "buttons": [
