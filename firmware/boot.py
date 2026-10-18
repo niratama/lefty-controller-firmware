@@ -24,7 +24,8 @@ try:
     # シリアルポート (CDC) のインターフェース名を設定
     try:
         usb_cdc.set_names(
-            console_control_interface_name="Config Port"
+            console_control_interface_name="Config Port",
+            console_data_interface_name="Config Port"
         )
     except Exception as e_cdc:
         print(f"[boot.py cdc INFO] {e_cdc}")

@@ -2823,7 +2823,7 @@ async function connectSerial() {
   }
 
   try {
-    log("接続先デバイスの選択を待機中... (一覧から「Lefty Controller - Config Port」を選択してください)", "info");
+    log("接続先デバイスの選択を待機中... (一覧から「Lefty Controller」を含む項目を選択してください)", "info");
     serialPort = await navigator.serial.requestPort();
     await serialPort.open({ baudRate: 115200 });
 
