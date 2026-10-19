@@ -73,7 +73,7 @@ lefty-controller-firmware/
 │   ├── test_config.py         # 設定ファイル整合性検証
 │   └── test_webui_security.py # WebUI XSS/CSP/展開サイズ制限 & boot.py セキュリティ検証
 ├── docs/
-│   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.6.0〜)
+│   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.7.0〜)
 │   ├── webui_manual.md        # WebUI 設定ツール 操作マニュアル
 │   └── handover_spec.md       # 初期引き継ぎ要件定義書 (アーカイブ)
 └── README.md

@@ -8,7 +8,7 @@ import sys
 import json
 import config_store
 
-FIRMWARE_VERSION = "1.6.0"
+FIRMWARE_VERSION = "1.7.0"
 
 class SerialHandler:
     def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None, on_calibrate=None):

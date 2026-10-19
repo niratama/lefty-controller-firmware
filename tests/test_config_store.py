@@ -143,7 +143,7 @@ class TestConfigStore(unittest.TestCase):
         config_store.save_to_nvm(nvm_data)
 
         # ファイルに新しい設定 (PC直接編集などをシミュレート)
-        file_data = {"version": "1.6.0", "active_profile": 0, "profiles": [{"name": "New File"}]}
+        file_data = {"version": "1.7.0", "active_profile": 0, "profiles": [{"name": "New File"}]}
         with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
             json.dump(file_data, tf)
             temp_path = tf.name
@@ -185,7 +185,7 @@ class TestConfigStore(unittest.TestCase):
         self.assertIsNone(config_store.load_from_nvm())
 
         # ファイルもNVMも無効な場合、default_config にフォールバックすること
-        default_cfg = {"version": "1.6.0", "fallback": True}
+        default_cfg = {"version": "1.7.0", "fallback": True}
         loaded = config_store.load_config("/nonexistent_path.json", default_config=default_cfg)
         self.assertEqual(loaded["fallback"], True)
 
