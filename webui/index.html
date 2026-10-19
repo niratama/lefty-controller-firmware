@@ -350,10 +350,11 @@
 
                   <div class="param-row" id="mouseCurveRow">
                     <label for="mouseCurveSlider">加速カーブ指数 (レスポンス):</label>
-                    <input type="range" id="mouseCurveSlider" min="1.0" max="3.0" step="0.05" value="1.5">
+                    <input type="range" id="mouseCurveSlider" min="0.5" max="3.0" step="0.05" value="1.5">
                     <span id="mouseCurveVal" class="val-display">1.50</span>
                   </div>
                   <div class="curve-preset-buttons" id="curvePresetButtons">
+                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="0.7">クイック (0.7)</button>
                     <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.0">リニア (1.0)</button>
                     <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.5">スムーズ (1.5)</button>
                     <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.0">急加速 (2.0)</button>

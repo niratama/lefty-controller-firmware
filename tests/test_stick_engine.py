@@ -390,15 +390,24 @@ class TestStickEngine(unittest.TestCase):
         mdx_c10, _ = info_c10["mouse"]
         self.assertLess(mdx_c25, mdx_c10)
 
+        # 1.0 未満のカーブ指数 (float 0.7: クイック立ち上がり) のテスト
+        # 浅倒し (25%倒し: offset = 8191) において、0.7 の方がリニア (1.0) よりも初速が速く立ち上がること
+        self.engine.mouse_curve = 0.7
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_c07 = self.engine.process(30000, 30000 + 8191)
+        mdx_c07, _ = info_c07["mouse"]
+        self.assertGreater(mdx_c07, mdx_c10)
+
         # load_config でのパーステスト
         self.engine.load_config({
             "joystick": {
                 "mouse_walk_ratio": 0.42,
-                "mouse_curve": 2.25
+                "mouse_curve": 0.65
             }
         })
         self.assertAlmostEqual(self.engine.mouse_walk_ratio, 0.42, places=2)
-        self.assertAlmostEqual(self.engine.mouse_curve, 2.25, places=2)
+        self.assertAlmostEqual(self.engine.mouse_curve, 0.65, places=2)
 
     def test_4way_snap_single_direction(self):
         # 4方向スナップモード: 斜め入力時でも最大1方向のみが出力され、同時押しが絶対に起きない

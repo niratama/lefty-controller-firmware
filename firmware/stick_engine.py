@@ -116,10 +116,10 @@ class StickEngine:
         if isinstance(curve, str) and curve in ("linear", "smooth", "aggressive"):
             self.mouse_curve = curve
         elif isinstance(curve, (int, float)):
-            self.mouse_curve = max(1.0, min(3.0, float(curve)))
+            self.mouse_curve = max(0.5, min(3.0, float(curve)))
         elif isinstance(curve, str):
             try:
-                self.mouse_curve = max(1.0, min(3.0, float(curve)))
+                self.mouse_curve = max(0.5, min(3.0, float(curve)))
             except ValueError:
                 self.mouse_curve = "smooth"
 
@@ -458,7 +458,7 @@ class StickEngine:
                 elif self.mouse_curve == "aggressive":
                     curve_power = 2.0
                 elif isinstance(self.mouse_curve, (int, float)):
-                    curve_power = float(self.mouse_curve)
+                    curve_power = max(0.5, min(3.0, float(self.mouse_curve)))
                 else:  # "smooth" (デフォルト)
                     curve_power = 1.5
 

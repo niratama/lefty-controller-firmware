@@ -4155,14 +4155,14 @@ function drawRadar() {
 // ==========================================
 function getMouseCurvePower(val) {
   if (typeof val === "number" && !isNaN(val)) {
-    return Math.max(1.0, Math.min(3.0, val));
+    return Math.max(0.5, Math.min(3.0, val));
   }
   if (typeof val === "string") {
     if (val === "linear") return 1.0;
     if (val === "aggressive") return 2.0;
     if (val === "smooth") return 1.5;
     const num = parseFloat(val);
-    if (!isNaN(num)) return Math.max(1.0, Math.min(3.0, num));
+    if (!isNaN(num)) return Math.max(0.5, Math.min(3.0, num));
   }
   return 1.5;
 }
