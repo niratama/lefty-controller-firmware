@@ -341,6 +341,7 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve: "smooth",
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -373,6 +374,7 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve: "smooth",
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -405,6 +407,7 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve: "smooth",
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -434,6 +437,7 @@ const DEFAULT_CONFIG = {
     dpad_walk_btn: "",
     dpad_run_btn: "Gamepad_2",
     mouse_speed: 12,
+    mouse_curve: "smooth",
     deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
@@ -464,6 +468,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -491,6 +496,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -518,6 +524,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -545,6 +552,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -576,6 +584,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -603,6 +612,7 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve: "smooth",
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -699,7 +709,10 @@ const hwBtnGrid = document.getElementById("hwBtnGrid");
 const stickModeSelect = document.getElementById("stickModeSelect");
 const gamepadTargetRow = document.getElementById("gamepadTargetRow");
 const gamepadTargetSelect = document.getElementById("gamepadTargetSelect");
+const enableRunRow = document.getElementById("enableRunRow");
 const enableRunCheckbox = document.getElementById("enableRunCheckbox");
+const enableRunLabel = document.getElementById("enableRunLabel");
+const enableRunHint = document.getElementById("enableRunHint");
 const dpadWalkRunGroup = document.getElementById("dpadWalkRunGroup");
 const dpadWalkBtnInput = document.getElementById("dpadWalkBtnInput");
 const dpadRunBtnInput = document.getElementById("dpadRunBtnInput");
@@ -707,6 +720,8 @@ const directionModeSelect = document.getElementById("directionModeSelect");
 const mouseSpeedRow = document.getElementById("mouseSpeedRow");
 const mouseSpeedInput = document.getElementById("mouseSpeedInput");
 const mouseSpeedVal = document.getElementById("mouseSpeedVal");
+const mouseCurveRow = document.getElementById("mouseCurveRow");
+const mouseCurveSelect = document.getElementById("mouseCurveSelect");
 const kbdThresholdsGroup = document.getElementById("kbdThresholdsGroup");
 
 // クイックアクション共有ボタン & プロファイル名表示
@@ -1117,6 +1132,7 @@ function ensureProfiles(cfg) {
     }
     if (!p.joystick.mode || typeof p.joystick.mode !== "string") p.joystick.mode = "keyboard";
     if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
+    if (!p.joystick.mouse_curve || typeof p.joystick.mouse_curve !== "string") p.joystick.mouse_curve = "smooth";
     if (!p.joystick.direction_mode || typeof p.joystick.direction_mode !== "string") p.joystick.direction_mode = "8way";
     if (p.joystick.deadzone === undefined) p.joystick.deadzone = 2500;
     if (p.joystick.hysteresis === undefined) p.joystick.hysteresis = 1500;
@@ -1262,6 +1278,12 @@ function updateModeVisibility() {
   if (mouseSpeedRow) {
     mouseSpeedRow.style.display = (mode === "mouse") ? "flex" : "none";
   }
+  if (mouseCurveRow) {
+    mouseCurveRow.style.display = (mode === "mouse") ? "flex" : "none";
+  }
+  if (mouseCurveSelect) {
+    mouseCurveSelect.value = (currentConfig.joystick && currentConfig.joystick.mouse_curve) ? currentConfig.joystick.mouse_curve : "smooth";
+  }
   if (kbdThresholdsGroup) {
     kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
   }
@@ -1276,6 +1298,18 @@ function updateModeVisibility() {
   }
   if (enableRunCheckbox) {
     enableRunCheckbox.checked = currentConfig.joystick.enable_run !== false;
+  }
+  if (enableRunLabel && enableRunHint) {
+    if (mode === "mouse") {
+      enableRunLabel.textContent = "マウス深倒し加速 (Runブースト) を有効にする";
+      enableRunHint.textContent = "※ON: 75%以上倒すと最高速まで急加速 / OFF: 繊細エイム用に最高速を約55%に制限";
+    } else if (mode === "gamepad" && target === "dpad") {
+      enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
+      enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk連動ボタンのみ入力されます";
+    } else {
+      enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
+      enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます";
+    }
   }
   if (dpadWalkBtnInput) {
     dpadWalkBtnInput.value = currentConfig.joystick.dpad_walk_btn || "";
@@ -3483,6 +3517,9 @@ function updateFormFromConfig() {
     mouseSpeedInput.value = spd;
     if (mouseSpeedVal) mouseSpeedVal.textContent = spd;
   }
+  if (mouseCurveSelect) {
+    mouseCurveSelect.value = (currentConfig.joystick && currentConfig.joystick.mouse_curve) ? currentConfig.joystick.mouse_curve : "smooth";
+  }
   updateModeVisibility();
 
   const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
@@ -3761,6 +3798,15 @@ if (mouseSpeedInput) {
     currentConfig.joystick.mouse_speed = val;
     if (mouseSpeedVal) mouseSpeedVal.textContent = val;
     syncCurrentToProfile();
+  });
+}
+
+if (mouseCurveSelect) {
+  mouseCurveSelect.addEventListener("change", (e) => {
+    currentConfig.joystick.mouse_curve = e.target.value;
+    syncCurrentToProfile();
+    const curveName = mouseCurveSelect.options[mouseCurveSelect.selectedIndex].text;
+    log(`マウス加速カーブを「${curveName}」に変更しました`, "info");
   });
 }
 

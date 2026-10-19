@@ -300,10 +300,10 @@
                   </select>
                 </div>
 
-                <!-- スティック Run (走り/2段階目) 有効・無効トグル -->
-                <div class="param-row-checkbox">
-                  <label><input type="checkbox" id="enableRunCheckbox" checked> スティックのRun (走り/2段階目入力) を有効にする</label>
-                  <span class="param-hint-inline">※チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます</span>
+                <!-- スティック Run (走り/2段階目/マウス深倒し加速) 有効・無効トグル -->
+                <div class="param-row-checkbox" id="enableRunRow">
+                  <label><input type="checkbox" id="enableRunCheckbox" checked> <span id="enableRunLabel">スティックのRun (走り/2段階目入力) を有効にする</span></label>
+                  <span class="param-hint-inline" id="enableRunHint">※チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます</span>
                 </div>
 
                 <!-- DPAD Walk/Run 連動ボタン (ゲームパッド DPAD時のみ表示) -->
@@ -332,6 +332,14 @@
                   <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
                   <input type="range" id="mouseSpeedInput" min="2" max="30" step="1">
                   <span id="mouseSpeedVal" class="val-display">-</span>
+                </div>
+                <div class="param-row" id="mouseCurveRow" style="display: none;">
+                  <label for="mouseCurveSelect">マウス加速カーブ (レスポンス):</label>
+                  <select id="mouseCurveSelect" class="btn-input" style="width: 100%;">
+                    <option value="linear">リニア (1.0 - 倒し込み量に一定比例)</option>
+                    <option value="smooth" selected>スムーズ (1.5 - 標準: 微小操作が繊細で快適)</option>
+                    <option value="aggressive">急加速 (2.0 - 精密エイム & 端で一気に高速移動)</option>
+                  </select>
                 </div>
                 <div class="param-row">
                   <label for="deadzoneInput">デッドゾーン (遊び):</label>

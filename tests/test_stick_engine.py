@@ -292,6 +292,47 @@ class TestStickEngine(unittest.TestCase):
         self.assertEqual(mdx, 0)
         self.assertLess(mdy, 0)
 
+    def test_mouse_curve_and_run_boost(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+        self.engine.mouse_speed = 20
+        self.engine.deadzone = 0
+
+        # Run 有効時、最大倒し (30000, 62767: Y=32767傾き) では最高速度 (20) に到達
+        self.engine.enable_run = True
+        self.engine.mouse_curve = "linear"
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_run = self.engine.process(30000, 62767)
+        mdx_run, _ = info_run["mouse"]
+        self.assertAlmostEqual(mdx_run, 20, delta=1)
+
+        # Run 無効時、同じ最大倒しでも Walk速度上限 (約55% = 11px) で頭打ち
+        self.engine.enable_run = False
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_norun = self.engine.process(30000, 62767)
+        mdx_norun, _ = info_norun["mouse"]
+        self.assertAlmostEqual(mdx_norun, 11, delta=1)
+        self.assertLess(mdx_norun, mdx_run)
+
+        # カーブ指数の違い: 浅倒し (25%倒し: offset = 8191) で linear vs aggressive
+        self.engine.enable_run = True
+        self.engine.mouse_curve = "linear"
+        self.engine.mouse_remainder_x = 0.0
+        _, _, _, info_lin = self.engine.process(30000, 30000 + 8191)
+        mdx_lin, _ = info_lin["mouse"]
+
+        self.engine.mouse_curve = "aggressive"
+        self.engine.mouse_remainder_x = 0.0
+        _, _, _, info_agg = self.engine.process(30000, 30000 + 8191)
+        mdx_agg, _ = info_agg["mouse"]
+
+        # aggressive は浅倒し時により低速（精密操作）になること
+        self.assertLessEqual(mdx_agg, mdx_lin)
+
     def test_4way_snap_single_direction(self):
         # 4方向スナップモード: 斜め入力時でも最大1方向のみが出力され、同時押しが絶対に起きない
         self.engine.direction_mode = "4way_snap"

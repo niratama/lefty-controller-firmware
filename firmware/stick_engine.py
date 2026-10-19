@@ -20,6 +20,9 @@ class StickEngine:
         # 動作モード ("keyboard" | "gamepad" | "mouse")
         self.mode = "keyboard"
         self.mouse_speed = 12  # マウスモード時の最高速度 (px/frame)
+        self.mouse_curve = "smooth"  # マウス加速カーブ ("linear" | "smooth" | "aggressive" | float)
+        self.mouse_remainder_x = 0.0  # サブピクセル蓄積用
+        self.mouse_remainder_y = 0.0
 
         # 方向制限モード ("8way" | "4way_snap" | "4way_strict")
         self.direction_mode = "8way"
@@ -108,6 +111,11 @@ class StickEngine:
             self.direction_mode = dir_mode
 
         self.mouse_speed = self._safe_int(joy_cfg.get("mouse_speed", self.mouse_speed), self.mouse_speed, 1, 127)
+        curve = joy_cfg.get("mouse_curve", self.mouse_curve)
+        if isinstance(curve, str) and curve in ("linear", "smooth", "aggressive"):
+            self.mouse_curve = curve
+        elif isinstance(curve, (int, float)):
+            self.mouse_curve = max(1.0, min(3.0, float(curve)))
         self.deadzone = self._safe_int(joy_cfg.get("deadzone", self.deadzone), self.deadzone, 0, 32767)
         self.hysteresis = self._safe_int(joy_cfg.get("hysteresis", self.hysteresis), self.hysteresis, 0, 32767)
         self.invert_x = bool(joy_cfg.get("invert_x", self.invert_x))
@@ -421,39 +429,75 @@ class StickEngine:
             if dist < self.deadzone:
                 mouse_dx = 0
                 mouse_dy = 0
+                self.mouse_remainder_x = 0.0
+                self.mouse_remainder_y = 0.0
             else:
                 max_range = max(1.0, 32767.0 - self.deadzone)
                 clamped_dist = min(32767.0, dist)
                 ratio = (clamped_dist - self.deadzone) / max_range
-                # 倒しこみ量に応じた加速度カーブ (1.4乗)
-                speed = (ratio ** 1.4) * self.mouse_speed
-                mouse_dx = int((dx / dist) * speed)
-                # 画面座標系: 上は負(-mouse_dy)
-                mouse_dy = int((-dy / dist) * speed)
-                mouse_dx = max(-127, min(127, mouse_dx))
-                mouse_dy = max(-127, min(127, mouse_dy))
 
-            if self.direction_mode in ("4way_snap", "4way_strict"):
-                target_dir = self._determine_4way_direction(dx, dy, dist)
-                if target_dir == "up":
-                    mouse_dx = 0
-                    mouse_dy = int(-speed)
-                elif target_dir == "down":
-                    mouse_dx = 0
-                    mouse_dy = int(speed)
-                elif target_dir == "left":
-                    mouse_dx = int(-speed)
-                    mouse_dy = 0
-                elif target_dir == "right":
-                    mouse_dx = int(speed)
-                    mouse_dy = 0
+                # レスポンスカーブ指数の決定
+                if self.mouse_curve == "linear":
+                    curve_power = 1.0
+                elif self.mouse_curve == "aggressive":
+                    curve_power = 2.0
+                elif isinstance(self.mouse_curve, (int, float)):
+                    curve_power = float(self.mouse_curve)
+                else:  # "smooth" (デフォルト)
+                    curve_power = 1.5
+
+                # Run 有効・無効による二段階ギア（深倒しブースト）制御
+                # 通常ゾーン (0% 〜 75%): Walk 速度 (最高速の 55%) まで滑らかに加速
+                # 深倒しゾーン (75% 〜 100%): Run 有効時は最高速 (100%) へ急加速
+                run_threshold = 0.75
+                walk_ratio_cap = 0.55
+                walk_max_speed = self.mouse_speed * walk_ratio_cap
+
+                if self.enable_run:
+                    if ratio <= run_threshold:
+                        sub_ratio = ratio / run_threshold
+                        speed = (sub_ratio ** curve_power) * walk_max_speed
+                    else:
+                        boost_progress = (ratio - run_threshold) / (1.0 - run_threshold)
+                        boost_span = self.mouse_speed - walk_max_speed
+                        speed = walk_max_speed + (boost_progress ** 1.3) * boost_span
                 else:
-                    mouse_dx = 0
-                    mouse_dy = 0
+                    # Run無効時: 全域でWalk速度上限 (55%) に制限
+                    speed = (ratio ** curve_power) * walk_max_speed
+
+                if self.direction_mode in ("4way_snap", "4way_strict"):
+                    target_dir = self._determine_4way_direction(dx, dy, dist)
+                    if target_dir == "up":
+                        raw_dx = 0.0
+                        raw_dy = -speed
+                    elif target_dir == "down":
+                        raw_dx = 0.0
+                        raw_dy = speed
+                    elif target_dir == "left":
+                        raw_dx = -speed
+                        raw_dy = 0.0
+                    elif target_dir == "right":
+                        raw_dx = speed
+                        raw_dy = 0.0
+                    else:
+                        raw_dx = 0.0
+                        raw_dy = 0.0
+                else:
+                    self.current_4way_dir = None
+                    raw_dx = (dx / dist) * speed
+                    # 画面座標系: 上は負(-raw_dy)
+                    raw_dy = (-dy / dist) * speed
+
+                # サブピクセル端数蓄積により微小操作・低速エイムを滑らかに反映
+                target_fx = raw_dx + self.mouse_remainder_x
+                target_fy = raw_dy + self.mouse_remainder_y
+                mouse_dx = int(target_fx)
+                mouse_dy = int(target_fy)
+                self.mouse_remainder_x = target_fx - mouse_dx
+                self.mouse_remainder_y = target_fy - mouse_dy
+
                 mouse_dx = max(-127, min(127, mouse_dx))
                 mouse_dy = max(-127, min(127, mouse_dy))
-            else:
-                self.current_4way_dir = None
 
             to_press = set()
             to_release = set(self.active_keys)
