@@ -8,15 +8,39 @@ import sys
 import json
 import config_store
 
-FIRMWARE_VERSION = "1.7.0"
+try:
+    import microcontroller
+except ImportError:
+    microcontroller = None
+
+FIRMWARE_VERSION = "1.8.0"
+
+MAINTENANCE_BOOT_FLAG = b"MAIT"
+BOOT_FLAG_LEN = 4
+
+def set_maintenance_boot_flag(enable=True):
+    """microcontroller.nvm の末尾4バイトにメンテナンスブートフラグを設定または解除"""
+    if microcontroller and hasattr(microcontroller, "nvm") and len(microcontroller.nvm) >= BOOT_FLAG_LEN:
+        try:
+            val = MAINTENANCE_BOOT_FLAG if enable else (b"\x00" * BOOT_FLAG_LEN)
+            microcontroller.nvm[-BOOT_FLAG_LEN:] = val
+            return True
+        except Exception as e:
+            print(f"[WARN] NVMブートフラグ設定エラー: {e}")
+            return False
+    elif microcontroller is None:
+        # PCシミュレーション環境
+        return True
+    return False
 
 class SerialHandler:
-    def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None, on_calibrate=None):
+    def __init__(self, stick_engine, button_manager, config_path="config.json", on_config_updated=None, on_calibrate=None, on_reboot=None):
         self.stick_engine = stick_engine
         self.button_manager = button_manager
         self.config_path = config_path
         self.on_config_updated = on_config_updated
         self.on_calibrate = on_calibrate
+        self.on_reboot = on_reboot
         self.monitor_enabled = False
         self.buffer = ""
 
@@ -71,7 +95,7 @@ class SerialHandler:
             # プレーンテキストコマンドのサポート
             cmd = line.strip().lower()
             if cmd == "help":
-                self.send_response({"status": "ok", "help": ["get_config", "set_config", "version", "calibrate", "monitor_on", "monitor_off"]})
+                self.send_response({"status": "ok", "help": ["get_config", "set_config", "version", "calibrate", "monitor_on", "monitor_off", "enter_maintenance", "reboot"]})
             elif cmd == "version":
                 self.send_response({"status": "ok", "cmd": "version", "version": FIRMWARE_VERSION})
             elif cmd == "calibrate":
@@ -82,6 +106,10 @@ class SerialHandler:
             elif cmd == "monitor_off":
                 self.monitor_enabled = False
                 self.send_response({"status": "ok", "monitor": False})
+            elif cmd == "enter_maintenance":
+                return self._cmd_enter_maintenance()
+            elif cmd == "reboot":
+                return self._cmd_reboot()
             return None
 
         cmd = msg.get("cmd")
@@ -108,8 +136,44 @@ class SerialHandler:
             })
         elif cmd == "ping":
             self.send_response({"status": "ok", "cmd": "pong", "version": FIRMWARE_VERSION})
+        elif cmd == "enter_maintenance":
+            return self._cmd_enter_maintenance()
+        elif cmd == "reboot":
+            return self._cmd_reboot()
         else:
             self.send_response({"status": "error", "message": f"Unknown command: {cmd}"})
+
+    def _cmd_enter_maintenance(self):
+        ok = set_maintenance_boot_flag(True)
+        self.send_response({
+            "status": "ok" if ok else "error",
+            "cmd": "enter_maintenance",
+            "version": FIRMWARE_VERSION,
+            "message": "Rebooting into maintenance mode (USB drive enabled)..." if ok else "Failed to set maintenance boot flag"
+        })
+        if ok:
+            self._trigger_reboot()
+
+    def _cmd_reboot(self):
+        set_maintenance_boot_flag(False)
+        self.send_response({
+            "status": "ok",
+            "cmd": "reboot",
+            "version": FIRMWARE_VERSION,
+            "message": "Rebooting controller into normal mode..."
+        })
+        self._trigger_reboot()
+
+    def _trigger_reboot(self):
+        if self.on_reboot:
+            try:
+                self.on_reboot()
+            except Exception as e:
+                print(f"[WARN] on_reboot failed: {e}")
+        elif microcontroller and hasattr(microcontroller, "reset"):
+            import time
+            time.sleep(0.15)
+            microcontroller.reset()
 
     def _cmd_get_config(self):
         try:

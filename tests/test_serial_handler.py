@@ -47,7 +47,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(out)
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "get_config")
-        self.assertEqual(resp["version"], "1.7.0")
+        self.assertEqual(resp["version"], "1.8.0")
         self.assertEqual(resp["config"]["joystick"]["deadzone"], 3500)
 
     def test_set_config(self):
@@ -124,7 +124,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "pong")
-        self.assertEqual(resp["version"], "1.7.0")
+        self.assertEqual(resp["version"], "1.8.0")
 
     def test_version_command(self):
         old_stdout = sys.stdout
@@ -137,7 +137,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "version")
-        self.assertEqual(resp["version"], "1.7.0")
+        self.assertEqual(resp["version"], "1.8.0")
 
     def test_garbage_prefixed_json(self):
         old_stdout = sys.stdout
@@ -251,6 +251,74 @@ class TestSerialHandler(unittest.TestCase):
         self.assertEqual(lines[0]["type"], "telemetry")
         self.assertEqual(lines[0]["btns"], [0])
         self.assertEqual(lines[1]["status"], "error")
+
+    def test_enter_maintenance_command(self):
+        reboot_called = []
+        handler = SerialHandler(self.engine, self.btn_mgr, on_reboot=lambda: reboot_called.append(True))
+        
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            handler.handle_line(json.dumps({"cmd": "enter_maintenance"}))
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "enter_maintenance")
+        self.assertEqual(resp["version"], "1.8.0")
+        self.assertEqual(len(reboot_called), 1)
+
+    def test_reboot_command(self):
+        reboot_called = []
+        handler = SerialHandler(self.engine, self.btn_mgr, on_reboot=lambda: reboot_called.append(True))
+
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            handler.handle_line(json.dumps({"cmd": "reboot"}))
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "reboot")
+        self.assertEqual(resp["version"], "1.8.0")
+        self.assertEqual(len(reboot_called), 1)
+
+    def test_maintenance_plaintext_command(self):
+        reboot_called = []
+        handler = SerialHandler(self.engine, self.btn_mgr, on_reboot=lambda: reboot_called.append(True))
+
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        try:
+            handler.handle_line("enter_maintenance")
+        finally:
+            sys.stdout = old_stdout
+
+        resp = json.loads(buffer.getvalue().strip())
+        self.assertEqual(resp["status"], "ok")
+        self.assertEqual(resp["cmd"], "enter_maintenance")
+        self.assertEqual(len(reboot_called), 1)
+
+    def test_maintenance_boot_flag_nvm(self):
+        import serial_handler
+        class MockMC:
+            def __init__(self):
+                self.nvm = bytearray(4096)
+
+        mock = MockMC()
+        orig = serial_handler.microcontroller
+        try:
+            serial_handler.microcontroller = mock
+            self.assertTrue(serial_handler.set_maintenance_boot_flag(True))
+            self.assertEqual(bytes(mock.nvm[-4:]), b"MAIT")
+
+            self.assertTrue(serial_handler.set_maintenance_boot_flag(False))
+            self.assertEqual(bytes(mock.nvm[-4:]), b"\x00\x00\x00\x00")
+        finally:
+            serial_handler.microcontroller = orig
 
 if __name__ == '__main__':
     unittest.main()

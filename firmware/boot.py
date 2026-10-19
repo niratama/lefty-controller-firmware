@@ -52,6 +52,18 @@ try:
     finally:
         service_pin.deinit()
 
+    # シリアルコマンド等によるソフトウェアブートフラグ (NVM末尾4バイト) の確認
+    # USB抜き差しを行わずにコマンドからメンテナンスモードへソフト再起動可能にする
+    try:
+        import microcontroller
+        if microcontroller and hasattr(microcontroller, "nvm") and len(microcontroller.nvm) >= 4:
+            if bytes(microcontroller.nvm[-4:]) == b"MAIT":
+                is_maintenance = True
+                # 次回起動時は通常モードに戻るようフラグをクリア
+                microcontroller.nvm[-4:] = b"\x00\x00\x00\x00"
+    except Exception as e_flag:
+        print(f"[boot.py flag INFO] {e_flag}")
+
     if not is_maintenance:
         # 通常運用モード: ドライブを非表示にして余計なポップアップを防止
         # マイコン自身の Python スクリプトからのファイル書込 (config.json) を許可

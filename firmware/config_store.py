@@ -23,8 +23,10 @@ def save_to_nvm(config_dict):
         length = len(raw_json)
         total_len = len(NVM_MAGIC) + 2 + length
 
-        if total_len > len(microcontroller.nvm):
-            print(f"[WARN] NVM容量不足: 必要 {total_len} bytes / 空き {len(microcontroller.nvm)} bytes")
+        # 末尾4バイトはブートフラグ (MAIT等) 用に予約
+        max_nvm_len = len(microcontroller.nvm) - 4
+        if total_len > max_nvm_len:
+            print(f"[WARN] NVM容量不足: 必要 {total_len} bytes / 空き {max_nvm_len} bytes")
             return False
 
         buf = bytearray(total_len)
