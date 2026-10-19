@@ -20,7 +20,8 @@ class StickEngine:
         # 動作モード ("keyboard" | "gamepad" | "mouse")
         self.mode = "keyboard"
         self.mouse_speed = 12  # マウスモード時の最高速度 (px/frame)
-        self.mouse_curve = "smooth"  # マウス加速カーブ ("linear" | "smooth" | "aggressive" | float)
+        self.mouse_curve = "smooth"  # マウス加速カーブ ("linear" | "smooth" | "aggressive" | float 1.0-3.0)
+        self.mouse_walk_ratio = 0.55  # 通常域 (Walk) 最高速度比率 (0.10 - 0.90)
         self.mouse_remainder_x = 0.0  # サブピクセル蓄積用
         self.mouse_remainder_y = 0.0
 
@@ -116,6 +117,21 @@ class StickEngine:
             self.mouse_curve = curve
         elif isinstance(curve, (int, float)):
             self.mouse_curve = max(1.0, min(3.0, float(curve)))
+        elif isinstance(curve, str):
+            try:
+                self.mouse_curve = max(1.0, min(3.0, float(curve)))
+            except ValueError:
+                self.mouse_curve = "smooth"
+
+        walk_ratio = joy_cfg.get("mouse_walk_ratio", self.mouse_walk_ratio)
+        if isinstance(walk_ratio, (int, float)):
+            self.mouse_walk_ratio = max(0.10, min(0.90, float(walk_ratio)))
+        elif isinstance(walk_ratio, str):
+            try:
+                self.mouse_walk_ratio = max(0.10, min(0.90, float(walk_ratio)))
+            except ValueError:
+                self.mouse_walk_ratio = 0.55
+
         self.deadzone = self._safe_int(joy_cfg.get("deadzone", self.deadzone), self.deadzone, 0, 32767)
         self.hysteresis = self._safe_int(joy_cfg.get("hysteresis", self.hysteresis), self.hysteresis, 0, 32767)
         self.invert_x = bool(joy_cfg.get("invert_x", self.invert_x))
@@ -455,7 +471,7 @@ class StickEngine:
                     + self.dir_configs["right"]["th_run"]
                 ) / 4.0
                 run_threshold = max(0.1, min(0.95, (avg_th_run - self.deadzone) / max_range))
-                walk_ratio_cap = 0.55
+                walk_ratio_cap = self.mouse_walk_ratio
                 walk_max_speed = self.mouse_speed * walk_ratio_cap
 
                 if self.enable_run:

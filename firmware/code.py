@@ -39,7 +39,7 @@ except ImportError:
 CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
-    "version": "1.8.0",
+    "version": "1.9.0",
     "active_profile": 0,
     "profiles": [
         {
@@ -63,6 +63,7 @@ DEFAULT_CONFIG = {
                 "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "mouse_curve": "smooth",
+                "mouse_walk_ratio": 0.55,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -95,6 +96,7 @@ DEFAULT_CONFIG = {
                 "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "mouse_curve": "smooth",
+                "mouse_walk_ratio": 0.55,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -127,6 +129,7 @@ DEFAULT_CONFIG = {
                 "dpad_run_btn": "Gamepad_2",
                 "mouse_speed": 12,
                 "mouse_curve": "smooth",
+                "mouse_walk_ratio": 0.55,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,
@@ -155,6 +158,7 @@ DEFAULT_CONFIG = {
         "dpad_run_btn": "Gamepad_2",
         "mouse_speed": 12,
         "mouse_curve": "smooth",
+        "mouse_walk_ratio": 0.55,
         "deadzone": 2500,
         "hysteresis": 1500,
         "invert_x": False,

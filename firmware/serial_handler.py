@@ -13,7 +13,7 @@ try:
 except ImportError:
     microcontroller = None
 
-FIRMWARE_VERSION = "1.8.0"
+FIRMWARE_VERSION = "1.9.0"
 
 MAINTENANCE_BOOT_FLAG = b"MAIT"
 BOOT_FLAG_LEN = 4
@@ -247,6 +247,8 @@ class SerialHandler:
                     "joystick": {
                         "mode": "keyboard",
                         "mouse_speed": 12,
+                        "mouse_curve": "smooth",
+                        "mouse_walk_ratio": 0.55,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -278,6 +280,8 @@ class SerialHandler:
                     "joystick": {
                         "mode": "gamepad",
                         "mouse_speed": 12,
+                        "mouse_curve": "smooth",
+                        "mouse_walk_ratio": 0.55,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -309,6 +313,8 @@ class SerialHandler:
                     "joystick": {
                         "mode": "mouse",
                         "mouse_speed": 12,
+                        "mouse_curve": "smooth",
+                        "mouse_walk_ratio": 0.55,
                         "deadzone": 2500,
                         "hysteresis": 1500,
                         "invert_x": False,
@@ -334,6 +340,8 @@ class SerialHandler:
             "joystick": {
                 "mode": "keyboard",
                 "mouse_speed": 12,
+                "mouse_curve": "smooth",
+                "mouse_walk_ratio": 0.55,
                 "deadzone": 2500,
                 "hysteresis": 1500,
                 "invert_x": False,

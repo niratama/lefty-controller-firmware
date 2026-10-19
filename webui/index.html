@@ -34,7 +34,7 @@
         <span class="banner-icon">⚠️</span>
         <div class="banner-text">
           <div class="banner-title" id="versionAlertTitle">ファームウェアの更新が推奨されます</div>
-          <div class="banner-detail" id="versionAlertDetail">デバイス側: 未対応 (v1.0以前) / WebUI推奨: v1.8.0</div>
+          <div class="banner-detail" id="versionAlertDetail">デバイス側: 未対応 (v1.0以前) / WebUI推奨: v1.9.0</div>
           <div class="banner-subtext">最新機能（同時押しコンボ、長押し・タップ判定、Fnレイヤー、内蔵Flashストレージ容量モニター）を安全に利用するため、最新のファームウェアファイルをマイコン（CIRCUITPY）にコピーしてください。</div>
         </div>
       </div>
@@ -331,23 +331,55 @@
                     <option value="4way_strict">4方向厳格 (斜め不感帯: 斜め入力時は無効化)</option>
                   </select>
                 </div>
-                <div class="param-row" id="mouseSpeedRow" style="display: none;">
-                  <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
-                  <input type="range" id="mouseSpeedInput" min="2" max="30" step="1">
-                  <span id="mouseSpeedVal" class="val-display">-</span>
-                </div>
-                <div class="param-row" id="mouseCurveRow" style="display: none;">
-                  <label for="mouseCurveSelect">マウス加速カーブ (レスポンス):</label>
-                  <select id="mouseCurveSelect" class="btn-input" style="width: 100%;">
-                    <option value="linear">リニア (1.0 - 倒し込み量に一定比例)</option>
-                    <option value="smooth" selected>スムーズ (1.5 - 標準: 微小操作が繊細で快適)</option>
-                    <option value="aggressive">急加速 (2.0 - 精密エイム & 端で一気に高速移動)</option>
-                  </select>
-                </div>
-                <div class="param-row" id="mouseRunThresholdRow" style="display: none;">
-                  <label for="mouseRunThresholdInput">Run (深倒し加速) 開始閾値:</label>
-                  <input type="range" id="mouseRunThresholdInput" min="5000" max="32000" step="500">
-                  <span id="mouseRunThresholdVal" class="val-display">-</span>
+                <!-- マウス詳細動作設定 (マウスモード時のみ表示) -->
+                <div id="mouseSettingsBox" class="mouse-settings-box" style="display: none;">
+                  <h4>🖱️ マウス詳細速度 & 加速カーブ設定</h4>
+
+                  <div class="param-row" id="mouseSpeedRow">
+                    <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
+                    <input type="range" id="mouseSpeedInput" min="2" max="30" step="1">
+                    <span id="mouseSpeedVal" class="val-display">-</span>
+                  </div>
+
+                  <div class="param-row" id="mouseWalkRatioRow">
+                    <label for="mouseWalkRatioInput">通常域 (Walk) 速度上限比率:</label>
+                    <input type="range" id="mouseWalkRatioInput" min="15" max="85" step="1" value="55">
+                    <span id="mouseWalkRatioVal" class="val-display">55%</span>
+                  </div>
+                  <span class="param-hint">※深倒し（Run）までの通常移動速度の上限。低くするとソリティアやエイムでの中域の進みすぎを抑え、微小操作がしやすくなります。</span>
+
+                  <div class="param-row" id="mouseCurveRow">
+                    <label for="mouseCurveSlider">加速カーブ指数 (レスポンス):</label>
+                    <input type="range" id="mouseCurveSlider" min="1.0" max="3.0" step="0.05" value="1.5">
+                    <span id="mouseCurveVal" class="val-display">1.50</span>
+                  </div>
+                  <div class="curve-preset-buttons" id="curvePresetButtons">
+                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.0">リニア (1.0)</button>
+                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.5">スムーズ (1.5)</button>
+                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.0">急加速 (2.0)</button>
+                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.5">超精密 (2.5)</button>
+                  </div>
+
+                  <div class="param-row" id="mouseRunThresholdRow">
+                    <label for="mouseRunThresholdInput">Run (深倒し加速) 開始閾値:</label>
+                    <input type="range" id="mouseRunThresholdInput" min="5000" max="32000" step="500">
+                    <span id="mouseRunThresholdVal" class="val-display">-</span>
+                  </div>
+
+                  <!-- マウス加速カーブ リアルタイムプレビューグラフ -->
+                  <div class="mouse-curve-preview-container">
+                    <div class="curve-preview-header">
+                      <span class="curve-preview-title">📈 スティック倒し量 vs マウス速度</span>
+                      <span class="curve-live-speed" id="curveLiveSpeedLabel">入力: 0% / 速度: 0.0</span>
+                    </div>
+                    <canvas id="mouseCurveCanvas" width="300" height="150" class="mouse-curve-canvas"></canvas>
+                    <div class="curve-legend">
+                      <span class="legend-item"><span class="legend-dot" style="background:#38bdf8;"></span>速度カーブ</span>
+                      <span class="legend-item"><span class="legend-line-dashed" style="border-color:#f59e0b;"></span>Run境界 (<span id="curveLegendRunTh">75%</span>)</span>
+                      <span class="legend-item"><span class="legend-line-dashed" style="border-color:#10b981;"></span>Walk上限 (<span id="curveLegendWalkCap">55%</span>)</span>
+                      <span class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span>現在値</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="param-row">
                   <label for="deadzoneInput">デッドゾーン (遊び):</label>
@@ -731,6 +763,6 @@
     </datalist>
   </div>
 
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.8.0";
+const WEBUI_VERSION = "1.9.0";
 const MIN_RECOMMENDED_FW_VERSION = "1.5.0";
 
 // ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
@@ -319,7 +319,7 @@ function generateProfileId() {
 }
 
 const DEFAULT_CONFIG = {
-  version: "1.8.0",
+  version: "1.9.0",
   active_profile: 0,
   profiles: [
     {
@@ -342,6 +342,7 @@ const DEFAULT_CONFIG = {
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         mouse_curve: "smooth",
+        mouse_walk_ratio: 0.55,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -375,6 +376,7 @@ const DEFAULT_CONFIG = {
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         mouse_curve: "smooth",
+        mouse_walk_ratio: 0.55,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -408,6 +410,7 @@ const DEFAULT_CONFIG = {
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
         mouse_curve: "smooth",
+        mouse_walk_ratio: 0.55,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -438,6 +441,7 @@ const DEFAULT_CONFIG = {
     dpad_run_btn: "Gamepad_2",
     mouse_speed: 12,
     mouse_curve: "smooth",
+    mouse_walk_ratio: 0.55,
     deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
@@ -719,14 +723,25 @@ const dpadWalkRunGroup = document.getElementById("dpadWalkRunGroup");
 const dpadWalkBtnInput = document.getElementById("dpadWalkBtnInput");
 const dpadRunBtnInput = document.getElementById("dpadRunBtnInput");
 const directionModeSelect = document.getElementById("directionModeSelect");
+const mouseSettingsBox = document.getElementById("mouseSettingsBox");
 const mouseSpeedRow = document.getElementById("mouseSpeedRow");
 const mouseSpeedInput = document.getElementById("mouseSpeedInput");
 const mouseSpeedVal = document.getElementById("mouseSpeedVal");
+const mouseWalkRatioRow = document.getElementById("mouseWalkRatioRow");
+const mouseWalkRatioInput = document.getElementById("mouseWalkRatioInput");
+const mouseWalkRatioVal = document.getElementById("mouseWalkRatioVal");
 const mouseCurveRow = document.getElementById("mouseCurveRow");
-const mouseCurveSelect = document.getElementById("mouseCurveSelect");
+const mouseCurveSlider = document.getElementById("mouseCurveSlider");
+const mouseCurveVal = document.getElementById("mouseCurveVal");
+const curvePresetButtons = document.querySelectorAll(".curve-preset-btn");
 const mouseRunThresholdRow = document.getElementById("mouseRunThresholdRow");
 const mouseRunThresholdInput = document.getElementById("mouseRunThresholdInput");
 const mouseRunThresholdVal = document.getElementById("mouseRunThresholdVal");
+const mouseCurveCanvas = document.getElementById("mouseCurveCanvas");
+const mouseCurveCtx = mouseCurveCanvas ? mouseCurveCanvas.getContext("2d") : null;
+const curveLiveSpeedLabel = document.getElementById("curveLiveSpeedLabel");
+const curveLegendRunTh = document.getElementById("curveLegendRunTh");
+const curveLegendWalkCap = document.getElementById("curveLegendWalkCap");
 const kbdThresholdsGroup = document.getElementById("kbdThresholdsGroup");
 
 // クイックアクション共有ボタン & プロファイル名表示
@@ -1137,7 +1152,10 @@ function ensureProfiles(cfg) {
     }
     if (!p.joystick.mode || typeof p.joystick.mode !== "string") p.joystick.mode = "keyboard";
     if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
-    if (!p.joystick.mouse_curve || typeof p.joystick.mouse_curve !== "string") p.joystick.mouse_curve = "smooth";
+    if (p.joystick.mouse_curve === undefined || (typeof p.joystick.mouse_curve !== "string" && typeof p.joystick.mouse_curve !== "number")) {
+      p.joystick.mouse_curve = "smooth";
+    }
+    if (p.joystick.mouse_walk_ratio === undefined) p.joystick.mouse_walk_ratio = 0.55;
     if (!p.joystick.direction_mode || typeof p.joystick.direction_mode !== "string") p.joystick.direction_mode = "8way";
     if (p.joystick.deadzone === undefined) p.joystick.deadzone = 2500;
     if (p.joystick.hysteresis === undefined) p.joystick.hysteresis = 1500;
@@ -1282,14 +1300,8 @@ function updateModeVisibility() {
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
   const target = (currentConfig.joystick && currentConfig.joystick.gamepad_target) ? currentConfig.joystick.gamepad_target : "left_stick";
 
-  if (mouseSpeedRow) {
-    mouseSpeedRow.style.display = (mode === "mouse") ? "flex" : "none";
-  }
-  if (mouseCurveRow) {
-    mouseCurveRow.style.display = (mode === "mouse") ? "flex" : "none";
-  }
-  if (mouseCurveSelect) {
-    mouseCurveSelect.value = (currentConfig.joystick && currentConfig.joystick.mouse_curve) ? currentConfig.joystick.mouse_curve : "smooth";
+  if (mouseSettingsBox) {
+    mouseSettingsBox.style.display = (mode === "mouse") ? "flex" : "none";
   }
   const isRunEnabled = currentConfig.joystick.enable_run !== false;
   if (mouseRunThresholdRow) {
@@ -1322,7 +1334,7 @@ function updateModeVisibility() {
   if (enableRunLabel && enableRunHint) {
     if (mode === "mouse") {
       enableRunLabel.textContent = "マウス深倒し加速 (Runブースト) を有効にする";
-      enableRunHint.textContent = "※ON: 指定したRun閾値以上倒すと最高速まで急加速 / OFF: 繊細エイム用に最高速を約55%に制限";
+      enableRunHint.textContent = "※ON: 指定したRun閾値以上倒すと最高速まで急加速 / OFF: 通常域上限比率に速度を制限";
     } else if (mode === "gamepad" && target === "dpad") {
       enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
       enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk連動ボタンのみ入力されます";
@@ -1338,6 +1350,9 @@ function updateModeVisibility() {
     dpadRunBtnInput.value = currentConfig.joystick.dpad_run_btn || "";
   }
   updateModeDisplay();
+  if (mode === "mouse") {
+    drawMouseCurve();
+  }
 }
 
 // ==========================================
@@ -3581,9 +3596,18 @@ function updateFormFromConfig() {
     mouseSpeedInput.value = spd;
     if (mouseSpeedVal) mouseSpeedVal.textContent = spd;
   }
-  if (mouseCurveSelect) {
-    mouseCurveSelect.value = (currentConfig.joystick && currentConfig.joystick.mouse_curve) ? currentConfig.joystick.mouse_curve : "smooth";
+  const walkRatio = getMouseWalkRatio(currentConfig.joystick && currentConfig.joystick.mouse_walk_ratio);
+  if (mouseWalkRatioInput) {
+    const pct = Math.round(walkRatio * 100);
+    mouseWalkRatioInput.value = pct;
+    if (mouseWalkRatioVal) mouseWalkRatioVal.textContent = `${pct}%`;
   }
+  const curvePower = getMouseCurvePower(currentConfig.joystick && currentConfig.joystick.mouse_curve);
+  if (mouseCurveSlider) {
+    mouseCurveSlider.value = curvePower.toFixed(2);
+    if (mouseCurveVal) mouseCurveVal.textContent = curvePower.toFixed(2);
+  }
+  updateCurvePresetButtons(curvePower);
   updateModeVisibility();
 
   const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
@@ -3863,15 +3887,46 @@ if (mouseSpeedInput) {
     currentConfig.joystick.mouse_speed = val;
     if (mouseSpeedVal) mouseSpeedVal.textContent = val;
     syncCurrentToProfile();
+    drawMouseCurve();
   });
 }
 
-if (mouseCurveSelect) {
-  mouseCurveSelect.addEventListener("change", (e) => {
-    currentConfig.joystick.mouse_curve = e.target.value;
+if (mouseWalkRatioInput) {
+  mouseWalkRatioInput.addEventListener("input", (e) => {
+    const pct = parseInt(e.target.value, 10);
+    const ratio = Math.round((pct / 100) * 100) / 100;
+    currentConfig.joystick.mouse_walk_ratio = ratio;
+    if (mouseWalkRatioVal) mouseWalkRatioVal.textContent = `${pct}%`;
     syncCurrentToProfile();
-    const curveName = mouseCurveSelect.options[mouseCurveSelect.selectedIndex].text;
-    log(`マウス加速カーブを「${curveName}」に変更しました`, "info");
+    drawMouseCurve();
+  });
+}
+
+if (mouseCurveSlider) {
+  mouseCurveSlider.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    currentConfig.joystick.mouse_curve = val;
+    if (mouseCurveVal) mouseCurveVal.textContent = val.toFixed(2);
+    updateCurvePresetButtons(val);
+    syncCurrentToProfile();
+    drawMouseCurve();
+  });
+}
+
+if (curvePresetButtons) {
+  curvePresetButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const val = parseFloat(btn.getAttribute("data-curve"));
+      if (!isNaN(val)) {
+        currentConfig.joystick.mouse_curve = val;
+        if (mouseCurveSlider) mouseCurveSlider.value = val.toFixed(2);
+        if (mouseCurveVal) mouseCurveVal.textContent = val.toFixed(2);
+        updateCurvePresetButtons(val);
+        syncCurrentToProfile();
+        drawMouseCurve();
+        log(`マウス加速カーブを「${btn.textContent.trim()}」に変更しました`, "info");
+      }
+    });
   });
 }
 
@@ -3890,6 +3945,7 @@ if (mouseRunThresholdInput) {
     });
     syncCurrentToProfile();
     drawRadar();
+    drawMouseCurve();
   });
 }
 
@@ -3921,6 +3977,7 @@ batchRunInput.addEventListener("input", (e) => {
   });
   syncCurrentToProfile();
   drawRadar();
+  drawMouseCurve();
 });
 
 deadzoneInput.addEventListener("input", (e) => {
@@ -3928,6 +3985,7 @@ deadzoneInput.addEventListener("input", (e) => {
   currentConfig.joystick.deadzone = parseInt(e.target.value, 10);
   syncCurrentToProfile();
   drawRadar();
+  drawMouseCurve();
 });
 
 hysteresisInput.addEventListener("input", (e) => {
@@ -4078,6 +4136,234 @@ function drawRadar() {
   ctx.stroke();
 }
 
+// ==========================================
+// マウス加速カーブ & 速度計算 / プレビュー描画
+// ==========================================
+function getMouseCurvePower(val) {
+  if (typeof val === "number" && !isNaN(val)) {
+    return Math.max(1.0, Math.min(3.0, val));
+  }
+  if (typeof val === "string") {
+    if (val === "linear") return 1.0;
+    if (val === "aggressive") return 2.0;
+    if (val === "smooth") return 1.5;
+    const num = parseFloat(val);
+    if (!isNaN(num)) return Math.max(1.0, Math.min(3.0, num));
+  }
+  return 1.5;
+}
+
+function getMouseWalkRatio(val) {
+  if (typeof val === "number" && !isNaN(val)) {
+    return Math.max(0.10, Math.min(0.90, val));
+  }
+  if (typeof val === "string") {
+    const num = parseFloat(val);
+    if (!isNaN(num)) return Math.max(0.10, Math.min(0.90, num));
+  }
+  return 0.55;
+}
+
+function calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold) {
+  if (r <= 0) return 0;
+  const walkMaxSpeed = mouseSpeed * walkRatioCap;
+  if (enableRun) {
+    if (r <= runThreshold) {
+      const subRatio = r / runThreshold;
+      return Math.pow(subRatio, curvePower) * walkMaxSpeed;
+    } else {
+      const boostProgress = (r - runThreshold) / (1.0 - runThreshold);
+      const boostSpan = mouseSpeed - walkMaxSpeed;
+      return walkMaxSpeed + Math.pow(boostProgress, 1.3) * boostSpan;
+    }
+  } else {
+    const subRatio = Math.min(1.0, r / runThreshold);
+    return Math.pow(subRatio, curvePower) * walkMaxSpeed;
+  }
+}
+
+function updateCurvePresetButtons(curveVal) {
+  if (!curvePresetButtons) return;
+  const numVal = Math.round(curveVal * 100) / 100;
+  curvePresetButtons.forEach(btn => {
+    const target = parseFloat(btn.getAttribute("data-curve"));
+    if (Math.abs(target - numVal) < 0.03) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function drawMouseCurve(currentRatio = undefined) {
+  if (!mouseCurveCanvas || !mouseCurveCtx) return;
+
+  const w = mouseCurveCanvas.width;
+  const h = mouseCurveCanvas.height;
+  const padL = 36;
+  const padR = 14;
+  const padT = 14;
+  const padB = 22;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const mouseSpeed = (currentConfig.joystick && currentConfig.joystick.mouse_speed) ? currentConfig.joystick.mouse_speed : 12;
+  const walkRatioCap = getMouseWalkRatio(currentConfig.joystick && currentConfig.joystick.mouse_walk_ratio);
+  const curvePower = getMouseCurvePower(currentConfig.joystick && currentConfig.joystick.mouse_curve);
+  const enableRun = (currentConfig.joystick && currentConfig.joystick.enable_run !== false);
+  const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+  const maxRange = Math.max(1, 32767 - deadzone);
+  const upRun = (currentConfig.joystick && currentConfig.joystick.directions && currentConfig.joystick.directions.up)
+    ? currentConfig.joystick.directions.up.th_run
+    : 26000;
+  const runThreshold = Math.max(0.1, Math.min(0.95, (upRun - deadzone) / maxRange));
+  const walkMaxSpeed = mouseSpeed * walkRatioCap;
+
+  // 凡例パーセンテージ更新
+  if (curveLegendRunTh) {
+    curveLegendRunTh.textContent = `${Math.round(runThreshold * 100)}%`;
+  }
+  if (curveLegendWalkCap) {
+    curveLegendWalkCap.textContent = `${Math.round(walkRatioCap * 100)}%`;
+  }
+
+  const toX = (r) => padL + r * plotW;
+  const toY = (spd) => padT + plotH - (spd / Math.max(1, mouseSpeed)) * plotH;
+
+  // 背景クリア
+  mouseCurveCtx.fillStyle = "#080b0e";
+  mouseCurveCtx.fillRect(0, 0, w, h);
+
+  // グリッド線 & 軸目盛り
+  mouseCurveCtx.lineWidth = 1;
+  mouseCurveCtx.strokeStyle = "#1e293b";
+  mouseCurveCtx.font = "9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  mouseCurveCtx.fillStyle = "#64748b";
+  mouseCurveCtx.textAlign = "right";
+  mouseCurveCtx.textBaseline = "middle";
+
+  // Y軸グリッド (0, 50%, 100%)
+  const ySteps = [0, 0.5, 1.0];
+  ySteps.forEach(stepRatio => {
+    const spdVal = mouseSpeed * stepRatio;
+    const y = toY(spdVal);
+    mouseCurveCtx.beginPath();
+    mouseCurveCtx.moveTo(padL, y);
+    mouseCurveCtx.lineTo(padL + plotW, y);
+    mouseCurveCtx.stroke();
+    mouseCurveCtx.fillText(spdVal.toFixed(0), padL - 5, y);
+  });
+
+  // X軸グリッド (0%, 50%, 100%)
+  mouseCurveCtx.textAlign = "center";
+  mouseCurveCtx.textBaseline = "top";
+  [0, 0.5, 1.0].forEach(r => {
+    const x = toX(r);
+    mouseCurveCtx.beginPath();
+    mouseCurveCtx.moveTo(x, padT);
+    mouseCurveCtx.lineTo(x, padT + plotH);
+    mouseCurveCtx.stroke();
+    mouseCurveCtx.fillText(`${Math.round(r * 100)}%`, x, padT + plotH + 4);
+  });
+
+  // Walk上限ライン (水平破線 - エメラルドグリーン)
+  const walkY = toY(walkMaxSpeed);
+  mouseCurveCtx.save();
+  mouseCurveCtx.strokeStyle = "rgba(16, 185, 129, 0.75)";
+  mouseCurveCtx.lineWidth = 1.2;
+  mouseCurveCtx.setLineDash([3, 3]);
+  mouseCurveCtx.beginPath();
+  mouseCurveCtx.moveTo(padL, walkY);
+  mouseCurveCtx.lineTo(padL + plotW, walkY);
+  mouseCurveCtx.stroke();
+  mouseCurveCtx.restore();
+
+  // Run閾値ライン (垂直破線 - アンバー、Run有効時のみ)
+  if (enableRun) {
+    const runX = toX(runThreshold);
+    mouseCurveCtx.save();
+    mouseCurveCtx.strokeStyle = "rgba(245, 158, 11, 0.75)";
+    mouseCurveCtx.lineWidth = 1.2;
+    mouseCurveCtx.setLineDash([3, 3]);
+    mouseCurveCtx.beginPath();
+    mouseCurveCtx.moveTo(runX, padT);
+    mouseCurveCtx.lineTo(runX, padT + plotH);
+    mouseCurveCtx.stroke();
+    mouseCurveCtx.restore();
+  }
+
+  // カーブ下部グラデーション塗りつぶし
+  const grad = mouseCurveCtx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, "rgba(56, 189, 248, 0.35)");
+  grad.addColorStop(1, "rgba(56, 189, 248, 0.02)");
+
+  const steps = 60;
+  mouseCurveCtx.beginPath();
+  mouseCurveCtx.moveTo(toX(0), toY(0));
+  for (let i = 0; i <= steps; i++) {
+    const r = i / steps;
+    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+    mouseCurveCtx.lineTo(toX(r), toY(spd));
+  }
+  mouseCurveCtx.lineTo(toX(1.0), toY(0));
+  mouseCurveCtx.closePath();
+  mouseCurveCtx.fillStyle = grad;
+  mouseCurveCtx.fill();
+
+  // 速度カーブライン描画
+  mouseCurveCtx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const r = i / steps;
+    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+    if (i === 0) {
+      mouseCurveCtx.moveTo(toX(r), toY(spd));
+    } else {
+      mouseCurveCtx.lineTo(toX(r), toY(spd));
+    }
+  }
+  mouseCurveCtx.strokeStyle = "#38bdf8";
+  mouseCurveCtx.lineWidth = 2.2;
+  mouseCurveCtx.stroke();
+
+  // スティック現在倒し量・速度の計算
+  let curR = 0;
+  if (typeof currentRatio === "number") {
+    curR = Math.max(0, Math.min(1.0, currentRatio));
+  } else if (currentTelemetry && currentTelemetry.dx !== undefined && currentTelemetry.dy !== undefined) {
+    const dist = Math.sqrt(currentTelemetry.dx * currentTelemetry.dx + currentTelemetry.dy * currentTelemetry.dy);
+    curR = Math.max(0, Math.min(1.0, (dist - deadzone) / maxRange));
+  }
+
+  const curSpeed = calculateMouseSpeed(curR, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+  if (curveLiveSpeedLabel) {
+    curveLiveSpeedLabel.textContent = `入力: ${Math.round(curR * 100)}% / 速度: ${curSpeed.toFixed(1)}`;
+  }
+
+  // 現在位置のインジケータ (赤ドット & 垂直ガイド線)
+  if (curR > 0) {
+    const curX = toX(curR);
+    const curY = toY(curSpeed);
+
+    mouseCurveCtx.save();
+    mouseCurveCtx.strokeStyle = "rgba(239, 68, 68, 0.4)";
+    mouseCurveCtx.lineWidth = 1;
+    mouseCurveCtx.setLineDash([2, 2]);
+    mouseCurveCtx.beginPath();
+    mouseCurveCtx.moveTo(curX, padT);
+    mouseCurveCtx.lineTo(curX, padT + plotH);
+    mouseCurveCtx.stroke();
+    mouseCurveCtx.restore();
+
+    mouseCurveCtx.beginPath();
+    mouseCurveCtx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+    mouseCurveCtx.fillStyle = "#ef4444";
+    mouseCurveCtx.fill();
+    mouseCurveCtx.strokeStyle = "#ffffff";
+    mouseCurveCtx.lineWidth = 1.5;
+    mouseCurveCtx.stroke();
+  }
+}
+
 // テレメトリ更新UI
 function updateTelemetryUI(data) {
   currentTelemetry.raw = data.raw || [32768, 32768];
@@ -4134,6 +4420,14 @@ function updateTelemetryUI(data) {
   }
 
   drawRadar();
+  const joyMode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
+  if (joyMode === "mouse") {
+    const dz = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+    const maxRange = Math.max(1, 32767 - dz);
+    const dist = Math.sqrt(currentTelemetry.dx * currentTelemetry.dx + currentTelemetry.dy * currentTelemetry.dy);
+    const ratio = Math.max(0, Math.min(1.0, (dist - dz) / maxRange));
+    drawMouseCurve(ratio);
+  }
 }
 
 // ==========================================

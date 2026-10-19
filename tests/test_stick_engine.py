@@ -348,6 +348,58 @@ class TestStickEngine(unittest.TestCase):
         mdx_mid2, _ = info_mid2["mouse"]
         self.assertGreater(mdx_mid2, 11)
 
+    def test_mouse_walk_ratio_and_continuous_curve(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.invert_x = False
+        self.engine.invert_y = False
+        self.engine.mouse_speed = 20
+        self.engine.deadzone = 0
+        self.engine.enable_run = False
+
+        # Walk上限比率 30% (20 * 0.30 = 6px)
+        self.engine.mouse_walk_ratio = 0.30
+        self.engine.mouse_curve = 1.0
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info = self.engine.process(30000, 62767)
+        mdx, _ = info["mouse"]
+        self.assertAlmostEqual(mdx, 6, delta=1)
+
+        # Walk上限比率 80% (20 * 0.80 = 16px)
+        self.engine.mouse_walk_ratio = 0.80
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info = self.engine.process(30000, 62767)
+        mdx, _ = info["mouse"]
+        self.assertAlmostEqual(mdx, 16, delta=1)
+
+        # 連続値カーブ指数 (float 2.5) のテスト
+        self.engine.enable_run = True
+        self.engine.mouse_walk_ratio = 0.55
+        self.engine.mouse_curve = 2.5
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_c25 = self.engine.process(30000, 30000 + 8191)
+        mdx_c25, _ = info_c25["mouse"]
+
+        self.engine.mouse_curve = 1.0
+        self.engine.mouse_remainder_x = 0.0
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_c10 = self.engine.process(30000, 30000 + 8191)
+        mdx_c10, _ = info_c10["mouse"]
+        self.assertLess(mdx_c25, mdx_c10)
+
+        # load_config でのパーステスト
+        self.engine.load_config({
+            "joystick": {
+                "mouse_walk_ratio": 0.42,
+                "mouse_curve": 2.25
+            }
+        })
+        self.assertAlmostEqual(self.engine.mouse_walk_ratio, 0.42, places=2)
+        self.assertAlmostEqual(self.engine.mouse_curve, 2.25, places=2)
+
     def test_4way_snap_single_direction(self):
         # 4方向スナップモード: 斜め入力時でも最大1方向のみが出力され、同時押しが絶対に起きない
         self.engine.direction_mode = "4way_snap"

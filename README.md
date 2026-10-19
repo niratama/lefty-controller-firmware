@@ -59,7 +59,7 @@ lefty-controller-firmware/
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-├── tests/                     # PC上で即時実行可能な自動テストスイート (全86テスト)
+├── tests/                     # PC上で即時実行可能な自動テストスイート (全87テスト)
 │   ├── test_advanced_inputs.py# LeftyController統合テスト & Combo/Tap-Hold/Fnレイヤー検証
 │   ├── test_stick_engine.py   # スティック多段判定・ターゲット軸・ハット・異常設定耐性検証
 │   ├── test_debouncer.py      # デバウンス・チャタリング耐性検証
@@ -73,7 +73,7 @@ lefty-controller-firmware/
 │   ├── test_config.py         # 設定ファイル整合性検証
 │   └── test_webui_security.py # WebUI XSS/CSP/展開サイズ制限 & boot.py セキュリティ検証
 ├── docs/
-│   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.8.0〜)
+│   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.9.0〜)
 │   ├── serial_spec.md         # シリアル通信プロトコル仕様書 (JSON Lines & CLI)
 │   ├── webui_manual.md        # WebUI 設定ツール 操作マニュアル
 │   └── handover_spec.md       # 初期引き継ぎ要件定義書 (アーカイブ)
@@ -98,7 +98,8 @@ lefty-controller-firmware/
    - **D-Pad Walk / Run 連動ボタン:** スティックの傾きに応じてダッシュボタン（Bダッシュ等）やスニーク歩きボタンを同時押し可能。
 3. **マウス (ポインタ移動):**
    - スティックの傾き量に応じた加速度カーブ付きマウスポインタ移動。
-   - WebUIから最高速度（感度スライダー）を微調整可能。
+   - WebUIから最高速度、通常域上限比率（Walk上限 15%〜85%）、加速カーブ指数（1.0〜3.0 / 4種プリセット）、Run深倒し加速閾値を微調整可能。
+   - WebUI上のインタラクティブ Canvas によるリアルタイム速度カーブ描画 & スティック追従表示に対応。
 
 ### 3.2 初期プロファイルプリセット
 * **プロファイル 1 (FPS / 汎用):**
