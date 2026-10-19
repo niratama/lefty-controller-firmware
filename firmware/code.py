@@ -32,8 +32,10 @@ try:
     import analogio
     import usb_hid
     import supervisor
+    import microcontroller
     IS_CIRCUITPYTHON = True
 except ImportError:
+    microcontroller = None
     IS_CIRCUITPYTHON = False
 
 CONFIG_FILE = "config.json"

@@ -166,12 +166,14 @@ class SerialHandler:
         self._trigger_reboot()
 
     def _trigger_reboot(self):
+        reboot_handled = False
         if self.on_reboot:
             try:
                 self.on_reboot()
+                reboot_handled = True
             except Exception as e:
                 print(f"[WARN] on_reboot failed: {e}")
-        elif microcontroller and hasattr(microcontroller, "reset"):
+        if not reboot_handled and microcontroller and hasattr(microcontroller, "reset"):
             import time
             time.sleep(0.15)
             microcontroller.reset()
