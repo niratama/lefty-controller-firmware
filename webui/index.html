@@ -259,12 +259,15 @@
                 <div class="stick-mode-badge" id="stickModeBadge">
                   <span class="mode-badge-label">MODE:</span>
                   <span id="stickModeText" class="mode-badge-text">KEYBOARD (WASD)</span>
-                  <span id="stickModeExtra" class="mode-badge-extra"></span>
                 </div>
                 <canvas id="stickCanvas" width="300" height="300"></canvas>
                 <div class="stick-coords">
                   <span>RAW: (<span id="rawX">32768</span>, <span id="rawY">32768</span>)</span>
                   <span>Delta: (<span id="deltaX">0</span>, <span id="deltaY">0</span>)</span>
+                </div>
+                <div class="stick-output-row" id="stickOutputRow">
+                  <span class="stick-output-label">出力:</span>
+                  <span id="stickModeExtra" class="stick-output-val">-</span>
                 </div>
                 <div class="active-states">
                   <span id="stateUp" class="state-pill">UP: NEUTRAL</span>

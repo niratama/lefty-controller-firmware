@@ -1213,59 +1213,55 @@ function updateModeDisplay() {
   if (!textEl) return;
 
   let modeLabel = "";
+  let outputText = "-";
+
   if (mode === "gamepad") {
     if (target === "right_stick") {
       modeLabel = "GAMEPAD (右スティック Z/Rz)";
-      if (extraEl) {
-        if (currentTelemetry && currentTelemetry.gamepad) {
-          extraEl.textContent = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
-        } else {
-          extraEl.textContent = "";
-        }
+      if (currentTelemetry && currentTelemetry.gamepad) {
+        outputText = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
+      } else {
+        outputText = "Z: 0 / Rz: 0";
       }
     } else if (target === "dpad") {
       modeLabel = "GAMEPAD (DPAD/ハットスイッチ)";
-      if (extraEl) {
-        if (currentTelemetry && currentTelemetry.gamepad) {
-          const hatNames = ["中立(0)", "↑(1)", "↗(2)", "→(3)", "↘(4)", "↓(5)", "↙(6)", "←(7)", "↖(8)"];
-          const hatVal = currentTelemetry.gamepad[4] || 0;
-          const stageStr = currentTelemetry.gamepad_stage ? ` [${currentTelemetry.gamepad_stage.toUpperCase()}]` : "";
-          extraEl.textContent = `HAT: ${hatNames[hatVal] || hatVal}${stageStr}`;
-        } else {
-          extraEl.textContent = "";
-        }
+      if (currentTelemetry && currentTelemetry.gamepad) {
+        const hatNames = ["中立(0)", "↑(1)", "↗(2)", "→(3)", "↘(4)", "↓(5)", "↙(6)", "←(7)", "↖(8)"];
+        const hatVal = currentTelemetry.gamepad[4] || 0;
+        const stageStr = currentTelemetry.gamepad_stage ? ` [${currentTelemetry.gamepad_stage.toUpperCase()}]` : "";
+        outputText = `HAT: ${hatNames[hatVal] || hatVal}${stageStr}`;
+      } else {
+        outputText = "HAT: 中立(0)";
       }
     } else if (target === "z_axis") {
       modeLabel = "GAMEPAD (Z軸)";
-      if (extraEl) {
-        if (currentTelemetry && currentTelemetry.gamepad) {
-          extraEl.textContent = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
-        } else {
-          extraEl.textContent = "";
-        }
+      if (currentTelemetry && currentTelemetry.gamepad) {
+        outputText = `Z: ${currentTelemetry.gamepad[2] || 0} / Rz: ${currentTelemetry.gamepad[3] || 0}`;
+      } else {
+        outputText = "Z: 0 / Rz: 0";
       }
     } else {
       modeLabel = "GAMEPAD (左スティック X/Y)";
-      if (extraEl) {
-        if (currentTelemetry && currentTelemetry.gamepad) {
-          extraEl.textContent = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
-        } else {
-          extraEl.textContent = "";
-        }
+      if (currentTelemetry && currentTelemetry.gamepad) {
+        outputText = `X: ${currentTelemetry.gamepad[0]} / Y: ${currentTelemetry.gamepad[1]}`;
+      } else {
+        outputText = "X: 0 / Y: 0";
       }
     }
   } else if (mode === "mouse") {
     modeLabel = "MOUSE (POINTER)";
-    if (extraEl) {
-      if (currentTelemetry && currentTelemetry.mouse) {
-        extraEl.textContent = `dX: ${currentTelemetry.mouse[0]} / dY: ${currentTelemetry.mouse[1]}`;
-      } else {
-        extraEl.textContent = "";
-      }
+    if (currentTelemetry && currentTelemetry.mouse) {
+      outputText = `dX: ${currentTelemetry.mouse[0]} / dY: ${currentTelemetry.mouse[1]}`;
+    } else {
+      outputText = "dX: 0 / dY: 0";
     }
   } else {
     modeLabel = "KEYBOARD (WASD)";
-    if (extraEl) extraEl.textContent = "";
+    if (currentTelemetry && currentTelemetry.keys && currentTelemetry.keys.length > 0) {
+      outputText = `Keys: ${currentTelemetry.keys.join(", ")}`;
+    } else {
+      outputText = "Keys: (なし)";
+    }
   }
 
   if (dirMode === "4way_snap") {
@@ -1273,7 +1269,13 @@ function updateModeDisplay() {
   } else if (dirMode === "4way_strict") {
     modeLabel += " [4方向厳格]";
   }
-  textEl.textContent = modeLabel;
+
+  if (textEl.textContent !== modeLabel) {
+    textEl.textContent = modeLabel;
+  }
+  if (extraEl && extraEl.textContent !== outputText) {
+    extraEl.textContent = outputText;
+  }
 }
 
 function updateModeVisibility() {

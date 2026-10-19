@@ -276,6 +276,7 @@ body {
 .stick-mode-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background-color: #181d24;
   border: 1px solid var(--card-border);
@@ -284,12 +285,16 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  min-height: 28px;
+  box-sizing: border-box;
 }
 
 .stick-mode-badge .mode-badge-label {
   color: #64748b;
   font-weight: 700;
   font-size: 0.75rem;
+  letter-spacing: 0.5px;
 }
 
 .stick-mode-badge .mode-badge-text {
@@ -297,18 +302,34 @@ body {
   letter-spacing: 0.5px;
 }
 
-.stick-mode-badge .mode-badge-extra {
+.stick-output-row {
   font-family: monospace;
-  color: #34d399;
-  font-size: 0.75rem;
-  background-color: rgba(16, 185, 129, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  font-size: 0.8rem;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
 }
 
-.stick-mode-badge .mode-badge-extra:empty {
-  display: none;
+.stick-output-row .stick-output-label {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.stick-output-row .stick-output-val {
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  min-width: 140px;
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 #stickCanvas {
@@ -323,7 +344,9 @@ body {
   font-size: 0.85rem;
   display: flex;
   gap: 16px;
+  justify-content: center;
   color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
 }
 
 .active-states {
