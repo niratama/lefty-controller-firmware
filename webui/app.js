@@ -637,6 +637,8 @@ let serialPort = null;
 let reader = null;
 let writer = null;
 let isMonitoring = false;
+let isRebootPending = false;
+let isDisconnecting = false;
 let currentTelemetry = {
   raw: [32768, 32768],
   dx: 0,
@@ -3006,12 +3008,18 @@ function initNvmEvents() {
       );
       if (!ok) return;
 
+      isRebootPending = true;
       log("🛠️ メンテナンスモードへの移行コマンドを送信中...", "info");
       await sendJson({ cmd: "enter_maintenance" });
-      showToast("🛠️ メンテナンスモード移行指示を送信しました。マイコンが再起動します...");
+      showToast("🛠️ メンテナンスモードへ移行中... マイコンが再起動します（数秒後に「接続」で再接続可能）", 6000);
+
+      // 安全フォールバックタイマー (万一切断イベントが遅延した場合のフェイルセーフ)
       setTimeout(() => {
-        disconnectSerial();
-      }, 600);
+        if (isRebootPending && serialPort) {
+          disconnectSerial({ isSilent: true, reason: "マイコンの再起動に伴い切断しました" });
+          isRebootPending = false;
+        }
+      }, 1500);
     });
   }
 
@@ -3027,12 +3035,18 @@ function initNvmEvents() {
       );
       if (!ok) return;
 
+      isRebootPending = true;
       log("🔄 マイコンの通常再起動コマンドを送信中...", "info");
       await sendJson({ cmd: "reboot" });
-      showToast("🔄 再起動指示を送信しました");
+      showToast("🔄 通常モードへ再起動中...（数秒後に「接続」で再接続可能）", 6000);
+
+      // 安全フォールバックタイマー (万一切断イベントが遅延した場合のフェイルセーフ)
       setTimeout(() => {
-        disconnectSerial();
-      }, 600);
+        if (isRebootPending && serialPort) {
+          disconnectSerial({ isSilent: true, reason: "マイコンの再起動に伴い切断しました" });
+          isRebootPending = false;
+        }
+      }, 1500);
     });
   }
 }
@@ -4657,9 +4671,9 @@ async function connectSerial() {
   }
 
   // 既存の接続が残っている場合は確実にクリーンアップ
-  if (serialPort) {
+  if (serialPort || reader || writer) {
     try {
-      await disconnectSerial();
+      await disconnectSerial({ isSilent: true });
     } catch (_) {}
   }
 
@@ -4701,6 +4715,11 @@ async function connectSerial() {
     if (writer) { try { writer.releaseLock(); } catch (_) {} writer = null; }
     if (serialPort) { try { await serialPort.close(); } catch (_) {} serialPort = null; }
 
+    connStatus.textContent = "未接続";
+    connStatus.className = "badge badge-disconnected";
+    btnConnect.disabled = false;
+    btnDisconnect.disabled = true;
+
     if (err.name === "NotFoundError") {
       log("シリアルポートの選択がキャンセルされました", "info");
     } else if (err.message && err.message.includes("Failed to open serial port")) {
@@ -4711,7 +4730,10 @@ async function connectSerial() {
   }
 }
 
-async function disconnectSerial() {
+async function disconnectSerial({ isSilent = false, reason = "" } = {}) {
+  if (isDisconnecting) return;
+  isDisconnecting = true;
+
   try {
     stopLoadRetry();
     autoStartMonitorPending = false;
@@ -4720,26 +4742,39 @@ async function disconnectSerial() {
       setDeviceOpLoading(currentActiveOp, false);
     }
 
-    if (isMonitoring) {
-      await sendJson({ cmd: "monitor", enable: false });
-      isMonitoring = false;
-      updateMonitorUI(false);
+    if (isMonitoring && writer) {
+      try {
+        await sendJson({ cmd: "monitor", enable: false });
+      } catch (_) {}
     }
+    isMonitoring = false;
+    updateMonitorUI(false);
 
     if (reader) {
-      await reader.cancel();
-      reader.releaseLock();
+      try {
+        await reader.cancel();
+      } catch (_) {}
+      try {
+        reader.releaseLock();
+      } catch (_) {}
       reader = null;
     }
+
     if (writer) {
-      writer.releaseLock();
+      try {
+        writer.releaseLock();
+      } catch (_) {}
       writer = null;
     }
+
     if (serialPort) {
-      await serialPort.close();
+      try {
+        await serialPort.close();
+      } catch (_) {}
       serialPort = null;
     }
 
+    // UI状態を確実に「未接続」に復帰
     connStatus.textContent = "未接続";
     connStatus.className = "badge badge-disconnected";
     if (fwVersionBadge) {
@@ -4760,9 +4795,19 @@ async function disconnectSerial() {
     latestNvmStatus = null;
     updateNvmStorageUI();
 
-    log("シリアルポートを切断しました", "info");
+    if (reason) {
+      log(reason, isSilent ? "info" : "warn");
+    } else if (!isSilent) {
+      log("シリアルポートを切断しました", "info");
+    }
   } catch (err) {
-    log(`切断エラー: ${err.message}`, "error");
+    btnConnect.disabled = false;
+    btnDisconnect.disabled = true;
+    connStatus.textContent = "未接続";
+    connStatus.className = "badge badge-disconnected";
+    log(`切断クリーンアップ完了 (${err.message})`, "warn");
+  } finally {
+    isDisconnecting = false;
   }
 }
 
@@ -4800,7 +4845,25 @@ async function readLoop() {
       }
     }
   } catch (err) {
-    log(`受信ループエラー: ${err.message}`, "error");
+    if (isRebootPending) {
+      log("🔄 マイコンの再起動を検知しました（シリアル切断）", "info");
+    } else {
+      const isDeviceLost = err && (err.name === "NetworkError" || (err.message && err.message.includes("device has been lost")));
+      if (isDeviceLost) {
+        log("🔌 デバイスの切断を検知しました (The device has been lost)", "warn");
+      } else {
+        log(`受信ループエラー: ${err.message}`, "error");
+      }
+    }
+  } finally {
+    const wasReboot = isRebootPending;
+    isRebootPending = false;
+    await disconnectSerial({
+      isSilent: wasReboot,
+      reason: wasReboot
+        ? "マイコンの再起動が完了するまでお待ちください（約3〜5秒後に「接続」で再接続できます）"
+        : ""
+    });
   }
 }
 
@@ -5015,7 +5078,22 @@ function handleReceivedLine(line) {
 
 // イベントバインド
 btnConnect.addEventListener("click", connectSerial);
-btnDisconnect.addEventListener("click", disconnectSerial);
+btnDisconnect.addEventListener("click", () => disconnectSerial());
+
+if (typeof navigator !== "undefined" && navigator.serial && typeof navigator.serial.addEventListener === "function") {
+  navigator.serial.addEventListener("disconnect", (event) => {
+    if (serialPort && (event.target === serialPort || !event.target)) {
+      const wasReboot = isRebootPending;
+      isRebootPending = false;
+      disconnectSerial({
+        isSilent: wasReboot,
+        reason: wasReboot
+          ? "🔄 マイコンの再起動に伴い切断しました"
+          : "🔌 デバイスが取り外されました (シリアル切断)"
+      });
+    }
+  });
+}
 
 btnLoadConfig.addEventListener("click", () => {
   log("デバイスから設定を読み込み中...", "info");
