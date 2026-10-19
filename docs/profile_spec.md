@@ -439,7 +439,7 @@
   ```json
   {"cmd": "get_config"}
   ```
-  ファームウェアから `{"status": "ok", "cmd": "get_config", "version": "1.8.0", "config": { ... }, "storage": { ... }, "nvm": { ... }}` が返送されます。
+  ファームウェアから `{"status": "ok", "cmd": "get_config", "version": "1.9.0", "config": { ... }, "storage": { ... }, "nvm": { ... }}` が返送されます。
 * **設定反映 (`set_config`):**
   ```json
   {"cmd": "set_config", "config": { ... }}

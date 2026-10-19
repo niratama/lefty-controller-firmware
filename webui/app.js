@@ -1418,7 +1418,7 @@ function checkFirmwareVersion(fwVersion) {
     log(`⚠️ ファームウェアの更新が推奨されます: 現在 v${fwVersion} → 最新 v${WEBUI_VERSION}`, "warn");
 
   } else if (cmpWeb < 0) {
-    // 動作可能だが最新版 (v1.8.0) へのアップデートが利用可能
+    // 動作可能だが最新版 (v1.9.0) へのアップデートが利用可能
     fwVersionBadge.className = "badge badge-fw-version up-to-date";
     fwVersionBadge.textContent = `FW: v${fwVersion} (更新可能)`;
     fwVersionBadge.title = `最新ファームウェア (v${WEBUI_VERSION}) へのアップデートが可能です（同時押しコンボ、長押し・タップ判定、Fnレイヤー、Flashストレージ永続化など）。`;
