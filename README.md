@@ -74,6 +74,7 @@ lefty-controller-firmware/
 │   └── test_webui_security.py # WebUI XSS/CSP/展開サイズ制限 & boot.py セキュリティ検証
 ├── docs/
 │   ├── profile_spec.md        # プロファイル・設定フォーマット仕様書 (v1.8.0〜)
+│   ├── serial_spec.md         # シリアル通信プロトコル仕様書 (JSON Lines & CLI)
 │   ├── webui_manual.md        # WebUI 設定ツール 操作マニュアル
 │   └── handover_spec.md       # 初期引き継ぎ要件定義書 (アーカイブ)
 └── README.md
