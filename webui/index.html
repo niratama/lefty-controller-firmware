@@ -341,6 +341,11 @@
                     <option value="aggressive">急加速 (2.0 - 精密エイム & 端で一気に高速移動)</option>
                   </select>
                 </div>
+                <div class="param-row" id="mouseRunThresholdRow" style="display: none;">
+                  <label for="mouseRunThresholdInput">Run (深倒し加速) 開始閾値:</label>
+                  <input type="range" id="mouseRunThresholdInput" min="5000" max="32000" step="500">
+                  <span id="mouseRunThresholdVal" class="val-display">-</span>
+                </div>
                 <div class="param-row">
                   <label for="deadzoneInput">デッドゾーン (遊び):</label>
                   <input type="range" id="deadzoneInput" min="500" max="10000" step="100">

@@ -447,9 +447,14 @@ class StickEngine:
                     curve_power = 1.5
 
                 # Run 有効・無効による二段階ギア（深倒しブースト）制御
-                # 通常ゾーン (0% 〜 75%): Walk 速度 (最高速の 55%) まで滑らかに加速
-                # 深倒しゾーン (75% 〜 100%): Run 有効時は最高速 (100%) へ急加速
-                run_threshold = 0.75
+                # キーボード設定の Run 閾値 (th_run) と連動してブースト開始深さを決定
+                avg_th_run = (
+                    self.dir_configs["up"]["th_run"]
+                    + self.dir_configs["down"]["th_run"]
+                    + self.dir_configs["left"]["th_run"]
+                    + self.dir_configs["right"]["th_run"]
+                ) / 4.0
+                run_threshold = max(0.1, min(0.95, (avg_th_run - self.deadzone) / max_range))
                 walk_ratio_cap = 0.55
                 walk_max_speed = self.mouse_speed * walk_ratio_cap
 
@@ -463,7 +468,8 @@ class StickEngine:
                         speed = walk_max_speed + (boost_progress ** 1.3) * boost_span
                 else:
                     # Run無効時: 全域でWalk速度上限 (55%) に制限
-                    speed = (ratio ** curve_power) * walk_max_speed
+                    sub_ratio = min(1.0, ratio / run_threshold)
+                    speed = (sub_ratio ** curve_power) * walk_max_speed
 
                 if self.direction_mode in ("4way_snap", "4way_strict"):
                     target_dir = self._determine_4way_direction(dx, dy, dist)

@@ -333,6 +333,21 @@ class TestStickEngine(unittest.TestCase):
         # aggressive は浅倒し時により低速（精密操作）になること
         self.assertLessEqual(mdx_agg, mdx_lin)
 
+        # th_run の連動テスト:
+        # th_run を 16384 (約50%倒し) に設定した場合、16384 直前では Walk 速度 (~11px)、16384 を超えるとブースト加速すること
+        for d in ("up", "down", "left", "right"):
+            self.engine.dir_configs[d]["th_run"] = 16384
+        self.engine.enable_run = True
+        self.engine.mouse_remainder_x = 0.0
+        _, _, _, info_mid1 = self.engine.process(30000, 30000 + 16000)
+        mdx_mid1, _ = info_mid1["mouse"]
+        self.assertAlmostEqual(mdx_mid1, 11, delta=1)
+
+        self.engine.mouse_remainder_x = 0.0
+        _, _, _, info_mid2 = self.engine.process(30000, 30000 + 24000)
+        mdx_mid2, _ = info_mid2["mouse"]
+        self.assertGreater(mdx_mid2, 11)
+
     def test_4way_snap_single_direction(self):
         # 4方向スナップモード: 斜め入力時でも最大1方向のみが出力され、同時押しが絶対に起きない
         self.engine.direction_mode = "4way_snap"

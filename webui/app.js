@@ -722,6 +722,9 @@ const mouseSpeedInput = document.getElementById("mouseSpeedInput");
 const mouseSpeedVal = document.getElementById("mouseSpeedVal");
 const mouseCurveRow = document.getElementById("mouseCurveRow");
 const mouseCurveSelect = document.getElementById("mouseCurveSelect");
+const mouseRunThresholdRow = document.getElementById("mouseRunThresholdRow");
+const mouseRunThresholdInput = document.getElementById("mouseRunThresholdInput");
+const mouseRunThresholdVal = document.getElementById("mouseRunThresholdVal");
 const kbdThresholdsGroup = document.getElementById("kbdThresholdsGroup");
 
 // クイックアクション共有ボタン & プロファイル名表示
@@ -1284,6 +1287,19 @@ function updateModeVisibility() {
   if (mouseCurveSelect) {
     mouseCurveSelect.value = (currentConfig.joystick && currentConfig.joystick.mouse_curve) ? currentConfig.joystick.mouse_curve : "smooth";
   }
+  const isRunEnabled = currentConfig.joystick.enable_run !== false;
+  if (mouseRunThresholdRow) {
+    mouseRunThresholdRow.style.display = (mode === "mouse" && isRunEnabled) ? "flex" : "none";
+  }
+  const upRun = (currentConfig.joystick && currentConfig.joystick.directions && currentConfig.joystick.directions.up)
+    ? currentConfig.joystick.directions.up.th_run
+    : 26000;
+  if (mouseRunThresholdInput) {
+    mouseRunThresholdInput.value = upRun;
+    const dz = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+    const pct = Math.round(Math.max(0, Math.min(100, ((upRun - dz) / (32767 - dz)) * 100)));
+    if (mouseRunThresholdVal) mouseRunThresholdVal.textContent = `${upRun} (約${pct}%)`;
+  }
   if (kbdThresholdsGroup) {
     kbdThresholdsGroup.style.display = (mode === "keyboard") ? "block" : "none";
   }
@@ -1297,12 +1313,12 @@ function updateModeVisibility() {
     gamepadTargetSelect.value = target;
   }
   if (enableRunCheckbox) {
-    enableRunCheckbox.checked = currentConfig.joystick.enable_run !== false;
+    enableRunCheckbox.checked = isRunEnabled;
   }
   if (enableRunLabel && enableRunHint) {
     if (mode === "mouse") {
       enableRunLabel.textContent = "マウス深倒し加速 (Runブースト) を有効にする";
-      enableRunHint.textContent = "※ON: 75%以上倒すと最高速まで急加速 / OFF: 繊細エイム用に最高速を約55%に制限";
+      enableRunHint.textContent = "※ON: 指定したRun閾値以上倒すと最高速まで急加速 / OFF: 繊細エイム用に最高速を約55%に制限";
     } else if (mode === "gamepad" && target === "dpad") {
       enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
       enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk連動ボタンのみ入力されます";
@@ -3759,6 +3775,7 @@ if (gamepadTargetSelect) {
 if (enableRunCheckbox) {
   enableRunCheckbox.addEventListener("change", (e) => {
     currentConfig.joystick.enable_run = e.target.checked;
+    updateModeVisibility();
     syncCurrentToProfile();
     drawRadar();
     log(`スティックRun(走り/2段階目)入力を「${e.target.checked ? "有効" : "無効"}」に変更しました`, "info");
@@ -3810,6 +3827,24 @@ if (mouseCurveSelect) {
   });
 }
 
+if (mouseRunThresholdInput) {
+  mouseRunThresholdInput.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value, 10);
+    const dz = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+    const pct = Math.round(Math.max(0, Math.min(100, ((val - dz) / (32767 - dz)) * 100)));
+    if (mouseRunThresholdVal) mouseRunThresholdVal.textContent = `${val} (約${pct}%)`;
+    if (batchRunInput) batchRunInput.value = val;
+    if (batchRunVal) batchRunVal.textContent = val;
+    ["up", "down", "left", "right"].forEach(d => {
+      currentConfig.joystick.directions[d].th_run = val;
+      const elTr = document.getElementById(`th_run_${d}`);
+      if (elTr) elTr.value = val;
+    });
+    syncCurrentToProfile();
+    drawRadar();
+  });
+}
+
 batchWalkInput.addEventListener("input", (e) => {
   const val = parseInt(e.target.value, 10);
   batchWalkVal.textContent = val;
@@ -3825,6 +3860,12 @@ batchWalkInput.addEventListener("input", (e) => {
 batchRunInput.addEventListener("input", (e) => {
   const val = parseInt(e.target.value, 10);
   batchRunVal.textContent = val;
+  if (mouseRunThresholdInput) mouseRunThresholdInput.value = val;
+  if (mouseRunThresholdVal) {
+    const dz = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
+    const pct = Math.round(Math.max(0, Math.min(100, ((val - dz) / (32767 - dz)) * 100)));
+    mouseRunThresholdVal.textContent = `${val} (約${pct}%)`;
+  }
   ["up", "down", "left", "right"].forEach(d => {
     currentConfig.joystick.directions[d].th_run = val;
     const el = document.getElementById(`th_run_${d}`);
@@ -3897,20 +3938,24 @@ function drawRadar() {
   ctx.fill();
   ctx.stroke();
 
-  // 各方向のWalk / Run 領域の目安円 (キーボードモード時のみ描画)
+  // 各方向のWalk / Run 領域の目安円 (キーボードモード または マウスモードのRun有効時)
   const mode = (currentConfig.joystick && currentConfig.joystick.mode) ? currentConfig.joystick.mode : "keyboard";
-  if (mode === "keyboard") {
-    const avgWalk = (currentConfig.joystick.directions.up.th_walk + currentConfig.joystick.directions.right.th_walk) / 2;
-    const walkRatio = Math.min(1.0, avgWalk / 32768);
-    ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * walkRatio, 0, Math.PI * 2);
-    ctx.stroke();
+  const isMouseWithRun = (mode === "mouse" && currentConfig.joystick.enable_run !== false);
+  if (mode === "keyboard" || isMouseWithRun) {
+    if (mode === "keyboard") {
+      const avgWalk = (currentConfig.joystick.directions.up.th_walk + currentConfig.joystick.directions.right.th_walk) / 2;
+      const walkRatio = Math.min(1.0, avgWalk / 32768);
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * walkRatio, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     const avgRun = (currentConfig.joystick.directions.up.th_run + currentConfig.joystick.directions.right.th_run) / 2;
     const runRatio = Math.min(1.0, avgRun / 32768);
-    ctx.strokeStyle = "rgba(16, 185, 129, 0.35)";
+    ctx.strokeStyle = isMouseWithRun ? "rgba(245, 158, 11, 0.5)" : "rgba(16, 185, 129, 0.35)";
+    ctx.setLineDash(isMouseWithRun ? [3, 3] : []);
     ctx.beginPath();
     ctx.arc(cx, cy, radius * runRatio, 0, Math.PI * 2);
     ctx.stroke();
