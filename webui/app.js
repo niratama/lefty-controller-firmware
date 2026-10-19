@@ -658,6 +658,10 @@ const versionAlertBanner = document.getElementById("versionAlertBanner");
 const versionAlertTitle = document.getElementById("versionAlertTitle");
 const versionAlertDetail = document.getElementById("versionAlertDetail");
 const btnDismissVersionAlert = document.getElementById("btnDismissVersionAlert");
+const safeModeAlertBanner = document.getElementById("safeModeAlertBanner");
+const safeModeAlertDetail = document.getElementById("safeModeAlertDetail");
+const btnSendCtrlD = document.getElementById("btnSendCtrlD");
+const btnDismissSafeModeAlert = document.getElementById("btnDismissSafeModeAlert");
 
 const btnConnect = document.getElementById("btnConnect");
 const btnDisconnect = document.getElementById("btnDisconnect");
@@ -2966,6 +2970,16 @@ function initUI() {
       versionAlertBanner.style.display = "none";
     });
   }
+  if (btnDismissSafeModeAlert && safeModeAlertBanner) {
+    btnDismissSafeModeAlert.addEventListener("click", () => {
+      safeModeAlertBanner.style.display = "none";
+    });
+  }
+  if (btnSendCtrlD) {
+    btnSendCtrlD.addEventListener("click", async () => {
+      await sendCtrlD();
+    });
+  }
   initNvmEvents();
   initAdvancedInputEvents();
   renderProfileSelect();
@@ -4783,6 +4797,9 @@ async function disconnectSerial({ isSilent = false, reason = "" } = {}) {
     if (versionAlertBanner) {
       versionAlertBanner.style.display = "none";
     }
+    if (safeModeAlertBanner) {
+      safeModeAlertBanner.style.display = "none";
+    }
     btnConnect.disabled = false;
     btnDisconnect.disabled = true;
     btnLoadConfig.disabled = true;
@@ -4822,6 +4839,23 @@ async function sendJson(obj) {
     if (currentActiveOp) {
       setDeviceOpLoading(currentActiveOp, false);
     }
+  }
+}
+
+async function sendCtrlD() {
+  if (!writer) {
+    showToast("⚠️ シリアル未接続です");
+    return;
+  }
+  try {
+    log("🔄 Ctrl-D (ソフトリセット) を送信中...", "info");
+    const encoder = new TextEncoder();
+    // \x03 (Ctrl-C) でREPLの不完全な入力をキャンセルし、\x04 (Ctrl-D) でソフトリロード
+    await writer.write(encoder.encode("\x03\x04"));
+    showToast("🔄 Ctrl-D を送信しました。マイコンの再起動を待機中...");
+    if (safeModeAlertBanner) safeModeAlertBanner.style.display = "none";
+  } catch (err) {
+    log(`Ctrl-D 送信エラー: ${err.message}`, "error");
   }
 }
 
@@ -4874,8 +4908,21 @@ function handleReceivedLine(line) {
   } catch (e) {
     // プレーンテキストログの出力
     log(`[DEVICE] ${line}`, "device");
+    if (line.includes("セーフモード") || line.includes("Hard fault") || line.includes("Safe Mode") || line.includes("セーフモードに入った理由")) {
+      handleSafeModeDetected(line);
+    }
     return;
   }
+
+function handleSafeModeDetected(line) {
+  stopLoadRetry();
+  if (safeModeAlertBanner) {
+    safeModeAlertBanner.style.display = "flex";
+  }
+  log("⚠️ マイコンがセーフモード (Safe Mode) に入っています。PCの書き込みキャッシュが未フラッシュのままリセットされたか、ファイル更新直後の不整合の可能性があります。", "warn");
+  showToast("⚠️ マイコンがセーフモードで起動しています。画面上部バナーの手順をご確認ください。", 8000);
+}
+
 
   try {
     if (msg.type === "telemetry") {

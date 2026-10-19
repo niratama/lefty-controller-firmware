@@ -23,7 +23,8 @@ def set_maintenance_boot_flag(enable=True):
     if microcontroller and hasattr(microcontroller, "nvm") and len(microcontroller.nvm) >= BOOT_FLAG_LEN:
         try:
             val = MAINTENANCE_BOOT_FLAG if enable else (b"\x00" * BOOT_FLAG_LEN)
-            microcontroller.nvm[-BOOT_FLAG_LEN:] = val
+            nvm_len = len(microcontroller.nvm)
+            microcontroller.nvm[nvm_len - BOOT_FLAG_LEN : nvm_len] = val
             return True
         except Exception as e:
             print(f"[WARN] NVMブートフラグ設定エラー: {e}")

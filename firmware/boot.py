@@ -57,10 +57,11 @@ try:
     try:
         import microcontroller
         if microcontroller and hasattr(microcontroller, "nvm") and len(microcontroller.nvm) >= 4:
-            if bytes(microcontroller.nvm[-4:]) == b"MAIT":
+            nvm_len = len(microcontroller.nvm)
+            if bytes(microcontroller.nvm[nvm_len - 4 : nvm_len]) == b"MAIT":
                 is_maintenance = True
                 # 次回起動時は通常モードに戻るようフラグをクリア
-                microcontroller.nvm[-4:] = b"\x00\x00\x00\x00"
+                microcontroller.nvm[nvm_len - 4 : nvm_len] = b"\x00\x00\x00\x00"
     except Exception as e_flag:
         print(f"[boot.py flag INFO] {e_flag}")
 

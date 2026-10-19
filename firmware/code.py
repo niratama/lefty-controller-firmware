@@ -200,7 +200,8 @@ class LeftyController:
             self.button_manager,
             CONFIG_FILE,
             on_config_updated=self.apply_config,
-            on_calibrate=self.auto_calibrate
+            on_calibrate=self.auto_calibrate,
+            on_reboot=self.handle_reboot
         )
 
         # 状態追跡用
@@ -219,6 +220,19 @@ class LeftyController:
         # ハードウェア初期化 & 設定適用 (active_profile の反映)
         self.init_hardware()
         self.apply_config(self.config)
+
+    def handle_reboot(self):
+        """再起動前のクリーンアップ処理 (HID全解放・LED消灯・リセット)"""
+        self.release_all_hid()
+        if hasattr(self, "led") and self.led:
+            try:
+                self.led.set_color((0, 0, 0))
+            except Exception:
+                pass
+        if microcontroller and hasattr(microcontroller, "reset"):
+            import time
+            time.sleep(0.2)
+            microcontroller.reset()
 
     def release_all_hid(self):
         """全HIDデバイス（キーボード・マウス・ゲームパッド）の押下状態を安全に全解放"""

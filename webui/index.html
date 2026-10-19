@@ -15,7 +15,7 @@
     <!-- ヘッダー -->
     <header class="app-header">
       <div class="logo-area">
-        <h1>左手デバイス 設定ツール <span class="app-version-tag" id="appVersionTag">WebUI v1.8.0</span></h1>
+        <h1>左手デバイス 設定ツール <span class="app-version-tag" id="appVersionTag">WebUI v1.9.0</span></h1>
         <span class="subtitle">Waveshare RP2040-Zero Firmware Configurator</span>
       </div>
       <div class="connection-bar">
@@ -27,6 +27,26 @@
         <button id="btnToggleMonitor" class="btn btn-outline btn-monitor btn-toggle-monitor" disabled title="リアルタイムのスティック・ボタン入力状態の受信を切り替えます">モニタリング開始</button>
       </div>
     </header>
+
+    <!-- セーフモード検知バナー -->
+    <div id="safeModeAlertBanner" class="version-alert-banner safe-mode-banner" style="display: none; background: #fff3cd; border-left: 5px solid #dc3545; color: #721c24;">
+      <div class="banner-content">
+        <span class="banner-icon" style="font-size: 1.5rem;">⚠️</span>
+        <div class="banner-text">
+          <div class="banner-title" style="font-weight: bold; color: #721c24;">マイコンがセーフモード (Safe Mode) で動作しています</div>
+          <div class="banner-detail" id="safeModeAlertDetail">CircuitPythonの安全機能により保存されたコードの実行が停止しています（故障・文鎮化ではありません）。</div>
+          <div class="banner-subtext" style="color: #856404; margin-top: 4px;">
+            【復帰手順】<br>
+            ① PCで認識されている <code>CIRCUITPY</code> ドライブを <strong>「安全な取り出し (イジェクト)」</strong> してください。<br>
+            ② 下の <strong>「ソフトリセット (Ctrl-D)」</strong> ボタンを押すか、マイコン本体の <strong>RESETボタン</strong> を1回押してください。
+          </div>
+        </div>
+      </div>
+      <div class="banner-actions" style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-sm btn-danger" id="btnSendCtrlD">🔄 ソフトリセット (Ctrl-D)</button>
+        <button type="button" class="btn-sm btn-outline" id="btnDismissSafeModeAlert">閉じる</button>
+      </div>
+    </div>
 
     <!-- ファームウェア更新通知バナー -->
     <div id="versionAlertBanner" class="version-alert-banner" style="display: none;">
