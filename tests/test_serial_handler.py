@@ -47,7 +47,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(out)
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "get_config")
-        self.assertEqual(resp["version"], "1.9.0")
+        self.assertEqual(resp["version"], "1.10.0")
         self.assertEqual(resp["config"]["joystick"]["deadzone"], 3500)
 
     def test_set_config(self):
@@ -124,7 +124,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "pong")
-        self.assertEqual(resp["version"], "1.9.0")
+        self.assertEqual(resp["version"], "1.10.0")
 
     def test_version_command(self):
         old_stdout = sys.stdout
@@ -137,7 +137,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "version")
-        self.assertEqual(resp["version"], "1.9.0")
+        self.assertEqual(resp["version"], "1.10.0")
 
     def test_garbage_prefixed_json(self):
         old_stdout = sys.stdout
@@ -266,7 +266,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "enter_maintenance")
-        self.assertEqual(resp["version"], "1.9.0")
+        self.assertEqual(resp["version"], "1.10.0")
         self.assertEqual(len(reboot_called), 1)
 
     def test_reboot_command(self):
@@ -283,7 +283,7 @@ class TestSerialHandler(unittest.TestCase):
         resp = json.loads(buffer.getvalue().strip())
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["cmd"], "reboot")
-        self.assertEqual(resp["version"], "1.9.0")
+        self.assertEqual(resp["version"], "1.10.0")
         self.assertEqual(len(reboot_called), 1)
 
     def test_maintenance_plaintext_command(self):

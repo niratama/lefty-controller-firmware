@@ -1,6 +1,6 @@
 // Lefty Controller Configurator Client Script
 
-const WEBUI_VERSION = "1.9.0";
+const WEBUI_VERSION = "1.10.0";
 const MIN_RECOMMENDED_FW_VERSION = "1.5.0";
 
 // ハードウェア固有の物理ピン定義 (基板固定仕様 / プロファイル非依存)
@@ -341,8 +341,13 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve_type: "power",
         mouse_curve: "smooth",
+        mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
         mouse_walk_ratio: 0.55,
+        mouse_min_speed: 0.0,
+        mouse_dynamic_accel: 0.0,
+        mouse_aspect_ratio: 1.0,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -375,8 +380,13 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve_type: "power",
         mouse_curve: "smooth",
+        mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
         mouse_walk_ratio: 0.55,
+        mouse_min_speed: 0.0,
+        mouse_dynamic_accel: 0.0,
+        mouse_aspect_ratio: 1.0,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -409,8 +419,13 @@ const DEFAULT_CONFIG = {
         dpad_walk_btn: "",
         dpad_run_btn: "Gamepad_2",
         mouse_speed: 12,
+        mouse_curve_type: "power",
         mouse_curve: "smooth",
+        mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
         mouse_walk_ratio: 0.55,
+        mouse_min_speed: 0.0,
+        mouse_dynamic_accel: 0.0,
+        mouse_aspect_ratio: 1.0,
         deadzone: 2500,
         hysteresis: 1500,
         invert_x: false,
@@ -440,8 +455,13 @@ const DEFAULT_CONFIG = {
     dpad_walk_btn: "",
     dpad_run_btn: "Gamepad_2",
     mouse_speed: 12,
+    mouse_curve_type: "power",
     mouse_curve: "smooth",
+    mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
     mouse_walk_ratio: 0.55,
+    mouse_min_speed: 0.0,
+    mouse_dynamic_accel: 0.0,
+    mouse_aspect_ratio: 1.0,
     deadzone: 2500,
     hysteresis: 1500,
     invert_x: false,
@@ -472,7 +492,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -500,7 +526,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -528,7 +560,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -556,7 +594,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -588,7 +632,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -616,7 +666,13 @@ const PRESET_PROFILES = [
       dpad_walk_btn: "",
       dpad_run_btn: "Gamepad_2",
       mouse_speed: 12,
+      mouse_curve_type: "power",
       mouse_curve: "smooth",
+      mouse_curve_points: [0.15, 0.40, 0.75, 1.0],
+      mouse_walk_ratio: 0.55,
+      mouse_min_speed: 0.0,
+      mouse_dynamic_accel: 0.0,
+      mouse_aspect_ratio: 1.0,
       deadzone: 2500,
       hysteresis: 1500,
       invert_x: false,
@@ -736,6 +792,28 @@ const mouseSpeedVal = document.getElementById("mouseSpeedVal");
 const mouseWalkRatioRow = document.getElementById("mouseWalkRatioRow");
 const mouseWalkRatioInput = document.getElementById("mouseWalkRatioInput");
 const mouseWalkRatioVal = document.getElementById("mouseWalkRatioVal");
+const mouseCurveTypeSelect = document.getElementById("mouseCurveTypeSelect");
+const mousePowerCurveGroup = document.getElementById("mousePowerCurveGroup");
+const mouseSigmoidGroup = document.getElementById("mouseSigmoidGroup");
+const mouseCustomCurveGroup = document.getElementById("mouseCustomCurveGroup");
+const customPointSliders = [
+  document.getElementById("customPointSlider0"),
+  document.getElementById("customPointSlider1"),
+  document.getElementById("customPointSlider2"),
+  document.getElementById("customPointSlider3")
+];
+const customPointVals = [
+  document.getElementById("customPointVal0"),
+  document.getElementById("customPointVal1"),
+  document.getElementById("customPointVal2"),
+  document.getElementById("customPointVal3")
+];
+const mouseMinSpeedInput = document.getElementById("mouseMinSpeedInput");
+const mouseMinSpeedVal = document.getElementById("mouseMinSpeedVal");
+const mouseDynamicAccelInput = document.getElementById("mouseDynamicAccelInput");
+const mouseDynamicAccelVal = document.getElementById("mouseDynamicAccelVal");
+const mouseAspectRatioInput = document.getElementById("mouseAspectRatioInput");
+const mouseAspectRatioVal = document.getElementById("mouseAspectRatioVal");
 const mouseCurveRow = document.getElementById("mouseCurveRow");
 const mouseCurveSlider = document.getElementById("mouseCurveSlider");
 const mouseCurveVal = document.getElementById("mouseCurveVal");
@@ -1158,10 +1236,25 @@ function ensureProfiles(cfg) {
     }
     if (!p.joystick.mode || typeof p.joystick.mode !== "string") p.joystick.mode = "keyboard";
     if (!p.joystick.mouse_speed) p.joystick.mouse_speed = 12;
+    if (!p.joystick.mouse_curve_type || typeof p.joystick.mouse_curve_type !== "string") {
+      p.joystick.mouse_curve_type = "power";
+    }
     if (p.joystick.mouse_curve === undefined || (typeof p.joystick.mouse_curve !== "string" && typeof p.joystick.mouse_curve !== "number")) {
       p.joystick.mouse_curve = "smooth";
     }
+    if (!Array.isArray(p.joystick.mouse_curve_points) || p.joystick.mouse_curve_points.length !== 4) {
+      p.joystick.mouse_curve_points = [0.15, 0.40, 0.75, 1.0];
+    }
     if (p.joystick.mouse_walk_ratio === undefined) p.joystick.mouse_walk_ratio = 0.55;
+    if (p.joystick.mouse_min_speed === undefined || typeof p.joystick.mouse_min_speed !== "number") {
+      p.joystick.mouse_min_speed = 0.0;
+    }
+    if (p.joystick.mouse_dynamic_accel === undefined || typeof p.joystick.mouse_dynamic_accel !== "number") {
+      p.joystick.mouse_dynamic_accel = 0.0;
+    }
+    if (p.joystick.mouse_aspect_ratio === undefined || typeof p.joystick.mouse_aspect_ratio !== "number") {
+      p.joystick.mouse_aspect_ratio = 1.0;
+    }
     if (!p.joystick.direction_mode || typeof p.joystick.direction_mode !== "string") p.joystick.direction_mode = "8way";
     if (p.joystick.deadzone === undefined) p.joystick.deadzone = 2500;
     if (p.joystick.hysteresis === undefined) p.joystick.hysteresis = 1500;
@@ -1308,6 +1401,16 @@ function updateModeVisibility() {
 
   if (mouseSettingsBox) {
     mouseSettingsBox.style.display = (mode === "mouse") ? "flex" : "none";
+  }
+  const curveType = (currentConfig.joystick && currentConfig.joystick.mouse_curve_type) ? currentConfig.joystick.mouse_curve_type : "power";
+  if (mousePowerCurveGroup) {
+    mousePowerCurveGroup.style.display = (curveType === "power") ? "block" : "none";
+  }
+  if (mouseSigmoidGroup) {
+    mouseSigmoidGroup.style.display = (curveType === "sigmoid") ? "block" : "none";
+  }
+  if (mouseCustomCurveGroup) {
+    mouseCustomCurveGroup.style.display = (curveType === "custom") ? "block" : "none";
   }
   const isRunEnabled = currentConfig.joystick.enable_run !== false;
   if (mouseRunThresholdRow) {
@@ -3636,6 +3739,46 @@ function updateFormFromConfig() {
     if (mouseCurveVal) mouseCurveVal.textContent = curvePower.toFixed(2);
   }
   updateCurvePresetButtons(curvePower);
+
+  const curveType = (currentConfig.joystick && currentConfig.joystick.mouse_curve_type) ? currentConfig.joystick.mouse_curve_type : "power";
+  if (mouseCurveTypeSelect) {
+    mouseCurveTypeSelect.value = curveType;
+  }
+  const pts = (currentConfig.joystick && Array.isArray(currentConfig.joystick.mouse_curve_points) && currentConfig.joystick.mouse_curve_points.length === 4)
+    ? currentConfig.joystick.mouse_curve_points
+    : [0.15, 0.40, 0.75, 1.0];
+  customPointSliders.forEach((sl, idx) => {
+    if (sl) {
+      const pPct = Math.round(pts[idx] * 100);
+      sl.value = pPct;
+      if (customPointVals[idx]) customPointVals[idx].textContent = `${pPct}%`;
+    }
+  });
+
+  const minSpd = (currentConfig.joystick && typeof currentConfig.joystick.mouse_min_speed === "number") ? currentConfig.joystick.mouse_min_speed : 0.0;
+  if (mouseMinSpeedInput) {
+    mouseMinSpeedInput.value = minSpd.toFixed(1);
+    if (mouseMinSpeedVal) {
+      mouseMinSpeedVal.textContent = minSpd > 0 ? `${minSpd.toFixed(1)} px` : "0.0 px (無効)";
+    }
+  }
+
+  const dynAccel = (currentConfig.joystick && typeof currentConfig.joystick.mouse_dynamic_accel === "number") ? currentConfig.joystick.mouse_dynamic_accel : 0.0;
+  if (mouseDynamicAccelInput) {
+    mouseDynamicAccelInput.value = dynAccel.toFixed(1);
+    if (mouseDynamicAccelVal) {
+      mouseDynamicAccelVal.textContent = dynAccel > 0 ? dynAccel.toFixed(1) : "0.0 (OFF)";
+    }
+  }
+
+  const aspect = (currentConfig.joystick && typeof currentConfig.joystick.mouse_aspect_ratio === "number") ? currentConfig.joystick.mouse_aspect_ratio : 1.0;
+  if (mouseAspectRatioInput) {
+    mouseAspectRatioInput.value = aspect.toFixed(2);
+    if (mouseAspectRatioVal) {
+      mouseAspectRatioVal.textContent = (aspect === 1.0) ? "1.00 (等倍)" : `${aspect.toFixed(2)}x`;
+    }
+  }
+
   updateModeVisibility();
 
   const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
@@ -3958,6 +4101,65 @@ if (curvePresetButtons) {
   });
 }
 
+if (mouseCurveTypeSelect) {
+  mouseCurveTypeSelect.addEventListener("change", (e) => {
+    currentConfig.joystick.mouse_curve_type = e.target.value;
+    updateModeVisibility();
+    syncCurrentToProfile();
+    drawMouseCurve();
+    log(`カーブ計算方式を「${mouseCurveTypeSelect.options[mouseCurveTypeSelect.selectedIndex].text}」に変更しました`, "info");
+  });
+}
+
+customPointSliders.forEach((sl, idx) => {
+  if (sl) {
+    sl.addEventListener("input", (e) => {
+      const valPct = parseInt(e.target.value, 10);
+      if (customPointVals[idx]) customPointVals[idx].textContent = `${valPct}%`;
+      if (!Array.isArray(currentConfig.joystick.mouse_curve_points) || currentConfig.joystick.mouse_curve_points.length !== 4) {
+        currentConfig.joystick.mouse_curve_points = [0.15, 0.40, 0.75, 1.0];
+      }
+      currentConfig.joystick.mouse_curve_points[idx] = Math.round((valPct / 100) * 100) / 100;
+      syncCurrentToProfile();
+      drawMouseCurve();
+    });
+  }
+});
+
+if (mouseMinSpeedInput) {
+  mouseMinSpeedInput.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    currentConfig.joystick.mouse_min_speed = val;
+    if (mouseMinSpeedVal) {
+      mouseMinSpeedVal.textContent = val > 0 ? `${val.toFixed(1)} px` : "0.0 px (無効)";
+    }
+    syncCurrentToProfile();
+    drawMouseCurve();
+  });
+}
+
+if (mouseDynamicAccelInput) {
+  mouseDynamicAccelInput.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    currentConfig.joystick.mouse_dynamic_accel = val;
+    if (mouseDynamicAccelVal) {
+      mouseDynamicAccelVal.textContent = val > 0 ? val.toFixed(1) : "0.0 (OFF)";
+    }
+    syncCurrentToProfile();
+  });
+}
+
+if (mouseAspectRatioInput) {
+  mouseAspectRatioInput.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    currentConfig.joystick.mouse_aspect_ratio = val;
+    if (mouseAspectRatioVal) {
+      mouseAspectRatioVal.textContent = (val === 1.0) ? "1.00 (等倍)" : `${val.toFixed(2)}x`;
+    }
+    syncCurrentToProfile();
+  });
+}
+
 if (mouseRunThresholdInput) {
   mouseRunThresholdInput.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
@@ -4192,22 +4394,57 @@ function getMouseWalkRatio(val) {
   return 0.55;
 }
 
-function calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold) {
+function evalMouseCurve(x, curveType = "power", curvePower = 1.5, pts = [0.15, 0.40, 0.75, 1.0]) {
+  const normX = Math.max(0.0, Math.min(1.0, x));
+  if (normX <= 0.0) return 0.0;
+  if (normX >= 1.0) return 1.0;
+
+  if (curveType === "sigmoid") {
+    // 3次 Hermite SmoothStep: 3x^2 - 2x^3 (初動滑らか・中域リニア・終盤マイルド)
+    return normX * normX * (3.0 - 2.0 * normX);
+  } else if (curveType === "custom") {
+    const p = (Array.isArray(pts) && pts.length === 4) ? pts : [0.15, 0.40, 0.75, 1.0];
+    if (normX <= 0.25) {
+      return (normX / 0.25) * p[0];
+    } else if (normX <= 0.50) {
+      const t = (normX - 0.25) / 0.25;
+      return p[0] + t * (p[1] - p[0]);
+    } else if (normX <= 0.75) {
+      const t = (normX - 0.50) / 0.25;
+      return p[1] + t * (p[2] - p[1]);
+    } else {
+      const t = (normX - 0.75) / 0.25;
+      return p[2] + t * (p[3] - p[2]);
+    }
+  } else {
+    // "power"
+    return Math.pow(normX, curvePower);
+  }
+}
+
+function calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold, curveType = "power", curvePoints = [0.15, 0.40, 0.75, 1.0], minSpeed = 0.0) {
   if (r <= 0) return 0;
   const walkMaxSpeed = mouseSpeed * walkRatioCap;
+  let spd = 0;
   if (enableRun) {
     if (r <= runThreshold) {
       const subRatio = r / runThreshold;
-      return Math.pow(subRatio, curvePower) * walkMaxSpeed;
+      spd = evalMouseCurve(subRatio, curveType, curvePower, curvePoints) * walkMaxSpeed;
     } else {
       const boostProgress = (r - runThreshold) / (1.0 - runThreshold);
       const boostSpan = mouseSpeed - walkMaxSpeed;
-      return walkMaxSpeed + Math.pow(boostProgress, 1.3) * boostSpan;
+      spd = walkMaxSpeed + Math.pow(boostProgress, 1.3) * boostSpan;
     }
   } else {
     const subRatio = Math.min(1.0, r / runThreshold);
-    return Math.pow(subRatio, curvePower) * walkMaxSpeed;
+    spd = evalMouseCurve(subRatio, curveType, curvePower, curvePoints) * walkMaxSpeed;
   }
+
+  if (minSpeed > 0) {
+    const minSpd = Math.min(mouseSpeed, minSpeed);
+    spd = minSpd + spd * (1.0 - minSpd / mouseSpeed);
+  }
+  return spd;
 }
 
 function updateCurvePresetButtons(curveVal) {
@@ -4238,6 +4475,11 @@ function drawMouseCurve(currentRatio = undefined) {
   const mouseSpeed = (currentConfig.joystick && currentConfig.joystick.mouse_speed) ? currentConfig.joystick.mouse_speed : 12;
   const walkRatioCap = getMouseWalkRatio(currentConfig.joystick && currentConfig.joystick.mouse_walk_ratio);
   const curvePower = getMouseCurvePower(currentConfig.joystick && currentConfig.joystick.mouse_curve);
+  const curveType = (currentConfig.joystick && currentConfig.joystick.mouse_curve_type) ? currentConfig.joystick.mouse_curve_type : "power";
+  const curvePoints = (currentConfig.joystick && Array.isArray(currentConfig.joystick.mouse_curve_points) && currentConfig.joystick.mouse_curve_points.length === 4)
+    ? currentConfig.joystick.mouse_curve_points
+    : [0.15, 0.40, 0.75, 1.0];
+  const minSpeed = (currentConfig.joystick && typeof currentConfig.joystick.mouse_min_speed === "number") ? currentConfig.joystick.mouse_min_speed : 0.0;
   const enableRun = (currentConfig.joystick && currentConfig.joystick.enable_run !== false);
   const deadzone = (currentConfig.joystick && currentConfig.joystick.deadzone !== undefined) ? currentConfig.joystick.deadzone : 2500;
   const maxRange = Math.max(1, 32767 - deadzone);
@@ -4330,7 +4572,7 @@ function drawMouseCurve(currentRatio = undefined) {
   mouseCurveCtx.moveTo(toX(0), toY(0));
   for (let i = 0; i <= steps; i++) {
     const r = i / steps;
-    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold, curveType, curvePoints, minSpeed);
     mouseCurveCtx.lineTo(toX(r), toY(spd));
   }
   mouseCurveCtx.lineTo(toX(1.0), toY(0));
@@ -4342,7 +4584,7 @@ function drawMouseCurve(currentRatio = undefined) {
   mouseCurveCtx.beginPath();
   for (let i = 0; i <= steps; i++) {
     const r = i / steps;
-    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+    const spd = calculateMouseSpeed(r, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold, curveType, curvePoints, minSpeed);
     if (i === 0) {
       mouseCurveCtx.moveTo(toX(r), toY(spd));
     } else {
@@ -4362,7 +4604,7 @@ function drawMouseCurve(currentRatio = undefined) {
     curR = Math.max(0, Math.min(1.0, (dist - deadzone) / maxRange));
   }
 
-  const curSpeed = calculateMouseSpeed(curR, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold);
+  const curSpeed = calculateMouseSpeed(curR, mouseSpeed, walkRatioCap, curvePower, enableRun, runThreshold, curveType, curvePoints, minSpeed);
   if (curveLiveSpeedLabel) {
     curveLiveSpeedLabel.textContent = `入力: ${Math.round(curR * 100)}% / 速度: ${curSpeed.toFixed(1)}`;
   }

@@ -20,8 +20,14 @@ class StickEngine:
         # 動作モード ("keyboard" | "gamepad" | "mouse")
         self.mode = "keyboard"
         self.mouse_speed = 12  # マウスモード時の最高速度 (px/frame)
-        self.mouse_curve = "smooth"  # マウス加速カーブ ("linear" | "smooth" | "aggressive" | float 1.0-3.0)
+        self.mouse_curve_type = "power"  # "power" | "sigmoid" | "custom"
+        self.mouse_curve = "smooth"  # マウス加速カーブ ("linear" | "smooth" | "aggressive" | float 0.5-3.0)
+        self.mouse_curve_points = [0.15, 0.40, 0.75, 1.0]  # custom時の [25%, 50%, 75%, 100%] 出力比率
         self.mouse_walk_ratio = 0.55  # 通常域 (Walk) 最高速度比率 (0.10 - 0.90)
+        self.mouse_min_speed = 0.0    # 初動最小速度 (0.0 - 5.0 px/frame)
+        self.mouse_dynamic_accel = 0.0  # 動的フリック加速ゲイン (0.0 - 2.0, 0.0で無効)
+        self.mouse_aspect_ratio = 1.0   # 横長画面向けのX軸感度倍率 (0.5 - 2.0)
+        self.prev_mouse_ratio = 0.0   # 動的加速判定用の前フレーム傾き量 (0.0 - 1.0)
         self.mouse_remainder_x = 0.0  # サブピクセル蓄積用
         self.mouse_remainder_y = 0.0
 
@@ -112,6 +118,11 @@ class StickEngine:
             self.direction_mode = dir_mode
 
         self.mouse_speed = self._safe_int(joy_cfg.get("mouse_speed", self.mouse_speed), self.mouse_speed, 1, 127)
+
+        curve_type = joy_cfg.get("mouse_curve_type", self.mouse_curve_type)
+        if isinstance(curve_type, str) and curve_type in ("power", "sigmoid", "custom"):
+            self.mouse_curve_type = curve_type
+
         curve = joy_cfg.get("mouse_curve", self.mouse_curve)
         if isinstance(curve, str) and curve in ("linear", "smooth", "aggressive"):
             self.mouse_curve = curve
@@ -123,6 +134,13 @@ class StickEngine:
             except ValueError:
                 self.mouse_curve = "smooth"
 
+        curve_points = joy_cfg.get("mouse_curve_points", self.mouse_curve_points)
+        if isinstance(curve_points, (list, tuple)) and len(curve_points) == 4:
+            try:
+                self.mouse_curve_points = [max(0.0, min(1.0, float(p))) for p in curve_points]
+            except (ValueError, TypeError):
+                pass
+
         walk_ratio = joy_cfg.get("mouse_walk_ratio", self.mouse_walk_ratio)
         if isinstance(walk_ratio, (int, float)):
             self.mouse_walk_ratio = max(0.10, min(0.90, float(walk_ratio)))
@@ -131,6 +149,33 @@ class StickEngine:
                 self.mouse_walk_ratio = max(0.10, min(0.90, float(walk_ratio)))
             except ValueError:
                 self.mouse_walk_ratio = 0.55
+
+        min_spd = joy_cfg.get("mouse_min_speed", self.mouse_min_speed)
+        if isinstance(min_spd, (int, float)):
+            self.mouse_min_speed = max(0.0, min(5.0, float(min_spd)))
+        elif isinstance(min_spd, str):
+            try:
+                self.mouse_min_speed = max(0.0, min(5.0, float(min_spd)))
+            except ValueError:
+                pass
+
+        dyn_accel = joy_cfg.get("mouse_dynamic_accel", self.mouse_dynamic_accel)
+        if isinstance(dyn_accel, (int, float)):
+            self.mouse_dynamic_accel = max(0.0, min(2.0, float(dyn_accel)))
+        elif isinstance(dyn_accel, str):
+            try:
+                self.mouse_dynamic_accel = max(0.0, min(2.0, float(dyn_accel)))
+            except ValueError:
+                pass
+
+        asp = joy_cfg.get("mouse_aspect_ratio", self.mouse_aspect_ratio)
+        if isinstance(asp, (int, float)):
+            self.mouse_aspect_ratio = max(0.5, min(2.0, float(asp)))
+        elif isinstance(asp, str):
+            try:
+                self.mouse_aspect_ratio = max(0.5, min(2.0, float(asp)))
+            except ValueError:
+                pass
 
         self.deadzone = self._safe_int(joy_cfg.get("deadzone", self.deadzone), self.deadzone, 0, 32767)
         self.hysteresis = self._safe_int(joy_cfg.get("hysteresis", self.hysteresis), self.hysteresis, 0, 32767)
@@ -311,6 +356,39 @@ class StickEngine:
         self.current_4way_dir = target
         return target
 
+    def _calc_mouse_curve(self, norm_ratio, curve_power=1.5):
+        """
+        正規化された倒し量 (0.0〜1.0) を選択中のカーブ方式に基づいて 0.0〜1.0 の速度割合へ変換
+        """
+        x = max(0.0, min(1.0, float(norm_ratio)))
+        if x <= 0.0:
+            return 0.0
+        if x >= 1.0:
+            return 1.0
+
+        if self.mouse_curve_type == "sigmoid":
+            # 3次 Hermite SmoothStep: 3x^2 - 2x^3 (初動滑らか・中域リニア・終盤マイルド)
+            return x * x * (3.0 - 2.0 * x)
+
+        elif self.mouse_curve_type == "custom":
+            # 4点折れ線補間: P0(0,0), P1(0.25, y1), P2(0.5, y2), P3(0.75, y3), P4(1.0, y4)
+            pts = self.mouse_curve_points
+            if x <= 0.25:
+                return (x / 0.25) * pts[0]
+            elif x <= 0.50:
+                t = (x - 0.25) / 0.25
+                return pts[0] + t * (pts[1] - pts[0])
+            elif x <= 0.75:
+                t = (x - 0.50) / 0.25
+                return pts[1] + t * (pts[2] - pts[1])
+            else:
+                t = (x - 0.75) / 0.25
+                return pts[2] + t * (pts[3] - pts[2])
+
+        else:
+            # "power" (標準指数カーブ)
+            return x ** curve_power
+
     def process(self, raw_x, raw_y):
         """
         1フレームのADC入力を評価し、押すべきキーセット、押下イベント、解放イベント、およびデバッグ情報を返します。
@@ -442,9 +520,10 @@ class StickEngine:
             return self.active_keys, to_press, to_release, debug_info
 
         elif self.mode == "mouse":
-            if dist < self.deadzone:
+            if dist <= self.deadzone or dist == 0:
                 mouse_dx = 0
                 mouse_dy = 0
+                self.prev_mouse_ratio = 0.0
                 self.mouse_remainder_x = 0.0
                 self.mouse_remainder_y = 0.0
             else:
@@ -452,7 +531,7 @@ class StickEngine:
                 clamped_dist = min(32767.0, dist)
                 ratio = (clamped_dist - self.deadzone) / max_range
 
-                # レスポンスカーブ指数の決定
+                # レスポンスカーブ指数の決定 (power選択時に使用)
                 if self.mouse_curve == "linear":
                     curve_power = 1.0
                 elif self.mouse_curve == "aggressive":
@@ -477,15 +556,27 @@ class StickEngine:
                 if self.enable_run:
                     if ratio <= run_threshold:
                         sub_ratio = ratio / run_threshold
-                        speed = (sub_ratio ** curve_power) * walk_max_speed
+                        speed = self._calc_mouse_curve(sub_ratio, curve_power) * walk_max_speed
                     else:
                         boost_progress = (ratio - run_threshold) / (1.0 - run_threshold)
                         boost_span = self.mouse_speed - walk_max_speed
                         speed = walk_max_speed + (boost_progress ** 1.3) * boost_span
                 else:
-                    # Run無効時: 全域でWalk速度上限 (55%) に制限
+                    # Run無効時: 全域でWalk速度上限に制限
                     sub_ratio = min(1.0, ratio / run_threshold)
-                    speed = (sub_ratio ** curve_power) * walk_max_speed
+                    speed = self._calc_mouse_curve(sub_ratio, curve_power) * walk_max_speed
+
+                # 初動最小速度 (Minimum Start Speed) 補正
+                if ratio > 0.0 and self.mouse_min_speed > 0.0:
+                    min_spd = min(float(self.mouse_speed), self.mouse_min_speed)
+                    speed = min_spd + speed * (1.0 - min_spd / float(self.mouse_speed))
+
+                # 動的フリック加速 (Dynamic Velocity Boost)
+                if self.mouse_dynamic_accel > 0.0:
+                    delta_r = max(0.0, ratio - self.prev_mouse_ratio)
+                    dyn_mult = 1.0 + self.mouse_dynamic_accel * min(1.0, delta_r * 2.0)
+                    speed = min(float(self.mouse_speed) * 1.5, speed * dyn_mult)
+                self.prev_mouse_ratio = ratio
 
                 if self.direction_mode in ("4way_snap", "4way_strict"):
                     target_dir = self._determine_4way_direction(dx, dy, dist)
@@ -506,9 +597,13 @@ class StickEngine:
                         raw_dy = 0.0
                 else:
                     self.current_4way_dir = None
-                    raw_dx = (dx / dist) * speed
+                    raw_dx = (dx / dist) * speed if dist > 0 else 0.0
                     # 画面座標系: 上は負(-raw_dy)
-                    raw_dy = (-dy / dist) * speed
+                    raw_dy = (-dy / dist) * speed if dist > 0 else 0.0
+
+                # X/Y アスペクト比補正 (横方向感度倍率)
+                if self.mouse_aspect_ratio != 1.0:
+                    raw_dx = raw_dx * self.mouse_aspect_ratio
 
                 # サブピクセル端数蓄積により微小操作・低速エイムを滑らかに反映
                 target_fx = raw_dx + self.mouse_remainder_x

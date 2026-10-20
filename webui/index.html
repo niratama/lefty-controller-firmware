@@ -15,7 +15,7 @@
     <!-- ヘッダー -->
     <header class="app-header">
       <div class="logo-area">
-        <h1>左手デバイス 設定ツール <span class="app-version-tag" id="appVersionTag">WebUI v1.9.0</span></h1>
+        <h1>左手デバイス 設定ツール <span class="app-version-tag" id="appVersionTag">WebUI v1.10.0</span></h1>
         <span class="subtitle">Waveshare RP2040-Zero Firmware Configurator</span>
       </div>
       <div class="connection-bar">
@@ -361,31 +361,98 @@
                     <span id="mouseSpeedVal" class="val-display">-</span>
                   </div>
 
+                  <div class="param-row" id="mouseCurveTypeRow">
+                    <label for="mouseCurveTypeSelect">カーブ計算方式:</label>
+                    <select id="mouseCurveTypeSelect" class="btn-input" style="width: 100%;">
+                      <option value="power" selected>📈 指数カーブ (標準 / パワー)</option>
+                      <option value="sigmoid">〰️ S字カーブ (スムーズ / Ease-in-out)</option>
+                      <option value="custom">🎛️ カスタム折れ線 (4点マルチポイント)</option>
+                    </select>
+                  </div>
+
+                  <!-- 指数カーブ設定グループ (power時) -->
+                  <div id="mousePowerCurveGroup">
+                    <div class="param-row" id="mouseCurveRow">
+                      <label for="mouseCurveSlider">加速カーブ指数 (レスポンス):</label>
+                      <input type="range" id="mouseCurveSlider" min="0.5" max="3.0" step="0.05" value="1.5">
+                      <span id="mouseCurveVal" class="val-display">1.50</span>
+                    </div>
+                    <div class="curve-preset-buttons" id="curvePresetButtons">
+                      <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="0.7">クイック (0.7)</button>
+                      <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.0">リニア (1.0)</button>
+                      <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.5">スムーズ (1.5)</button>
+                      <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.0">急加速 (2.0)</button>
+                      <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.5">超精密 (2.5)</button>
+                    </div>
+                  </div>
+
+                  <!-- S字カーブ説明グループ (sigmoid時) -->
+                  <div id="mouseSigmoidGroup" style="display: none;">
+                    <span class="param-hint">ℹ️ 初動は滑らかに立ち上がり、中域はリニアに素直に伸び、最高速付近で自然に収束する Hermite S字カーブです。</span>
+                  </div>
+
+                  <!-- カスタム4点折れ線グループ (custom時) -->
+                  <div id="mouseCustomCurveGroup" style="display: none;">
+                    <span class="param-hint" style="margin-bottom: 6px; display: block;">各傾きポイントにおける速度比率（%）を指定します:</span>
+                    <div class="custom-points-grid">
+                      <div class="custom-point-item">
+                        <div class="custom-point-label"><span>25% 傾き時:</span><span id="customPointVal0" class="custom-point-val">15%</span></div>
+                        <input type="range" id="customPointSlider0" min="0" max="60" step="1" value="15">
+                      </div>
+                      <div class="custom-point-item">
+                        <div class="custom-point-label"><span>50% 傾き時:</span><span id="customPointVal1" class="custom-point-val">40%</span></div>
+                        <input type="range" id="customPointSlider1" min="5" max="80" step="1" value="40">
+                      </div>
+                      <div class="custom-point-item">
+                        <div class="custom-point-label"><span>75% 傾き時:</span><span id="customPointVal2" class="custom-point-val">75%</span></div>
+                        <input type="range" id="customPointSlider2" min="20" max="100" step="1" value="75">
+                      </div>
+                      <div class="custom-point-item">
+                        <div class="custom-point-label"><span>100% 傾き時:</span><span id="customPointVal3" class="custom-point-val">100%</span></div>
+                        <input type="range" id="customPointSlider3" min="50" max="100" step="1" value="100">
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="param-row" id="mouseWalkRatioRow">
                     <label for="mouseWalkRatioInput">通常域 (Walk) 速度上限比率:</label>
-                    <input type="range" id="mouseWalkRatioInput" min="15" max="85" step="1" value="55">
+                    <input type="range" id="mouseWalkRatioInput" min="10" max="90" step="1" value="55">
                     <span id="mouseWalkRatioVal" class="val-display">55%</span>
                   </div>
                   <span class="param-hint">※深倒し（Run）までの通常移動速度の上限。低くするとソリティアやエイムでの中域の進みすぎを抑え、微小操作がしやすくなります。</span>
 
-                  <div class="param-row" id="mouseCurveRow">
-                    <label for="mouseCurveSlider">加速カーブ指数 (レスポンス):</label>
-                    <input type="range" id="mouseCurveSlider" min="0.5" max="3.0" step="0.05" value="1.5">
-                    <span id="mouseCurveVal" class="val-display">1.50</span>
+                  <div class="param-row" id="mouseMinSpeedRow">
+                    <label for="mouseMinSpeedInput">初動最小速度 (初速保証):</label>
+                    <input type="range" id="mouseMinSpeedInput" min="0.0" max="5.0" step="0.1" value="0.0">
+                    <span id="mouseMinSpeedVal" class="val-display">0.0 px (無効)</span>
                   </div>
-                  <div class="curve-preset-buttons" id="curvePresetButtons">
-                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="0.7">クイック (0.7)</button>
-                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.0">リニア (1.0)</button>
-                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="1.5">スムーズ (1.5)</button>
-                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.0">急加速 (2.0)</button>
-                    <button type="button" class="btn btn-xs btn-outline curve-preset-btn" data-curve="2.5">超精密 (2.5)</button>
-                  </div>
+                  <span class="param-hint">※デッドゾーンを抜けた瞬間に保証する最低初速。スティック初動のもっさり感を解消したい場合に設定します。</span>
 
                   <div class="param-row" id="mouseRunThresholdRow">
                     <label for="mouseRunThresholdInput">Run (深倒し加速) 開始閾値:</label>
                     <input type="range" id="mouseRunThresholdInput" min="5000" max="32000" step="500">
                     <span id="mouseRunThresholdVal" class="val-display">-</span>
                   </div>
+
+                  <!-- 高度なマウス設定 (折りたたみ) -->
+                  <details class="advanced-mouse-details" id="advancedMouseDetails">
+                    <summary class="advanced-mouse-summary">⚙️ 高度なマウス設定 (動的フリック加速 / 横長画面補正)</summary>
+                    <div class="advanced-mouse-content">
+                      <div class="param-row" id="mouseDynamicAccelRow">
+                        <label for="mouseDynamicAccelInput">動的フリック加速ゲイン:</label>
+                        <input type="range" id="mouseDynamicAccelInput" min="0.0" max="2.0" step="0.1" value="0.0">
+                        <span id="mouseDynamicAccelVal" class="val-display">0.0 (OFF)</span>
+                      </div>
+                      <span class="param-hint">※スティックを素早く弾いた時のみ一時的に速度を最大1.5倍までブーストします。ゆっくり倒せば通常速度、素早くフリックすると一気に画面端へ移動できます。</span>
+
+                      <div class="param-row" id="mouseAspectRatioRow">
+                        <label for="mouseAspectRatioInput">横方向 (X軸) 感度倍率:</label>
+                        <input type="range" id="mouseAspectRatioInput" min="0.5" max="2.0" step="0.05" value="1.0">
+                        <span id="mouseAspectRatioVal" class="val-display">1.00 (等倍)</span>
+                      </div>
+                      <span class="param-hint">※ワイドモニター（16:9 や 21:9）に合わせて、横方向の移動速度を縦方向より速く補正できます（16:9 おすすめ値: 1.33）。</span>
+                    </div>
+                  </details>
 
                   <!-- マウス加速カーブ リアルタイムプレビューグラフ -->
                   <div class="mouse-curve-preview-container">

@@ -543,5 +543,94 @@ class TestStickEngine(unittest.TestCase):
         active, _, _, _ = self.engine.process(30000, 30000)
         self.assertEqual(active, set())
 
+    def test_mouse_extended_curves(self):
+        # 1. Sigmoid (S字カーブ) の検証
+        self.engine.mode = "mouse"
+        self.engine.mouse_curve_type = "sigmoid"
+        self.assertEqual(self.engine._calc_mouse_curve(0.0), 0.0)
+        self.assertEqual(self.engine._calc_mouse_curve(1.0), 1.0)
+        # S字の中間点 (x=0.5): 3*(0.25) - 2*(0.125) = 0.75 - 0.25 = 0.5
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(0.5), 0.5, places=5)
+        # 初動 (x=0.2): 3*(0.04) - 2*(0.008) = 0.12 - 0.016 = 0.104 (< 0.2: 初動が穏やか)
+        self.assertLess(self.engine._calc_mouse_curve(0.2), 0.2)
+
+        # 2. Custom 4点折れ線カーブの検証
+        self.engine.mouse_curve_type = "custom"
+        self.engine.mouse_curve_points = [0.10, 0.30, 0.70, 1.0]
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(0.25), 0.10, places=5)
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(0.50), 0.30, places=5)
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(0.75), 0.70, places=5)
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(1.00), 1.00, places=5)
+        # 補間点 (x=0.125: P0とP1の中間 => 0.05)
+        self.assertAlmostEqual(self.engine._calc_mouse_curve(0.125), 0.05, places=5)
+
+    def test_mouse_min_speed(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.mouse_speed = 20
+        self.engine.mouse_min_speed = 3.0
+        self.engine.deadzone = 2500
+
+        # デッドゾーン直後のごくわずかな傾き (dist=2600)
+        # 通常なら speed ≈ 0px だが、min_speed=3.0 により最低速度が保証される
+        _, _, _, info = self.engine.process(30000, 32600)
+        mdx, _ = info["mouse"]
+        self.assertGreaterEqual(mdx, 2)  # サブピクセル切り捨て考慮して少なくとも2〜3px
+
+    def test_mouse_dynamic_accel(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.mouse_speed = 20
+        self.engine.mouse_dynamic_accel = 1.0
+        self.engine.deadzone = 0
+
+        # 1フレーム目: センター (ratio=0)
+        self.engine.process(30000, 30000)
+
+        # 2フレーム目: 急激に最大までフリック (ratio=1.0, delta_r=1.0)
+        _, _, _, info = self.engine.process(30000, 62767)
+        mdx_flick, _ = info["mouse"]
+        # 動的加速により mouse_speed (20) を超えるブーストが発生
+        self.assertGreater(mdx_flick, 20)
+
+    def test_mouse_aspect_ratio(self):
+        self.engine.mode = "mouse"
+        self.engine.rotation = 90
+        self.engine.mouse_speed = 20
+        self.engine.mouse_aspect_ratio = 1.5  # X軸1.5倍
+        self.engine.deadzone = 0
+        self.engine.enable_run = True
+        self.engine.mouse_curve = "linear"
+
+        # X方向 (右) への移動
+        self.engine.mouse_remainder_x = 0.0
+        _, _, _, info_x = self.engine.process(30000, 62767)
+        mdx, _ = info_x["mouse"]
+
+        # Y方向 (上) への移動
+        self.engine.mouse_remainder_y = 0.0
+        _, _, _, info_y = self.engine.process(62767, 30000)
+        _, mdy = info_y["mouse"]
+
+        # X軸方向の移動量が Y軸方向の移動量よりも大きいこと
+        self.assertAlmostEqual(mdx, abs(mdy) * 1.5, delta=2)
+
+    def test_mouse_extended_config_loading(self):
+        self.engine.load_config({
+            "joystick": {
+                "mode": "mouse",
+                "mouse_curve_type": "sigmoid",
+                "mouse_curve_points": [0.2, 0.5, 0.8, 1.0],
+                "mouse_min_speed": 2.5,
+                "mouse_dynamic_accel": 0.8,
+                "mouse_aspect_ratio": 1.33
+            }
+        })
+        self.assertEqual(self.engine.mouse_curve_type, "sigmoid")
+        self.assertEqual(self.engine.mouse_curve_points, [0.2, 0.5, 0.8, 1.0])
+        self.assertEqual(self.engine.mouse_min_speed, 2.5)
+        self.assertEqual(self.engine.mouse_dynamic_accel, 0.8)
+        self.assertEqual(self.engine.mouse_aspect_ratio, 1.33)
+
 if __name__ == '__main__':
     unittest.main()

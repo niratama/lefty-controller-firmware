@@ -1,6 +1,6 @@
 # 左手デバイス シリアル通信プロトコル仕様書 (Serial Protocol Specification)
 
-本ドキュメントは、Waveshare RP2040-Zero 搭載左手デバイスファームウェア（**v1.9.0 以降**）におけるシリアル通信（USB CDC）のインターフェース、コマンド体系、データフォーマット、およびエラーハンドリングを網羅した技術仕様書です。
+本ドキュメントは、Waveshare RP2040-Zero 搭載左手デバイスファームウェア（**v1.10.0 以降**）におけるシリアル通信（USB CDC）のインターフェース、コマンド体系、データフォーマット、およびエラーハンドリングを網羅した技術仕様書です。
 
 Web Serial API を用いたブラウザ設定ツール（WebUI）との通信、およびシリアルターミナル（PuTTY, Tera Term, screen, Arduino Serial Monitor 等）からの対話的 CLI 操作の双方に対応しています。
 
@@ -66,7 +66,7 @@ Web Serial API を用いたブラウザ設定ツール（WebUI）との通信、
 {
   "status": "ok",
   "cmd": "コマンド名",
-  "version": "1.9.0"
+  "version": "1.10.0"
 }
 ```
 
@@ -87,9 +87,9 @@ Web Serial API を用いたブラウザ設定ツール（WebUI）との通信、
   {
     "status": "ok",
     "cmd": "get_config",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "config": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "active_profile": 0,
       "profiles": [ ... ],
       "keymap": { ... },
@@ -121,7 +121,7 @@ Web Serial API を用いたブラウザ設定ツール（WebUI）との通信、
   {
     "cmd": "set_config",
     "config": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "active_profile": 0,
       "profiles": [ ... ]
     }
@@ -132,7 +132,7 @@ Web Serial API を用いたブラウザ設定ツール（WebUI）との通信、
   {
     "status": "ok",
     "cmd": "set_config",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "saved_to_file": true,
     "saved_to_nvm": false,
     "storage": { "total": 1400000, "used": 45000, "free": 1355000, "valid": true },
@@ -158,7 +158,7 @@ NVMおよびFlashストレージの設定をクリアし、ファームウェア
   {
     "status": "ok",
     "cmd": "reset_config",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "config": { ... },
     "storage": { ... },
     "nvm": { ... }
@@ -218,7 +218,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
   {
     "status": "ok",
     "cmd": "enter_maintenance",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "message": "Rebooting into maintenance mode (USB drive enabled)..."
   }
   ```
@@ -242,7 +242,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
   {
     "status": "ok",
     "cmd": "reboot",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "message": "Rebooting controller into normal mode..."
   }
   ```
@@ -265,7 +265,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
   {
     "status": "ok",
     "cmd": "storage_status",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "storage": {
       "total": 1400000,
       "used": 42000,
@@ -293,7 +293,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
   ```
   **Response:**
   ```json
-  {"status": "ok", "cmd": "version", "version": "1.9.0"}
+  {"status": "ok", "cmd": "version", "version": "1.10.0"}
   ```
 
 * **Ping Request:**
@@ -302,7 +302,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
   ```
   **Response:**
   ```json
-  {"status": "ok", "cmd": "pong", "version": "1.9.0"}
+  {"status": "ok", "cmd": "pong", "version": "1.10.0"}
   ```
 
 ---
@@ -314,7 +314,7 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
 | コマンド | 説明 | 応答例 |
 | :--- | :--- | :--- |
 | `help` | サポートされているプレーンテキストコマンド一覧を取得 | `{"status": "ok", "help": ["get_config", "set_config", "version", "calibrate", "monitor_on", "monitor_off", "enter_maintenance", "reboot"]}` |
-| `version` | ファームウェアバージョンを取得 | `{"status": "ok", "cmd": "version", "version": "1.9.0"}` |
+| `version` | ファームウェアバージョンを取得 | `{"status": "ok", "cmd": "version", "version": "1.10.0"}` |
 | `calibrate` | スティックの原点を補正 | `{"status": "ok", "cmd": "calibrate", "center": [32768, 32768]}` |
 | `monitor_on` | テレメトリのストリーミングを開始 | `{"status": "ok", "monitor": true}` |
 | `monitor_off` | テレメトリのストリーミングを停止 | `{"status": "ok", "monitor": false}` |
@@ -420,5 +420,6 @@ USBケーブルの抜き差しや物理BOOTボタンの操作を行わずに、�
 
 | バージョン | 改定日 | 改定内容 |
 | :--- | :--- | :--- |
+| **v1.10.0** | 2026-10-20 | ・ファームウェアバージョン v1.10.0 に更新<br>・設定ペイロードの joystick オブジェクトに統合マウスカーブ拡張パラメータ（`mouse_curve_type`, `mouse_curve_points`, `mouse_min_speed`, `mouse_dynamic_accel`, `mouse_aspect_ratio`）を追加 |
 | **v1.9.0** | 2026-10-20 | ・ファームウェアバージョン v1.9.0 に更新<br>・設定ペイロードの joystick オブジェクトに通常域上限比率 `mouse_walk_ratio` (0.10〜0.90) および連続値加速カーブ `mouse_curve` (0.50〜3.00) を追加 |
 | **v1.8.0** | 2026-10-20 | ・本シリアルプロトコル仕様書の新規初版作成<br>・メンテナンスモード移行コマンド（`enter_maintenance`）および通常再起動（`reboot`）の追加<br>・NVM末尾4バイトブートフラグ制御仕様の策定<br>・プレーンテキストCLIコマンド仕様およびテレメトリ完全スキーマの明文化 |

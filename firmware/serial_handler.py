@@ -13,7 +13,7 @@ try:
 except ImportError:
     microcontroller = None
 
-FIRMWARE_VERSION = "1.9.0"
+FIRMWARE_VERSION = "1.10.0"
 
 MAINTENANCE_BOOT_FLAG = b"MAIT"
 BOOT_FLAG_LEN = 4
