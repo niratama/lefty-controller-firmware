@@ -304,7 +304,7 @@
               <div class="stick-params">
                 <h3>スティック基本動作</h3>
                 <div class="param-row">
-                  <label for="stickModeSelect">スティック動作モード:</label>
+                  <label for="stickModeSelect">スティック動作モード: <span class="info-tip" data-tooltip="keyboard: キーボード多段階WASD移動 / gamepad: アナログスティックまたはDPAD / mouse: マウスポインタ移動" title="keyboard: キーボード多段階WASD移動 / gamepad: アナログスティックまたはDPAD / mouse: マウスポインタ移動">i</span></label>
                   <select id="stickModeSelect" class="btn-input" style="width: 100%;">
                     <option value="keyboard">キーボード (WASD 多段階入力)</option>
                     <option value="gamepad">ゲームパッド (アナログスティック / DPAD)</option>
@@ -325,13 +325,12 @@
 
                 <!-- スティック Run (走り/2段階目/マウス深倒し加速) 有効・無効トグル -->
                 <div class="param-row-checkbox" id="enableRunRow">
-                  <label><input type="checkbox" id="enableRunCheckbox" checked> <span id="enableRunLabel">スティックのRun (走り/2段階目入力) を有効にする</span></label>
-                  <span class="param-hint-inline" id="enableRunHint">※チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます</span>
+                  <label><input type="checkbox" id="enableRunCheckbox" checked> <span id="enableRunLabel">スティックのRun (走り/2段階目入力) を有効にする</span> <span class="info-tip" id="enableRunHint" data-tooltip="チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます" title="チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます">i</span></label>
                 </div>
 
                 <!-- DPAD Walk/Run 連動ボタン (ゲームパッド DPAD時のみ表示) -->
                 <div id="dpadWalkRunGroup" class="dpad-modifiers-box" style="display: none;">
-                  <h4>DPAD Walk / Run 連動ボタン設定</h4>
+                  <h4>DPAD Walk / Run 連動ボタン設定 <span class="info-tip" data-tooltip="スティックの傾きに応じて連動ボタンを押します。深く倒した時にダッシュ、浅く倒した時にスニーク/歩き等のボタン連携が可能です。" title="スティックの傾きに応じて連動ボタンを押します。深く倒した時にダッシュ、浅く倒した時にスニーク/歩き等のボタン連携が可能です。">i</span></h4>
                   <div class="param-row">
                     <label for="dpadWalkBtnInput">Walk (低速移動時) 追加ボタン:</label>
                     <input type="text" id="dpadWalkBtnInput" class="btn-input" placeholder="例: 未設定、または Shift や Gamepad_1 等">
@@ -340,11 +339,10 @@
                     <label for="dpadRunBtnInput">Run (高速移動時) 追加ボタン:</label>
                     <input type="text" id="dpadRunBtnInput" class="btn-input" placeholder="例: Gamepad_2 (Bダッシュ) や Gamepad_9 (L3) 等">
                   </div>
-                  <span class="param-hint">※スティックの傾きに応じて連動ボタンを押します。深く倒した時にダッシュボタンを押す標準パターン、または浅く倒した時にスニーク/歩きボタンを押す逆パターンの両方に対応します。</span>
                 </div>
 
                 <div class="param-row">
-                  <label for="directionModeSelect">方向入力制限 (斜め防止):</label>
+                  <label for="directionModeSelect">方向入力制限 (斜め防止): <span class="info-tip" data-tooltip="8way: 8方向入力 / 4way_snap: 最寄りの1方向に吸着 / 4way_strict: 斜め入力時は出力を無効化（誤爆防止）" title="8way: 8方向入力 / 4way_snap: 最寄りの1方向に吸着 / 4way_strict: 斜め入力時は出力を無効化（誤爆防止）">i</span></label>
                   <select id="directionModeSelect" class="btn-input" style="width: 100%;">
                     <option value="8way">8方向入力 (標準: 斜め同時押し可)</option>
                     <option value="4way_snap">4方向スナップ (推奨: 最寄り1方向のみ入力)</option>
@@ -356,13 +354,13 @@
                   <h4>🖱️ マウス詳細速度 & 加速カーブ設定</h4>
 
                   <div class="param-row" id="mouseSpeedRow">
-                    <label for="mouseSpeedInput">マウス最高速度 (感度):</label>
+                    <label for="mouseSpeedInput">マウス最高速度 (感度): <span class="info-tip" data-tooltip="スティック最大傾倒時のマウスカーソル最高移動速度（感度）です。" title="スティック最大傾倒時のマウスカーソル最高移動速度（感度）です。">i</span></label>
                     <input type="range" id="mouseSpeedInput" min="2" max="30" step="1">
                     <span id="mouseSpeedVal" class="val-display">-</span>
                   </div>
 
                   <div class="param-row" id="mouseCurveTypeRow">
-                    <label for="mouseCurveTypeSelect">カーブ計算方式:</label>
+                    <label for="mouseCurveTypeSelect">カーブ計算方式: <span class="info-tip" data-tooltip="指数: 累乗計算による標準加速。S字: 初動滑らか・中域リニア・終盤マイルド。カスタム: 25/50/75/100%の4点折れ線補間。" title="指数: 累乗計算による標準加速。S字: 初動滑らか・中域リニア・終盤マイルド。カスタム: 25/50/75/100%の4点折れ線補間。">i</span></label>
                     <select id="mouseCurveTypeSelect" class="btn-input" style="width: 100%;">
                       <option value="power" selected>📈 指数カーブ (標準 / パワー)</option>
                       <option value="sigmoid">〰️ S字カーブ (スムーズ / Ease-in-out)</option>
@@ -373,7 +371,7 @@
                   <!-- 指数カーブ設定グループ (power時) -->
                   <div id="mousePowerCurveGroup">
                     <div class="param-row" id="mouseCurveRow">
-                      <label for="mouseCurveSlider">加速カーブ指数 (レスポンス):</label>
+                      <label for="mouseCurveSlider">加速カーブ指数 (レスポンス): <span class="info-tip" data-tooltip="1.0未満: クイック（初速立ち上がりが速い） / 1.0: リニア（等倍直線） / 1.5以上: スムーズ〜精密（浅倒しが穏やかで狙いやすい）" title="1.0未満: クイック（初速立ち上がりが速い） / 1.0: リニア（等倍直線） / 1.5以上: スムーズ〜精密（浅倒しが穏やかで狙いやすい）">i</span></label>
                       <input type="range" id="mouseCurveSlider" min="0.5" max="3.0" step="0.05" value="1.5">
                       <span id="mouseCurveVal" class="val-display">1.50</span>
                     </div>
@@ -387,13 +385,10 @@
                   </div>
 
                   <!-- S字カーブ説明グループ (sigmoid時) -->
-                  <div id="mouseSigmoidGroup" style="display: none;">
-                    <span class="param-hint">ℹ️ 初動は滑らかに立ち上がり、中域はリニアに素直に伸び、最高速付近で自然に収束する Hermite S字カーブです。</span>
-                  </div>
+                  <div id="mouseSigmoidGroup" style="display: none;"></div>
 
                   <!-- カスタム4点折れ線グループ (custom時) -->
                   <div id="mouseCustomCurveGroup" style="display: none;">
-                    <span class="param-hint" style="margin-bottom: 6px; display: block;">各傾きポイントにおける速度比率（%）を指定します:</span>
                     <div class="custom-points-grid">
                       <div class="custom-point-item">
                         <div class="custom-point-label"><span>25% 傾き時:</span><span id="customPointVal0" class="custom-point-val">15%</span></div>
@@ -415,18 +410,16 @@
                   </div>
 
                   <div class="param-row" id="mouseWalkRatioRow">
-                    <label for="mouseWalkRatioInput">通常域 (Walk) 速度上限比率:</label>
+                    <label for="mouseWalkRatioInput">通常域 (Walk) 速度上限比率: <span class="info-tip" data-tooltip="深倒し（Run）までの通常移動速度の上限。低くするとソリティアやエイムでの中域の進みすぎを抑え、微小操作がしやすくなります。" title="深倒し（Run）までの通常移動速度の上限。低くするとソリティアやエイムでの中域の進みすぎを抑え、微小操作がしやすくなります。">i</span></label>
                     <input type="range" id="mouseWalkRatioInput" min="10" max="90" step="1" value="55">
                     <span id="mouseWalkRatioVal" class="val-display">55%</span>
                   </div>
-                  <span class="param-hint">※深倒し（Run）までの通常移動速度の上限。低くするとソリティアやエイムでの中域の進みすぎを抑え、微小操作がしやすくなります。</span>
 
                   <div class="param-row" id="mouseMinSpeedRow">
-                    <label for="mouseMinSpeedInput">初動最小速度 (初速保証):</label>
+                    <label for="mouseMinSpeedInput">初動最小速度 (初速保証): <span class="info-tip" data-tooltip="デッドゾーンを抜けた瞬間に保証する最低初速。スティック初動のもっさり感を解消したい場合に設定します（0.0 pxで無効）。" title="デッドゾーンを抜けた瞬間に保証する最低初速。スティック初動のもっさり感を解消したい場合に設定します（0.0 pxで無効）。">i</span></label>
                     <input type="range" id="mouseMinSpeedInput" min="0.0" max="5.0" step="0.1" value="0.0">
-                    <span id="mouseMinSpeedVal" class="val-display">0.0 px (無効)</span>
+                    <span id="mouseMinSpeedVal" class="val-display">0.0 px</span>
                   </div>
-                  <span class="param-hint">※デッドゾーンを抜けた瞬間に保証する最低初速。スティック初動のもっさり感を解消したい場合に設定します。</span>
 
                   <div class="param-row" id="mouseRunThresholdRow">
                     <label for="mouseRunThresholdInput">Run (深倒し加速) 開始閾値:</label>
@@ -439,18 +432,16 @@
                     <summary class="advanced-mouse-summary">⚙️ 高度なマウス設定 (動的フリック加速 / 横長画面補正)</summary>
                     <div class="advanced-mouse-content">
                       <div class="param-row" id="mouseDynamicAccelRow">
-                        <label for="mouseDynamicAccelInput">動的フリック加速ゲイン:</label>
+                        <label for="mouseDynamicAccelInput">動的フリック加速ゲイン: <span class="info-tip" data-tooltip="スティックを素早く弾いた時のみ一時的に速度を最大1.5倍までブーストします。ゆっくり倒せば通常速度、素早くフリックすると一気に画面端へ移動できます（0.0でOFF）。" title="スティックを素早く弾いた時のみ一時的に速度を最大1.5倍までブーストします。ゆっくり倒せば通常速度、素早くフリックすると一気に画面端へ移動できます（0.0でOFF）。">i</span></label>
                         <input type="range" id="mouseDynamicAccelInput" min="0.0" max="2.0" step="0.1" value="0.0">
                         <span id="mouseDynamicAccelVal" class="val-display">0.0 (OFF)</span>
                       </div>
-                      <span class="param-hint">※スティックを素早く弾いた時のみ一時的に速度を最大1.5倍までブーストします。ゆっくり倒せば通常速度、素早くフリックすると一気に画面端へ移動できます。</span>
 
                       <div class="param-row" id="mouseAspectRatioRow">
-                        <label for="mouseAspectRatioInput">横方向 (X軸) 感度倍率:</label>
+                        <label for="mouseAspectRatioInput">横方向 (X軸) 感度倍率: <span class="info-tip" data-tooltip="ワイドモニター（16:9 や 21:9）に合わせて、横方向の移動速度を縦方向より速く補正できます（16:9 おすすめ値: 1.33、等倍: 1.00）。" title="ワイドモニター（16:9 や 21:9）に合わせて、横方向の移動速度を縦方向より速く補正できます（16:9 おすすめ値: 1.33、等倍: 1.00）。">i</span></label>
                         <input type="range" id="mouseAspectRatioInput" min="0.5" max="2.0" step="0.05" value="1.0">
                         <span id="mouseAspectRatioVal" class="val-display">1.00 (等倍)</span>
                       </div>
-                      <span class="param-hint">※ワイドモニター（16:9 や 21:9）に合わせて、横方向の移動速度を縦方向より速く補正できます（16:9 おすすめ値: 1.33）。</span>
                     </div>
                   </details>
 
@@ -470,12 +461,12 @@
                   </div>
                 </div>
                 <div class="param-row">
-                  <label for="deadzoneInput">デッドゾーン (遊び):</label>
+                  <label for="deadzoneInput">デッドゾーン (遊び): <span class="info-tip" data-tooltip="スティック中心付近の無反応領域。スティックのドリフトや触れただけの誤入力を防ぎます。" title="スティック中心付近の無反応領域。スティックのドリフトや触れただけの誤入力を防ぎます。">i</span></label>
                   <input type="range" id="deadzoneInput" min="500" max="10000" step="100">
                   <span id="deadzoneVal" class="val-display">-</span>
                 </div>
                 <div class="param-row">
-                  <label for="hysteresisInput">ヒステリシス (チャタリング防止):</label>
+                  <label for="hysteresisInput">ヒステリシス (チャタリング防止): <span class="info-tip" data-tooltip="判定境界でのチャタリング（ON/OFFの高速バタつき）を防止する遊び幅です。" title="判定境界でのチャタリング（ON/OFFの高速バタつき）を防止する遊び幅です。">i</span></label>
                   <input type="range" id="hysteresisInput" min="200" max="5000" step="100">
                   <span id="hysteresisVal" class="val-display">-</span>
                 </div>
@@ -484,7 +475,7 @@
                   <label><input type="checkbox" id="invertY"> Y軸反転</label>
                 </div>
                 <div class="param-row">
-                  <label for="rotationSelect">取付回転補正:</label>
+                  <label for="rotationSelect">取付回転補正: <span class="info-tip" data-tooltip="基板に対するスティックモジュールの取付向き（角度）を補正します。本デバイスの標準配置では 90° です。" title="基板に対するスティックモジュールの取付向き（角度）を補正します。本デバイスの標準配置では 90° です。">i</span></label>
                   <select id="rotationSelect" class="btn-input" style="width: 100%;">
                     <option value="0">0°</option>
                     <option value="90">90° (標準取付補正)</option>
@@ -497,12 +488,12 @@
                 <div id="kbdThresholdsGroup">
                   <h3 style="margin-top: 15px;">Walk / Run 閾値一括設定 (全方向)</h3>
                   <div class="param-row">
-                    <label for="batchWalkInput">Walk (歩き) 閾値:</label>
+                    <label for="batchWalkInput">Walk (歩き) 閾値: <span class="info-tip" data-tooltip="4方向（上下左右）の歩き開始判定閾値を一括で変更します。" title="4方向（上下左右）の歩き開始判定閾値を一括で変更します。">i</span></label>
                     <input type="range" id="batchWalkInput" min="1000" max="32000" step="500">
                     <span id="batchWalkVal" class="val-display">-</span>
                   </div>
                   <div class="param-row">
-                    <label for="batchRunInput">Run (走り) 閾値:</label>
+                    <label for="batchRunInput">Run (走り) 閾値: <span class="info-tip" data-tooltip="4方向（上下左右）の走り（深倒し）開始判定閾値を一括で変更します。" title="4方向（上下左右）の走り（深倒し）開始判定閾値を一括で変更します。">i</span></label>
                     <input type="range" id="batchRunInput" min="1000" max="32000" step="500">
                     <span id="batchRunVal" class="val-display">-</span>
                   </div>

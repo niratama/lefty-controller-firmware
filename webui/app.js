@@ -1441,16 +1441,19 @@ function updateModeVisibility() {
     enableRunCheckbox.checked = isRunEnabled;
   }
   if (enableRunLabel && enableRunHint) {
+    let hintText = "";
     if (mode === "mouse") {
       enableRunLabel.textContent = "マウス深倒し加速 (Runブースト) を有効にする";
-      enableRunHint.textContent = "※ON: 指定したRun閾値以上倒すと最高速まで急加速 / OFF: 通常域上限比率に速度を制限";
+      hintText = "ON: 指定したRun閾値以上倒すと最高速まで急加速 / OFF: 通常域上限比率に速度を制限";
     } else if (mode === "gamepad" && target === "dpad") {
       enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
-      enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk連動ボタンのみ入力されます";
+      hintText = "チェックを外すと最大まで倒しても常にWalk連動ボタンのみ入力されます";
     } else {
       enableRunLabel.textContent = "スティックのRun (走り/2段階目入力) を有効にする";
-      enableRunHint.textContent = "※チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます";
+      hintText = "チェックを外すと最大まで倒しても常にWalk(1段階目)のみ入力されます";
     }
+    enableRunHint.setAttribute("data-tooltip", hintText);
+    enableRunHint.setAttribute("title", hintText);
   }
   if (dpadWalkBtnInput) {
     dpadWalkBtnInput.value = currentConfig.joystick.dpad_walk_btn || "";
@@ -3759,7 +3762,7 @@ function updateFormFromConfig() {
   if (mouseMinSpeedInput) {
     mouseMinSpeedInput.value = minSpd.toFixed(1);
     if (mouseMinSpeedVal) {
-      mouseMinSpeedVal.textContent = minSpd > 0 ? `${minSpd.toFixed(1)} px` : "0.0 px (無効)";
+      mouseMinSpeedVal.textContent = `${minSpd.toFixed(1)} px`;
     }
   }
 
@@ -4131,7 +4134,7 @@ if (mouseMinSpeedInput) {
     const val = parseFloat(e.target.value);
     currentConfig.joystick.mouse_min_speed = val;
     if (mouseMinSpeedVal) {
-      mouseMinSpeedVal.textContent = val > 0 ? `${val.toFixed(1)} px` : "0.0 px (無効)";
+      mouseMinSpeedVal.textContent = `${val.toFixed(1)} px`;
     }
     syncCurrentToProfile();
     drawMouseCurve();

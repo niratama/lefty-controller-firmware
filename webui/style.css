@@ -394,14 +394,22 @@ body {
 
 .param-row {
   display: grid;
-  grid-template-columns: 240px 1fr 60px;
+  grid-template-columns: 220px 1fr 75px;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .param-row label {
   font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.param-row select,
+.param-row input[type="text"] {
+  grid-column: 2 / -1;
 }
 
 .param-row input[type="range"] {
@@ -413,6 +421,97 @@ body {
   font-size: 0.85rem;
   text-align: right;
   color: #38bdf8;
+  white-space: nowrap;
+}
+
+/* ============================================== */
+/* インフォメーション ツールチップ (Info Tooltip) */
+/* ============================================== */
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.info-tip:hover,
+.info-tip:focus-visible {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  outline: none;
+}
+
+/* ツールチップ吹き出し (Box) */
+.info-tip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-20%) translateY(4px);
+  background-color: #0b1120;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  z-index: 1000;
+  text-align: left;
+}
+
+/* ツールチップ矢印 (Arrow) */
+.info-tip::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border: 4px solid transparent;
+  border-top-color: #334155;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  z-index: 1000;
+}
+
+.info-tip:hover::after,
+.info-tip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-20%) translateY(0);
+}
+
+.info-tip:hover::before,
+.info-tip:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .param-row-checkbox {
