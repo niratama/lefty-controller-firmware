@@ -69,6 +69,21 @@ class TestNativeMouse(unittest.TestCase):
         self.mouse.update(NativeMouse.LEFT_BUTTON, x=0, y=0)
         self.assertEqual(self.mock_dev.report_count, cnt)
 
+    def test_send_failure_rolls_back_and_allows_retry(self):
+        self.mouse.update(NativeMouse.LEFT_BUTTON)
+        self.assertEqual(self.mock_dev.last_report[0], 0x01)
+
+        original_send = self.mock_dev.send_report
+        self.mock_dev.send_report = lambda r: (_ for _ in ()).throw(OSError("USB busy"))
+        with self.assertRaises(OSError):
+            self.mouse.update(0)
+
+        self.assertEqual(self.mouse._buttons, NativeMouse.LEFT_BUTTON)
+        self.mock_dev.send_report = original_send
+        self.mouse.update(0)
+        self.assertEqual(self.mouse._buttons, 0)
+        self.assertEqual(self.mock_dev.last_report[0], 0x00)
+
 
 if __name__ == '__main__':
     unittest.main()

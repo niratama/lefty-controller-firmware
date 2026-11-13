@@ -91,6 +91,46 @@ class TestNativeGamepad(unittest.TestCase):
         self.gamepad.update(desired_buttons=0x0005, x=20, y=-30, hat=2)
         self.assertEqual(self.mock_dev.report_count, cnt)
 
+    def test_send_failure_rolls_back_and_allows_retry(self):
+        # まずボタン1を押下成功させる
+        self.gamepad.update(desired_buttons=0x0001)
+        self.assertEqual(self.mock_dev.last_report[0], 0x01)
+
+        # 解放送信時に USB busy (OSError) が発生したケース
+        original_send = self.mock_dev.send_report
+        def failing_send(report):
+            raise OSError("USB busy")
+        self.mock_dev.send_report = failing_send
+
+        with self.assertRaises(OSError):
+            self.gamepad.update(desired_buttons=0x0000)
+
+        # 内部状態がロールバックされていること
+        self.assertEqual(self.gamepad._buttons, 0x0001)
+        self.assertEqual(self.mock_dev.last_report[0], 0x01)
+
+        # 次のサイクルで正常送信できるようになると、差分検知して解放レポートが送られること
+        self.mock_dev.send_report = original_send
+        self.gamepad.update(desired_buttons=0x0000)
+        self.assertEqual(self.gamepad._buttons, 0x0000)
+        self.assertEqual(self.mock_dev.last_report[0], 0x00)
+
+    def test_release_buttons_failure_rolls_back(self):
+        self.gamepad.press_buttons(2)
+        self.assertEqual(self.mock_dev.last_report[0], 0x02)
+
+        original_send = self.mock_dev.send_report
+        self.mock_dev.send_report = lambda r: (_ for _ in ()).throw(OSError("USB busy"))
+        with self.assertRaises(OSError):
+            self.gamepad.release_buttons(2)
+
+        # _buttons が 0x02 のまま維持されているため、次の update(0) で解放リトライできる
+        self.assertEqual(self.gamepad._buttons, 0x02)
+        self.mock_dev.send_report = original_send
+        self.gamepad.update(desired_buttons=0x0000)
+        self.assertEqual(self.gamepad._buttons, 0x0000)
+        self.assertEqual(self.mock_dev.last_report[0], 0x00)
+
 
 if __name__ == '__main__':
     unittest.main()

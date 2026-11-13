@@ -46,5 +46,20 @@ class TestNativeKeyboard(unittest.TestCase):
         self.kbd.release_all()
         self.assertEqual(self.mock_dev.last_report, bytearray(8))
 
+    def test_release_all_failure_rolls_back(self):
+        self.kbd.press(Keycode.A)
+        self.assertEqual(self.mock_dev.last_report[2], 0x04)
+
+        original_send = self.mock_dev.send_report
+        self.mock_dev.send_report = lambda r: (_ for _ in ()).throw(OSError("USB busy"))
+        with self.assertRaises(OSError):
+            self.kbd.release_all()
+
+        self.assertEqual(self.kbd._pressed_keys, {Keycode.A})
+        self.mock_dev.send_report = original_send
+        self.kbd.release_all()
+        self.assertEqual(self.kbd._pressed_keys, set())
+        self.assertEqual(self.mock_dev.last_report, bytearray(8))
+
 if __name__ == '__main__':
     unittest.main()

@@ -246,9 +246,11 @@ class LeftyController:
         if self.keyboard:
             try:
                 self.keyboard.release_all()
+                self.active_hid_keycodes.clear()
             except Exception:
                 pass
-        self.active_hid_keycodes.clear()
+        else:
+            self.active_hid_keycodes.clear()
         if self.mouse:
             try:
                 self.mouse.release_all()
@@ -673,7 +675,10 @@ class LeftyController:
         # 6.2 マウス送信
         if self.mouse:
             mdx, mdy = debug_info.get("mouse", (0, 0)) if self.stick_engine.mode == "mouse" else (0, 0)
-            self.mouse.update(desired_mouse_buttons, x=mdx, y=mdy, wheel=desired_mouse_wheel)
+            try:
+                self.mouse.update(desired_mouse_buttons, x=mdx, y=mdy, wheel=desired_mouse_wheel)
+            except Exception:
+                pass
 
         # 6.3 ゲームパッド送信
         if self.gamepad:
@@ -686,7 +691,10 @@ class LeftyController:
                     gz, grz, ghat = 0, 0, 0
             else:
                 gx, gy, gz, grz, ghat = 0, 0, 0, 0, 0
-            self.gamepad.update(desired_gamepad_buttons, x=gx, y=gy, z=gz, rz=grz, hat=ghat)
+            try:
+                self.gamepad.update(desired_gamepad_buttons, x=gx, y=gy, z=gz, rz=grz, hat=ghat)
+            except Exception:
+                pass
 
         # 6.4 Tap-Hold 短押し成立アクションのパルス送出（他ボタンで押下中のキー・ボタンは維持）
         for tap_act in pending_tap_actions:
@@ -694,10 +702,15 @@ class LeftyController:
             if tap_k and self.keyboard:
                 try:
                     self.keyboard.press(*tap_k)
-                    time.sleep(0.008)
-                    self.keyboard.release(*tap_k)
                 except Exception:
-                    pass
+                    tap_k = []
+                if tap_k:
+                    time.sleep(0.008)
+                    try:
+                        self.keyboard.release(*tap_k)
+                    except Exception:
+                        # 解放失敗時は次サイクルの update_hid_keys() で確実に解放リトライさせる
+                        self.active_hid_keycodes.update(tap_k)
             tap_m = tap_act["mouse_buttons"] & ~desired_mouse_buttons
             if tap_m and self.mouse:
                 try:

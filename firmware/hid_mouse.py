@@ -50,18 +50,33 @@ class NativeMouse:
 
     def press(self, buttons):
         """指定ビットマスクのボタンを押下"""
+        prev = self._buttons
         self._buttons |= buttons
-        self._send(0, 0, 0)
+        try:
+            self._send(0, 0, 0)
+        except Exception:
+            self._buttons = prev
+            raise
 
     def release(self, buttons):
         """指定ビットマスクのボタンを解放"""
+        prev = self._buttons
         self._buttons &= ~buttons
-        self._send(0, 0, 0)
+        try:
+            self._send(0, 0, 0)
+        except Exception:
+            self._buttons = prev
+            raise
 
     def release_all(self):
         """全マウスボタンを解放"""
+        prev = self._buttons
         self._buttons = 0
-        self._send(0, 0, 0)
+        try:
+            self._send(0, 0, 0)
+        except Exception:
+            self._buttons = prev
+            raise
 
     def move(self, x=0, y=0, wheel=0):
         """相対移動量およびホイール回転を送信"""
@@ -73,8 +88,13 @@ class NativeMouse:
         has_movement = (x != 0 or y != 0 or wheel != 0)
 
         if buttons_changed or has_movement:
+            prev = self._buttons
             self._buttons = desired_buttons
-            self._send(x, y, wheel)
+            try:
+                self._send(x, y, wheel)
+            except Exception:
+                self._buttons = prev
+                raise
 
     def _send(self, x, y, wheel):
         if self._device is None:
@@ -91,10 +111,8 @@ class NativeMouse:
 
         try:
             self._device.send_report(self.report)
-        except Exception:
-            pass
-
-        # 相対移動量は送信後にリセット
-        self.report[1] = 0
-        self.report[2] = 0
-        self.report[3] = 0
+        finally:
+            # 相対移動量は送信後にリセット
+            self.report[1] = 0
+            self.report[2] = 0
+            self.report[3] = 0

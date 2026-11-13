@@ -440,6 +440,80 @@ class TestLeftyControllerIntegration(unittest.TestCase):
         self.assertEqual(self.ctrl.active_hid_keycodes, set())
         self.assertEqual(self.ctrl.keyboard.pressed, set())
 
+    def test_gamepad_release_retried_after_usb_busy_oserror(self):
+        from hid_gamepad import NativeGamepad
+
+        class MockHIDGamepadDevice:
+            def __init__(self):
+                self.usage_page = 0x01
+                self.usage = 0x05
+                self.last_report = bytearray(7)
+                self.fail_next = False
+
+            def send_report(self, report):
+                if self.fail_next:
+                    self.fail_next = False
+                    raise OSError("USB busy")
+                self.last_report = bytearray(report)
+
+        mock_dev = MockHIDGamepadDevice()
+        self.ctrl.gamepad = NativeGamepad(devices=[mock_dev])
+
+        cfg = {
+            "active_profile": 0,
+            "profiles": [
+                {
+                    "id": "p_gp",
+                    "name": "Gamepad",
+                    "keymap": {
+                        "buttons": [
+                            "Gamepad_1",
+                            "tap:Gamepad_2|hold:Gamepad_3|ms:300"
+                        ] + ["None"] * 11
+                    },
+                    "joystick": {"mode": "gamepad"}
+                }
+            ]
+        }
+        self.ctrl.apply_config(cfg)
+
+        # 1. 通常ボタン (Gamepad_1) を押下 -> 離す直前に USB busy が起きても次サイクルで解放される
+        self._press_btn_idx(0)
+        self.assertEqual(mock_dev.last_report[0], 0x01)
+
+        pin0 = self.ctrl.button_pins_def[0]
+        self.raw_btns[pin0] = True
+        mock_dev.fail_next = True
+        self._step(0.001)  # Eager debounce: 押下確定から15ms経過しているため即座に解放判定 -> OSErrorで失敗
+        self.assertEqual(mock_dev.last_report[0], 0x01)
+
+        # 次のサイクルで自動的に再送信され、解放される
+        self._step(0.002)
+        self.assertEqual(mock_dev.last_report[0], 0x00)
+
+        # 2. Tap-Hold ボタン (tap:Gamepad_2) 短押し時に release_buttons が USB busy になっても次サイクルで解放される
+        self._press_btn_idx(1)
+        pin1 = self.ctrl.button_pins_def[1]
+        self.raw_btns[pin1] = True
+
+        # update(0) は変化なしで呼ばれないため、press_buttons(2) は成功し、その後の release_buttons(2) で失敗させる
+        send_calls = {"count": 0}
+        orig_send = mock_dev.send_report
+
+        def fail_on_second_send(report):
+            send_calls["count"] += 1
+            if send_calls["count"] == 2:
+                raise OSError("USB busy")
+            orig_send(report)
+
+        mock_dev.send_report = fail_on_second_send
+        self._step(0.001)
+        self.assertEqual(mock_dev.last_report[0], 0x02)  # 押されたまま残っている
+
+        # 次のサイクルの gamepad.update(0) で自動的に解放される
+        self._step(0.002)
+        self.assertEqual(mock_dev.last_report[0], 0x00)
+
 
 if __name__ == '__main__':
     unittest.main()

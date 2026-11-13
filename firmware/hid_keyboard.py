@@ -56,8 +56,13 @@ class NativeKeyboard:
 
     def release_all(self):
         """全キーを解放する"""
+        prev = set(self._pressed_keys)
         self._pressed_keys.clear()
-        self._send()
+        try:
+            self._send()
+        except Exception:
+            self._pressed_keys = prev
+            raise
 
     def _send(self):
         if self._device is None:
