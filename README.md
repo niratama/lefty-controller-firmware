@@ -77,7 +77,9 @@ lefty-controller-firmware/
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-├── tests/                     # PC上で即時実行可能な自動テストスイート (全87テスト)
+├── tools/                     # CLI 自動化・デプロイツール
+│   └── deploy_firmware.py     # シリアル→メンテモード→ファイル転送→再起動 CLI (WSL/uv対応)
+├── tests/                     # PC上で即時実行可能な自動テストスイート (全108テスト)
 │   ├── test_advanced_inputs.py# LeftyController統合テスト & Combo/Tap-Hold/Fnレイヤー検証
 │   ├── test_stick_engine.py   # スティック多段判定・ターゲット軸・ハット・異常設定耐性検証
 │   ├── test_debouncer.py      # デバウンス・チャタリング耐性検証
@@ -89,6 +91,7 @@ lefty-controller-firmware/
 │   ├── test_config_store.py   # config.json / NVM 永続化・データ破損フォールバック検証
 │   ├── test_led_indicator.py  # オンボードRGB LED パルス点滅ステートマシン検証
 │   ├── test_config.py         # 設定ファイル整合性検証
+│   ├── test_deploy_firmware.py# CLIデプロイツール (WSL/UF2/初回導入) 検証
 │   └── test_webui_security.py # WebUI XSS/CSP/展開サイズ制限 & boot.py セキュリティ検証
 ├── docs/
 │   ├── schematic.md           # ハードウェア回路図・詳細配線仕様書 (結線図・換装ガイド)
@@ -168,6 +171,48 @@ lefty-controller-firmware/
 > [!IMPORTANT]
 > **ファームウェア更新時の注意 (セーフモード防止):**
 > PCのOS（Windows/macOS）はファイル書き込みをメモリ上に遅延キャッシュします。ファイルをコピーした直後に取り出しを行わずリセットすると、書き込み不完全により CircuitPython が一時的なセーフモード（`Hard fault`）に入ることがあります。ファイルを更新した後は、**必ずPC側で「安全な取り出し（イジェクト）」を実行してから再起動** してください。万が一セーフモードに入った場合も、WebUI の画面上に表示される「🔄 ソフトリセット (Ctrl-D)」ボタンや本体RESETボタンで安全に通常復帰できます。
+
+### 4.3 CLI による自動デプロイ・初期化 (開発者・エージェント向け)
+
+[tools/deploy_firmware.py](tools/deploy_firmware.py) を使用すると、物理操作なしでシリアル経由のメンテナンスモード移行・ファイル転送・再起動・疎通確認まで一括実行できます（PEP 723 対応のため `uv run` で依存解決可能、WSL 環境の Windows `COM` ポート / `/mnt/<drive>` / 未マウントドライブにも対応）。
+
+```bash
+# デバイス状態・バージョン確認
+uv run tools/deploy_firmware.py --check --json
+
+# 通常更新 (config.json はデフォルトで保護、事前バックアップ付き)
+uv run tools/deploy_firmware.py --backup-dir ./backup --json
+
+# 素の CircuitPython からの初回書き込み (config.json 同梱 + boot.py 初回反映)
+uv run tools/deploy_firmware.py --init --json
+
+# 工場出荷状態 (RPI-RP2) から最新 CircuitPython .uf2 を自動取得して初回導入
+uv run tools/deploy_firmware.py --uf2 auto --init --timeout 40 --json
+```
+
+#### 実機初期化・リカバリ用コマンドメモ (RP2040 / CircuitPython)
+
+* **設定 (`config.json`) の事前退避・復元:**
+  ```bash
+  # 退避 (get_config)
+  python3 -c 'import json, tools.deploy_firmware as d; res = d.send_serial_command("COM3", {"cmd": "get_config"}); open("/tmp/config_backup.json", "w").write(json.dumps(res["config"], ensure_ascii=False))'
+  # 復元 (set_config)
+  python3 -c 'import json, tools.deploy_firmware as d; cfg = json.load(open("/tmp/config_backup.json")); print(d.send_serial_command("COM3", {"cmd": "set_config", "config": cfg}))'
+  ```
+* **CircuitPython ファイルシステム消去 (素の CircuitPython 状態に戻す):**
+  * シリアル REPL 上で実行（`code.py` 稼働中は `Ctrl-C` が無効化されているため、先にメンテナンスモード等で `code.py` を削除・退避してから REPL で実行します）：
+    ```python
+    import storage
+    storage.erase_filesystem()
+    ```
+  * NVM も同時に消去する場合：`import microcontroller; microcontroller.nvm[:] = b"\x00" * len(microcontroller.nvm)`
+* **ソフト的に `RPI-RP2` (UF2 ブートローダー) モードへ移行:**
+  * 物理の `BOOT` ボタンを押さずに、CircuitPython REPL から以下を実行：
+    ```python
+    import microcontroller
+    microcontroller.on_next_reset(microcontroller.RunMode.UF2)
+    microcontroller.reset()
+    ```
 
 ---
 

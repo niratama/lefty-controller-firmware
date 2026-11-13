@@ -260,6 +260,11 @@ class TestDeployFirmware(unittest.TestCase):
             # 素の CircuitPython 直後 (serial_handler.py も config.json もまだ無い)
             (cpy_mount / "boot_out.txt").write_text("Adafruit CircuitPython 9.2.0", encoding="utf-8")
 
+            def fake_send_initial(port, cmd_obj, timeout=3.0, expect_cmd=None, wait_response=True):
+                if cmd_obj.get("cmd") == "ping":
+                    raise deploy_firmware.DeployError("serial_timeout", "not running yet")
+                return {"status": "ok", "cmd": "version", "version": "1.10.0"}
+
             stdout = io.StringIO()
             with patch.object(deploy_firmware, "find_volume_mount", return_value=rp2_mount), \
                  patch.object(deploy_firmware, "wait_for_mount", return_value=cpy_mount), \
@@ -267,7 +272,7 @@ class TestDeployFirmware(unittest.TestCase):
                  patch.object(deploy_firmware, "detect_port", return_value="/dev/ttyACM0"), \
                  patch.object(deploy_firmware, "send_repl_hard_reset") as mock_repl_reset, \
                  patch.object(deploy_firmware, "wait_for_serial_port", return_value="/dev/ttyACM0"), \
-                 patch.object(deploy_firmware, "send_serial_command", return_value={"status": "ok", "cmd": "version", "version": "1.10.0"}), \
+                 patch.object(deploy_firmware, "send_serial_command", side_effect=fake_send_initial), \
                  patch.object(deploy_firmware, "sync_filesystem"), \
                  patch.object(deploy_firmware.time, "sleep"), \
                  patch("sys.stdout", stdout):
@@ -288,6 +293,43 @@ class TestDeployFirmware(unittest.TestCase):
             mock_repl_reset.assert_called_once_with("/dev/ttyACM0")
             self.assertTrue((rp2_mount / "circuitpython.uf2").is_file())
             self.assertEqual((cpy_mount / "config.json").read_text(encoding="utf-8"), '{"init": true}')
+
+    def test_fetch_latest_uf2_url_prefers_stable_and_downloads_with_cache(self):
+        sample_html = """
+        <a href="https://downloads.circuitpython.org/bin/waveshare_rp2040_zero/en_US/adafruit-circuitpython-waveshare_rp2040_zero-en_US-10.4.0-alpha.1.uf2">alpha</a>
+        <a href="https://downloads.circuitpython.org/bin/waveshare_rp2040_zero/en_US/adafruit-circuitpython-waveshare_rp2040_zero-en_US-10.3.1.uf2">old</a>
+        <a href="https://downloads.circuitpython.org/bin/waveshare_rp2040_zero/en_US/adafruit-circuitpython-waveshare_rp2040_zero-en_US-10.3.2.uf2">stable</a>
+        """
+
+        class FakeResp:
+            def __init__(self, data):
+                self._bio = io.BytesIO(data)
+            def read(self, n=-1):
+                return self._bio.read(n)
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+
+        with patch.object(deploy_firmware.urllib.request, "urlopen", return_value=FakeResp(sample_html.encode("utf-8"))):
+            url = deploy_firmware.fetch_latest_uf2_url("waveshare_rp2040_zero", "en_US")
+            self.assertEqual(
+                url,
+                "https://downloads.circuitpython.org/bin/waveshare_rp2040_zero/en_US/adafruit-circuitpython-waveshare_rp2040_zero-en_US-10.3.2.uf2",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(deploy_firmware, "fetch_latest_uf2_url", return_value=url), \
+                 patch.object(deploy_firmware.urllib.request, "urlopen", return_value=FakeResp(b"UF2BODY")) as mock_open:
+                path1, _ = deploy_firmware.download_uf2(dest_dir=tmp)
+                self.assertTrue(path1.is_file())
+                self.assertEqual(path1.read_bytes(), b"UF2BODY")
+                self.assertEqual(mock_open.call_count, 1)
+
+                # 2回目はキャッシュヒットし再ダウンロードしない
+                path2, _ = deploy_firmware.download_uf2(dest_dir=tmp)
+                self.assertEqual(path1, path2)
+                self.assertEqual(mock_open.call_count, 1)
 
 
 if __name__ == "__main__":

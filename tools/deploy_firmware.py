@@ -28,7 +28,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 try:
@@ -42,6 +44,8 @@ except ImportError:
 DEFAULT_BAUDRATE = 115200
 TARGET_VOLUME_NAME = "CIRCUITPY"
 RP2_VOLUME_NAME = "RPI-RP2"
+DEFAULT_BOARD = "waveshare_rp2040_zero"
+DEFAULT_UF2_LANG = "en_US"
 IGNORE_DIRS = {"__pycache__", ".git", ".vscode", ".idea"}
 IGNORE_SUFFIXES = {".pyc", ".pyo"}
 IGNORE_FILES = {".DS_Store", "Thumbs.db"}
@@ -717,6 +721,62 @@ try {{
         raise DeployError("repl_reset", f"REPL リセット送信エラー ({port}): {e}")
 
 
+def _parse_uf2_version_key(ver_str):
+    """バージョン文字列を比較用タプルに変換（安定版をプレリリースより優先）"""
+    is_prerelease = "-" in ver_str
+    base = ver_str.split("-", 1)[0]
+    nums = tuple(int(x) for x in base.split(".") if x.isdigit())
+    return (0 if is_prerelease else 1, nums, ver_str)
+
+
+def fetch_latest_uf2_url(board=DEFAULT_BOARD, lang=DEFAULT_UF2_LANG, timeout=10.0):
+    """circuitpython.org のボードページから最新安定版 .uf2 のダウンロード URL を抽出する"""
+    board_url = f"https://circuitpython.org/board/{board}/"
+    try:
+        req = urllib.request.Request(board_url, headers={"User-Agent": "lefty-controller-deploy/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        raise DeployError("uf2_download", f"CircuitPython ボードページの取得に失敗しました ({board_url}): {e}")
+
+    pattern = (
+        rf"https://downloads\.circuitpython\.org/bin/{re.escape(board)}/{re.escape(lang)}/"
+        rf"adafruit-circuitpython-{re.escape(board)}-{re.escape(lang)}-([0-9]+\.[0-9]+\.[0-9]+(?:-[^\"'\s<>]+)?)\.uf2"
+    )
+    matches = re.findall(pattern, html)
+    if not matches:
+        raise DeployError("uf2_download", f"{board} ({lang}) の .uf2 URL がページ内から見つかりませんでした。")
+
+    best_ver = max(set(matches), key=_parse_uf2_version_key)
+    return (
+        f"https://downloads.circuitpython.org/bin/{board}/{lang}/"
+        f"adafruit-circuitpython-{board}-{lang}-{best_ver}.uf2"
+    )
+
+
+def download_uf2(board=DEFAULT_BOARD, lang=DEFAULT_UF2_LANG, dest_dir=None, timeout=30.0):
+    """最新安定版 .uf2 をダウンロード（キャッシュ済みなら再利用）してローカルパスを返す"""
+    url = fetch_latest_uf2_url(board=board, lang=lang, timeout=min(timeout, 15.0))
+    filename = url.rsplit("/", 1)[-1]
+    cache_dir = Path(dest_dir) if dest_dir else (Path(tempfile.gettempdir()) / "lefty_uf2_cache")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    target = cache_dir / filename
+    if target.is_file() and target.stat().st_size > 0:
+        return target, url
+
+    tmp_target = cache_dir / (filename + ".part")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "lefty-controller-deploy/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp, open(tmp_target, "wb") as out_f:
+            shutil.copyfileobj(resp, out_f)
+        tmp_target.replace(target)
+    except Exception as e:
+        if tmp_target.exists():
+            tmp_target.unlink()
+        raise DeployError("uf2_download", f"UF2 ダウンロードに失敗しました ({url}): {e}")
+    return target, url
+
+
 def copy_uf2_to_rp2(rp2_mount, uf2_path):
     """RPI-RP2 ブートローダードライブへ CircuitPython .uf2 をコピーする"""
     uf2_file = Path(uf2_path).resolve()
@@ -746,10 +806,19 @@ def deploy_firmware(args):
     uf2_written = False
 
     # --uf2 指定時 (工場出荷 RPI-RP2 -> CircuitPython 導入)
-    if getattr(args, "uf2", None) and not args.dry_run and not args.check:
-        uf2_path = Path(args.uf2).resolve()
-        if not uf2_path.is_file():
-            raise DeployError("uf2", f"UF2 ファイルが見つかりません: {uf2_path}")
+    uf2_arg = getattr(args, "uf2", None)
+    uf2_url = None
+    if uf2_arg and not args.dry_run and not args.check:
+        if str(uf2_arg).lower() == "auto":
+            uf2_path, uf2_url = download_uf2(
+                board=getattr(args, "board", DEFAULT_BOARD),
+                lang=getattr(args, "lang", DEFAULT_UF2_LANG),
+                timeout=max(args.timeout, 30.0),
+            )
+        else:
+            uf2_path = Path(uf2_arg).resolve()
+            if not uf2_path.is_file():
+                raise DeployError("uf2", f"UF2 ファイルが見つかりません: {uf2_path}")
         rp2_mount = find_volume_mount(RP2_VOLUME_NAME)
         if rp2_mount is not None:
             copy_uf2_to_rp2(rp2_mount, uf2_path)
@@ -841,9 +910,18 @@ def deploy_firmware(args):
     final_port = None
     if not args.no_reboot:
         if is_initial:
-            # 素の CircuitPython からの初回導入時は REPL 経由でハードリセットし boot.py を反映させる
+            # 初回導入後: autoreload で既に新 code.py が起動していれば reboot コマンド、そうでなければ REPL ハードリセットで boot.py を反映
             reset_port = port or detect_port(args.port)
-            send_repl_hard_reset(reset_port)
+            rebooted_via_cmd = False
+            try:
+                ping_res = send_serial_command(reset_port, {"cmd": "ping"}, timeout=1.5, expect_cmd="ping")
+                if ping_res.get("status") == "ok":
+                    send_serial_command(reset_port, {"cmd": "reboot"}, timeout=2.0, expect_cmd="reboot")
+                    rebooted_via_cmd = True
+            except DeployError:
+                pass
+            if not rebooted_via_cmd:
+                send_repl_hard_reset(reset_port)
         else:
             maint_port = wait_for_serial_port(args.port, timeout=args.timeout)
             send_serial_command(maint_port, {"cmd": "reboot"}, timeout=2.0, expect_cmd="reboot")
@@ -882,7 +960,9 @@ def build_parser():
     parser.add_argument("--firmware-dir", default=str(default_fw_dir), help="転送元ファームウェアディレクトリ")
     parser.add_argument("--with-config", action="store_true", help="config.json も上書きする (デフォルトは保護)")
     parser.add_argument("--init", action="store_true", help="初回書き込みモード (config.json 未配置なら同梱し、REPL ハードリセットで boot.py を反映)")
-    parser.add_argument("--uf2", help="RPI-RP2 モード時に CircuitPython .uf2 を先に書き込んでからデプロイする")
+    parser.add_argument("--uf2", help="RPI-RP2 モード時に CircuitPython .uf2 を先に書き込む ('auto' 指定で公式サイトから最新安定版を自動取得)")
+    parser.add_argument("--board", default=DEFAULT_BOARD, help=f"--uf2 auto 時の対象ボード名 (既定: {DEFAULT_BOARD})")
+    parser.add_argument("--lang", default=DEFAULT_UF2_LANG, help=f"--uf2 auto 時の言語コード (既定: {DEFAULT_UF2_LANG})")
     parser.add_argument("--backup-dir", help="更新前にデバイス上のファイルをバックアップするディレクトリ")
     parser.add_argument("--timeout", type=float, default=20.0, help="マウント/再接続待機タイムアウト秒数 (既定: 20)")
     parser.add_argument("--dry-run", action="store_true", help="実際には書き換えず対象ファイルと検出状態のみ確認")
