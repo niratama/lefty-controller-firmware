@@ -104,6 +104,7 @@ class TestDeployFirmware(unittest.TestCase):
             mount = root / "CIRCUITPY"
             mount.mkdir()
             (mount / "code.py").write_text("old_code", encoding="utf-8")
+            (mount / "serial_handler.py").write_text("old_sh", encoding="utf-8")
             (mount / "config.json").write_text('{"user_setting": 123}', encoding="utf-8")
 
             backup_dir = root / "backup"
@@ -236,6 +237,57 @@ class TestDeployFirmware(unittest.TestCase):
              patch.object(deploy_firmware, "_run_powershell", return_value=fake_ps_cmd):
             res = deploy_firmware.send_serial_command("COM4", {"cmd": "version"}, timeout=2.0)
             self.assertEqual(res["version"], "1.10.0")
+
+    def test_initial_install_from_bare_circuitpy_and_uf2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fw = root / "firmware"
+            fw.mkdir()
+            (fw / "code.py").write_text("new_code", encoding="utf-8")
+            (fw / "boot.py").write_text("new_boot", encoding="utf-8")
+            (fw / "serial_handler.py").write_text("sh", encoding="utf-8")
+            (fw / "config.json").write_text('{"init": true}', encoding="utf-8")
+
+            uf2_file = root / "circuitpython.uf2"
+            uf2_file.write_bytes(b"UF2DATA")
+
+            rp2_mount = root / "RPI-RP2"
+            rp2_mount.mkdir()
+            (rp2_mount / "INFO_UF2.TXT").write_text("UF2 Bootloader", encoding="utf-8")
+
+            cpy_mount = root / "CIRCUITPY"
+            cpy_mount.mkdir()
+            # 素の CircuitPython 直後 (serial_handler.py も config.json もまだ無い)
+            (cpy_mount / "boot_out.txt").write_text("Adafruit CircuitPython 9.2.0", encoding="utf-8")
+
+            stdout = io.StringIO()
+            with patch.object(deploy_firmware, "find_volume_mount", return_value=rp2_mount), \
+                 patch.object(deploy_firmware, "wait_for_mount", return_value=cpy_mount), \
+                 patch.object(deploy_firmware, "find_circuitpy_mount", return_value=cpy_mount), \
+                 patch.object(deploy_firmware, "detect_port", return_value="/dev/ttyACM0"), \
+                 patch.object(deploy_firmware, "send_repl_hard_reset") as mock_repl_reset, \
+                 patch.object(deploy_firmware, "wait_for_serial_port", return_value="/dev/ttyACM0"), \
+                 patch.object(deploy_firmware, "send_serial_command", return_value={"status": "ok", "cmd": "version", "version": "1.10.0"}), \
+                 patch.object(deploy_firmware, "sync_filesystem"), \
+                 patch.object(deploy_firmware.time, "sleep"), \
+                 patch("sys.stdout", stdout):
+                rc = deploy_firmware.main([
+                    "--firmware-dir", str(fw),
+                    "--uf2", str(uf2_file),
+                    "--init",
+                    "--json",
+                ])
+
+            self.assertEqual(rc, 0)
+            out = json.loads(stdout.getvalue())
+            self.assertEqual(out["status"], "ok")
+            self.assertTrue(out["uf2_written"])
+            self.assertTrue(out["initial_install"])
+            self.assertFalse(out["protect_config"])
+            self.assertEqual(out["after_version"], "1.10.0")
+            mock_repl_reset.assert_called_once_with("/dev/ttyACM0")
+            self.assertTrue((rp2_mount / "circuitpython.uf2").is_file())
+            self.assertEqual((cpy_mount / "config.json").read_text(encoding="utf-8"), '{"init": true}')
 
 
 if __name__ == "__main__":

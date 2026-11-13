@@ -41,6 +41,7 @@ except ImportError:
 
 DEFAULT_BAUDRATE = 115200
 TARGET_VOLUME_NAME = "CIRCUITPY"
+RP2_VOLUME_NAME = "RPI-RP2"
 IGNORE_DIRS = {"__pycache__", ".git", ".vscode", ".idea"}
 IGNORE_SUFFIXES = {".pyc", ".pyo"}
 IGNORE_FILES = {".DS_Store", "Thumbs.db"}
@@ -244,8 +245,10 @@ def _is_wsl():
         return False
 
 
-def _looks_like_circuitpy_dir(path):
-    """ディレクトリが CircuitPython ドライブ (CIRCUITPY) らしいか判定する"""
+def _looks_like_volume_dir(path, volume_name=TARGET_VOLUME_NAME):
+    """ディレクトリが対象ボリューム (CIRCUITPY / RPI-RP2) らしいか判定する"""
+    if volume_name.upper() == RP2_VOLUME_NAME:
+        return (path / "INFO_UF2.TXT").is_file()
     boot_out = path / "boot_out.txt"
     if boot_out.is_file():
         try:
@@ -259,13 +262,17 @@ def _looks_like_circuitpy_dir(path):
     return False
 
 
-def _get_wsl_circuitpy_drive_letter():
-    """powershell.exe 経由で Windows 側の CIRCUITPY ボリュームのドライブレター (例: 'E') を取得する"""
+def _looks_like_circuitpy_dir(path):
+    return _looks_like_volume_dir(path, TARGET_VOLUME_NAME)
+
+
+def _get_wsl_volume_drive_letter(volume_name=TARGET_VOLUME_NAME):
+    """powershell.exe 経由で Windows 側の指定ボリュームのドライブレター (例: 'E') を取得する"""
     if not _find_powershell():
         return None
     try:
         proc = _run_powershell(
-            f"(Get-Volume -FileSystemLabel '{TARGET_VOLUME_NAME}' -ErrorAction SilentlyContinue | "
+            f"(Get-Volume -FileSystemLabel '{volume_name}' -ErrorAction SilentlyContinue | "
             "Select-Object -First 1 -ExpandProperty DriveLetter)",
             timeout=4.0,
         )
@@ -277,9 +284,13 @@ def _get_wsl_circuitpy_drive_letter():
     return None
 
 
-def _find_wsl_circuitpy_mount():
-    """WSL 環境で /mnt/<drive> 形式の CIRCUITPY マウント先を検出する"""
-    letter = _get_wsl_circuitpy_drive_letter()
+def _get_wsl_circuitpy_drive_letter():
+    return _get_wsl_volume_drive_letter(TARGET_VOLUME_NAME)
+
+
+def _find_wsl_volume_mount(volume_name=TARGET_VOLUME_NAME):
+    """WSL 環境で /mnt/<drive> 形式の対象ボリュームマウント先を検出する"""
+    letter = _get_wsl_volume_drive_letter(volume_name)
     if letter:
         mnt = Path(f"/mnt/{letter.lower()}")
         if mnt.is_dir():
@@ -291,18 +302,22 @@ def _find_wsl_circuitpy_mount():
         # WSL 起動後に接続されたドライブで /mnt/<letter> が未マウントの場合、Windows ドライブパス ("E:\\") を返す
         return f"{letter}:\\"
 
-    # フォールバック: /mnt/<single_letter> を走査して boot_out.txt 等で判定
+    # フォールバック: /mnt/<single_letter> を走査してマーカーファイルで判定
     mnt_root = Path("/mnt")
     if mnt_root.is_dir():
         for entry in sorted(mnt_root.iterdir()):
             if len(entry.name) == 1 and entry.name.isalpha() and entry.is_dir():
-                if _looks_like_circuitpy_dir(entry):
+                if _looks_like_volume_dir(entry, volume_name):
                     return entry
     return None
 
 
-def find_circuitpy_mount(explicit_mount=None):
-    """CIRCUITPY マウントポイントを検出する（見つからなければ None）"""
+def _find_wsl_circuitpy_mount():
+    return _find_wsl_volume_mount(TARGET_VOLUME_NAME)
+
+
+def find_volume_mount(volume_name=TARGET_VOLUME_NAME, explicit_mount=None):
+    """指定ボリューム (CIRCUITPY / RPI-RP2) のマウントポイントを検出する"""
     if explicit_mount:
         p = Path(explicit_mount)
         return p if p.is_dir() else None
@@ -313,15 +328,14 @@ def find_circuitpy_mount(explicit_mount=None):
     if system == "Linux":
         user = os.environ.get("USER") or os.environ.get("LOGNAME") or ""
         if user:
-            candidates.append(Path(f"/media/{user}/{TARGET_VOLUME_NAME}"))
-            candidates.append(Path(f"/run/media/{user}/{TARGET_VOLUME_NAME}"))
-        candidates.append(Path(f"/mnt/{TARGET_VOLUME_NAME}"))
-        # /media/* 配下も探索
+            candidates.append(Path(f"/media/{user}/{volume_name}"))
+            candidates.append(Path(f"/run/media/{user}/{volume_name}"))
+        candidates.append(Path(f"/mnt/{volume_name}"))
         for base in (Path("/media"), Path("/run/media")):
             if base.is_dir():
                 for sub in base.iterdir():
                     if sub.is_dir():
-                        c = sub / TARGET_VOLUME_NAME
+                        c = sub / volume_name
                         if c not in candidates:
                             candidates.append(c)
 
@@ -329,16 +343,14 @@ def find_circuitpy_mount(explicit_mount=None):
             if c.is_dir():
                 return c
 
-        # WSL 環境では /mnt/<drive> にマウントされる可能性がある
         if _is_wsl() or Path("/mnt").is_dir():
-            wsl_mnt = _find_wsl_circuitpy_mount()
+            wsl_mnt = _find_wsl_volume_mount(volume_name)
             if wsl_mnt is not None:
                 return wsl_mnt
         return None
     elif system == "Darwin":
-        candidates.append(Path(f"/Volumes/{TARGET_VOLUME_NAME}"))
+        candidates.append(Path(f"/Volumes/{volume_name}"))
     elif system == "Windows":
-        # ドライブレターを走査し、ボリュームラベルが CIRCUITPY のドライブを探す
         import string
         for letter in string.ascii_uppercase:
             drive = Path(f"{letter}:\\")
@@ -349,16 +361,22 @@ def find_circuitpy_mount(explicit_mount=None):
                     res = ctypes.windll.kernel32.GetVolumeInformationW(
                         f"{letter}:\\", buf, 1024, None, None, None, None, 0
                     )
-                    if res and buf.value.upper() == TARGET_VOLUME_NAME:
+                    if res and buf.value.upper() == volume_name.upper():
                         return drive
                 except Exception:
-                    if (drive / "boot_out.txt").exists():
+                    marker = "INFO_UF2.TXT" if volume_name.upper() == RP2_VOLUME_NAME else "boot_out.txt"
+                    if (drive / marker).exists():
                         return drive
 
     for c in candidates:
         if c.is_dir():
             return c
     return None
+
+
+def find_circuitpy_mount(explicit_mount=None):
+    """CIRCUITPY マウントポイントを検出する（見つからなければ None）"""
+    return find_volume_mount(TARGET_VOLUME_NAME, explicit_mount=explicit_mount)
 
 
 def _send_windows_serial_command(port, cmd_obj, timeout=3.0, expect_cmd=None, wait_response=True):
@@ -648,26 +666,122 @@ def sync_filesystem(mount_path):
             pass
 
 
+def target_file_exists(mount_path, rel_path):
+    """ターゲットマウント上に指定ファイルが存在するか確認する"""
+    rel = Path(rel_path)
+    if _is_windows_drive_target(mount_path):
+        win_drive = mount_path.rstrip("\\")
+        win_target = f"{win_drive}\\{rel.as_posix().replace('/', '\\')}"
+        proc = _run_powershell(f"if (Test-Path -LiteralPath '{win_target}' -PathType Leaf) {{ '1' }} else {{ '0' }}", timeout=5.0)
+        return (proc.stdout or "").strip() == "1"
+    return (Path(mount_path) / rel).is_file()
+
+
+def send_repl_hard_reset(port):
+    """
+    初回書き込み時（serial_handler 未導入の素の CircuitPython）向けに
+    シリアル REPL へ Ctrl-C + microcontroller.reset() を送信してハードリセットする。
+    """
+    reset_seq = "\x03\x03\r\nimport microcontroller; microcontroller.reset()\r\n"
+    if platform.system() != "Windows" and _is_windows_com_port(port):
+        port_clean = str(port).strip().upper()
+        seq_b64 = base64.b64encode(reset_seq.encode("utf-8")).decode("ascii")
+        ps_script = f"""
+$ErrorActionPreference = 'Stop'
+$sp = New-Object System.IO.Ports.SerialPort '{port_clean}', {DEFAULT_BAUDRATE}, 'None', 8, 'One'
+$sp.DtrEnable = $true
+$sp.RtsEnable = $true
+$sp.WriteTimeout = 2000
+try {{
+    $sp.Open()
+    $text = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{seq_b64}'))
+    $sp.Write($text)
+    Start-Sleep -Milliseconds 150
+}} finally {{
+    if ($sp -and $sp.IsOpen) {{ $sp.Close() }}
+}}
+"""
+        proc = _run_powershell(ps_script, timeout=8.0)
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "").strip()
+            raise DeployError("repl_reset", f"REPL リセット送信エラー ({port_clean}): {err}")
+        return
+
+    _require_pyserial()
+    try:
+        with serial.Serial(port, DEFAULT_BAUDRATE, timeout=0.5, write_timeout=2.0) as ser:
+            ser.write(reset_seq.encode("utf-8"))
+            ser.flush()
+            time.sleep(0.15)
+    except Exception as e:
+        raise DeployError("repl_reset", f"REPL リセット送信エラー ({port}): {e}")
+
+
+def copy_uf2_to_rp2(rp2_mount, uf2_path):
+    """RPI-RP2 ブートローダードライブへ CircuitPython .uf2 をコピーする"""
+    uf2_file = Path(uf2_path).resolve()
+    if not uf2_file.is_file():
+        raise DeployError("uf2", f"UF2 ファイルが見つかりません: {uf2_file}")
+
+    if _is_windows_drive_target(rp2_mount):
+        win_drive = rp2_mount.rstrip("\\")
+        win_src = _wsl_to_windows_path(uf2_file)
+        win_dst = f"{win_drive}\\{uf2_file.name}"
+        ps_script = f"Copy-Item -LiteralPath '{win_src}' -Destination '{win_dst}' -Force"
+        proc = _run_powershell(ps_script, timeout=30.0)
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "").strip()
+            raise DeployError("uf2", f"UF2 コピーに失敗しました: {err}")
+        return
+
+    dst = Path(rp2_mount) / uf2_file.name
+    shutil.copy2(uf2_file, dst)
+    sync_filesystem(rp2_mount)
+
+
 def deploy_firmware(args):
     """メインのデプロイフローを実行し、結果辞書を返す"""
     start_time = time.monotonic()
     fw_dir = Path(args.firmware_dir).resolve()
-    rel_files = collect_firmware_files(fw_dir, include_config=args.with_config)
+    uf2_written = False
 
+    # --uf2 指定時 (工場出荷 RPI-RP2 -> CircuitPython 導入)
+    if getattr(args, "uf2", None) and not args.dry_run and not args.check:
+        uf2_path = Path(args.uf2).resolve()
+        if not uf2_path.is_file():
+            raise DeployError("uf2", f"UF2 ファイルが見つかりません: {uf2_path}")
+        rp2_mount = find_volume_mount(RP2_VOLUME_NAME)
+        if rp2_mount is not None:
+            copy_uf2_to_rp2(rp2_mount, uf2_path)
+            uf2_written = True
+            wait_for_mount(args.mount, timeout=max(args.timeout, 30.0))
+
+    # 1. 現在接続中のポート・マウントを検出し、バージョン/初回状態を確認
+    mount_path = find_circuitpy_mount(args.mount)
+    is_initial = bool(getattr(args, "init", False))
+    if mount_path is not None and not target_file_exists(mount_path, "serial_handler.py"):
+        is_initial = True
+
+    include_config = bool(args.with_config)
+    if is_initial and not include_config:
+        # 初回セットアップ時、デバイスに config.json がまだ無ければ配置する
+        if mount_path is None or not target_file_exists(mount_path, "config.json"):
+            include_config = True
+
+    rel_files = collect_firmware_files(fw_dir, include_config=include_config)
     if not rel_files:
         raise DeployError("firmware_dir", f"転送対象ファイルがありません: {fw_dir}")
 
-    # 1. 現在接続中のポートを検出し、バージョン確認
-    mount_path = find_circuitpy_mount(args.mount)
     port = None
     before_version = None
 
     try:
         port = detect_port(args.port)
-        ver_res = send_serial_command(port, {"cmd": "version"}, timeout=3.0, expect_cmd="version")
-        before_version = ver_res.get("version")
+        if not is_initial:
+            ver_res = send_serial_command(port, {"cmd": "version"}, timeout=3.0, expect_cmd="version")
+            before_version = ver_res.get("version")
     except DeployError:
-        if mount_path is None:
+        if mount_path is None and not is_initial:
             raise
 
     # --check モード: 状態取得のみで終了
@@ -690,9 +804,10 @@ def deploy_firmware(args):
             "mode": "dry_run",
             "port": port,
             "mount": str(mount_path) if mount_path else None,
+            "initial_install": is_initial,
             "before_version": before_version,
             "firmware_dir": str(fw_dir),
-            "protect_config": not args.with_config,
+            "protect_config": not include_config,
             "files": [p.as_posix() for p in rel_files],
         }
 
@@ -702,6 +817,13 @@ def deploy_firmware(args):
         send_serial_command(port, {"cmd": "enter_maintenance"}, timeout=2.0, expect_cmd="enter_maintenance")
         entered_maintenance = True
         mount_path = wait_for_mount(args.mount, timeout=args.timeout)
+
+    # 初回判定の再確認 (マウント後に config.json / serial_handler.py 有無を確認)
+    if not target_file_exists(mount_path, "serial_handler.py"):
+        is_initial = True
+    if is_initial and not args.with_config and not target_file_exists(mount_path, "config.json"):
+        rel_files = collect_firmware_files(fw_dir, include_config=True)
+        include_config = True
 
     # 3. バックアップ (指定時)
     backed_up = []
@@ -718,10 +840,15 @@ def deploy_firmware(args):
     after_version = None
     final_port = None
     if not args.no_reboot:
-        maint_port = wait_for_serial_port(args.port, timeout=args.timeout)
-        send_serial_command(maint_port, {"cmd": "reboot"}, timeout=2.0, expect_cmd="reboot")
+        if is_initial:
+            # 素の CircuitPython からの初回導入時は REPL 経由でハードリセットし boot.py を反映させる
+            reset_port = port or detect_port(args.port)
+            send_repl_hard_reset(reset_port)
+        else:
+            maint_port = wait_for_serial_port(args.port, timeout=args.timeout)
+            send_serial_command(maint_port, {"cmd": "reboot"}, timeout=2.0, expect_cmd="reboot")
         # デバイスがリセットを開始するまで少し待ってから再出現を待つ
-        time.sleep(1.0)
+        time.sleep(1.5)
         final_port = wait_for_serial_port(args.port, timeout=args.timeout)
         ver_res = send_serial_command(final_port, {"cmd": "version"}, timeout=3.0, expect_cmd="version")
         after_version = ver_res.get("version")
@@ -732,10 +859,12 @@ def deploy_firmware(args):
         "mode": "deploy",
         "port": final_port or port,
         "mount": str(mount_path),
+        "initial_install": is_initial,
+        "uf2_written": uf2_written,
         "entered_maintenance": entered_maintenance,
         "before_version": before_version,
         "after_version": after_version,
-        "protect_config": not args.with_config,
+        "protect_config": not include_config,
         "copied_files": copied,
         "backed_up_files": backed_up,
         "rebooted": not args.no_reboot,
@@ -752,6 +881,8 @@ def build_parser():
     parser.add_argument("--mount", help=f"{TARGET_VOLUME_NAME} マウントパスを明示指定")
     parser.add_argument("--firmware-dir", default=str(default_fw_dir), help="転送元ファームウェアディレクトリ")
     parser.add_argument("--with-config", action="store_true", help="config.json も上書きする (デフォルトは保護)")
+    parser.add_argument("--init", action="store_true", help="初回書き込みモード (config.json 未配置なら同梱し、REPL ハードリセットで boot.py を反映)")
+    parser.add_argument("--uf2", help="RPI-RP2 モード時に CircuitPython .uf2 を先に書き込んでからデプロイする")
     parser.add_argument("--backup-dir", help="更新前にデバイス上のファイルをバックアップするディレクトリ")
     parser.add_argument("--timeout", type=float, default=20.0, help="マウント/再接続待機タイムアウト秒数 (既定: 20)")
     parser.add_argument("--dry-run", action="store_true", help="実際には書き換えず対象ファイルと検出状態のみ確認")
