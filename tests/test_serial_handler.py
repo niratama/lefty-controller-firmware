@@ -320,6 +320,59 @@ class TestSerialHandler(unittest.TestCase):
         finally:
             serial_handler.microcontroller = orig
 
+    def test_handle_line_rejects_non_object_json(self):
+        for payload in ("[1, 2, 3]", "123", '"hello"', "true"):
+            old_stdout = sys.stdout
+            sys.stdout = buffer = io.StringIO()
+            try:
+                self.handler.handle_line(payload)
+            finally:
+                sys.stdout = old_stdout
+            resp = json.loads(buffer.getvalue().strip())
+            self.assertEqual(resp["status"], "error")
+
+    def test_set_config_rejects_non_dict_and_preserves_file(self):
+        with open(self.tmp_config.name, "r", encoding="utf-8") as f:
+            before = f.read()
+
+        for bad_cfg in (None, [1, 2, 3], "invalid", 42):
+            old_stdout = sys.stdout
+            sys.stdout = buffer = io.StringIO()
+            try:
+                self.handler.handle_line(json.dumps({"cmd": "set_config", "config": bad_cfg}))
+            finally:
+                sys.stdout = old_stdout
+            resp = json.loads(buffer.getvalue().strip())
+            self.assertEqual(resp["status"], "error")
+            self.assertEqual(resp["cmd"], "set_config")
+
+        with open(self.tmp_config.name, "r", encoding="utf-8") as f:
+            after = f.read()
+        self.assertEqual(before, after)
+
+    def test_apply_config_handles_malformed_types_safely(self):
+        from code import LeftyController
+        ctrl = LeftyController()
+        ctrl.apply_config(None)
+        ctrl.apply_config("not_a_dict")
+        ctrl.apply_config({
+            "active_profile": True,
+            "profiles": [
+                {
+                    "keymap": None,
+                    "joystick": "invalid"
+                }
+            ]
+        })
+        ctrl.apply_config({
+            "profiles": [
+                {
+                    "keymap": {"buttons": 123, "fn_buttons": None, "combos": "bad"},
+                    "joystick": None
+                }
+            ]
+        })
+
 if __name__ == '__main__':
     unittest.main()
 

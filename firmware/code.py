@@ -264,40 +264,66 @@ class LeftyController:
 
     def apply_config(self, cfg):
         """プロファイルおよび各種設定を反映（ピン定義等のハードウェア情報はプロファイルから分離・固定）"""
+        if not isinstance(cfg, dict):
+            return
+
         cfg, _ = config_store.sanitize_config(cfg)
         self.config = cfg
 
         # プロファイル / スティックエンジン反映
-        if "profiles" in cfg and isinstance(cfg["profiles"], list) and len(cfg["profiles"]) > 0:
+        profiles = cfg.get("profiles")
+        if isinstance(profiles, list) and len(profiles) > 0:
             act_idx = cfg.get("active_profile", 0)
-            if not isinstance(act_idx, int) or act_idx < 0 or act_idx >= len(cfg["profiles"]):
+            if not isinstance(act_idx, int) or isinstance(act_idx, bool) or act_idx < 0 or act_idx >= len(profiles):
                 act_idx = 0
-            cur_prof = cfg["profiles"][act_idx]
-            raw_buttons = cur_prof.get("keymap", {}).get("buttons", [])
-            raw_fn = cur_prof.get("keymap", {}).get("fn_buttons", [])
-            raw_combos = cur_prof.get("keymap", {}).get("combos", [])
+            cur_prof = profiles[act_idx]
+            if not isinstance(cur_prof, dict):
+                cur_prof = {}
+            keymap_cfg = cur_prof.get("keymap")
+            if not isinstance(keymap_cfg, dict):
+                keymap_cfg = {}
+            raw_buttons = keymap_cfg.get("buttons", [])
+            raw_fn = keymap_cfg.get("fn_buttons", [])
+            raw_combos = keymap_cfg.get("combos", [])
+            if not isinstance(raw_buttons, list):
+                raw_buttons = []
+            if not isinstance(raw_fn, list):
+                raw_fn = []
+            if not isinstance(raw_combos, list):
+                raw_combos = []
 
             self.button_keymap = raw_buttons
             self.button_defs = [parse_button_def(b) for b in raw_buttons]
             self.fn_button_defs = [parse_button_def(b) for b in raw_fn]
             self.combos = parse_combos(raw_combos)
 
-            self.stick_engine.load_config(cur_prof.get("joystick", {}))
+            joy_cfg = cur_prof.get("joystick")
+            self.stick_engine.load_config(joy_cfg if isinstance(joy_cfg, dict) else {})
             if hasattr(self, "led") and self.led:
                 if "led_order" in cfg:
                     self.led.set_pixel_order(cfg["led_order"])
                 self.led.set_profile(act_idx, cur_prof.get("color"), flash=True)
         else:
-            raw_buttons = cfg.get("keymap", {}).get("buttons", [])
-            raw_fn = cfg.get("keymap", {}).get("fn_buttons", [])
-            raw_combos = cfg.get("keymap", {}).get("combos", [])
+            keymap_cfg = cfg.get("keymap")
+            if not isinstance(keymap_cfg, dict):
+                keymap_cfg = {}
+            raw_buttons = keymap_cfg.get("buttons", [])
+            raw_fn = keymap_cfg.get("fn_buttons", [])
+            raw_combos = keymap_cfg.get("combos", [])
+            if not isinstance(raw_buttons, list):
+                raw_buttons = []
+            if not isinstance(raw_fn, list):
+                raw_fn = []
+            if not isinstance(raw_combos, list):
+                raw_combos = []
 
             self.button_keymap = raw_buttons
             self.button_defs = [parse_button_def(b) for b in raw_buttons]
             self.fn_button_defs = [parse_button_def(b) for b in raw_fn]
             self.combos = parse_combos(raw_combos)
 
-            self.stick_engine.load_config(cfg.get("joystick", {}))
+            joy_cfg = cfg.get("joystick")
+            self.stick_engine.load_config(joy_cfg if isinstance(joy_cfg, dict) else {})
             if hasattr(self, "led") and self.led:
                 self.led.set_profile(0, flash=True)
 

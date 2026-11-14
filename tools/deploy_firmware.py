@@ -676,7 +676,12 @@ def target_file_exists(mount_path, rel_path):
     if _is_windows_drive_target(mount_path):
         win_drive = mount_path.rstrip("\\")
         win_target = f"{win_drive}\\{rel.as_posix().replace('/', '\\')}"
-        proc = _run_powershell(f"if (Test-Path -LiteralPath '{win_target}' -PathType Leaf) {{ '1' }} else {{ '0' }}", timeout=5.0)
+        payload_b64 = base64.b64encode(json.dumps({"target": win_target}).encode("utf-8")).decode("ascii")
+        ps_script = f"""
+$p = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{payload_b64}')) | ConvertFrom-Json).target
+if (Test-Path -LiteralPath $p -PathType Leaf) {{ '1' }} else {{ '0' }}
+"""
+        proc = _run_powershell(ps_script, timeout=5.0)
         return (proc.stdout or "").strip() == "1"
     return (Path(mount_path) / rel).is_file()
 
@@ -729,8 +734,28 @@ def _parse_uf2_version_key(ver_str):
     return (0 if is_prerelease else 1, nums, ver_str)
 
 
+def _validate_uf2_identifier(value, field_name):
+    """board / lang 名にパス区切りや不正文字が含まれないことを検証する"""
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", value):
+        raise DeployError("uf2_download", f"不正な {field_name} 指定です: {value!r}")
+    return value
+
+
+def _default_uf2_cache_dir():
+    """ユーザー専用の UF2 キャッシュディレクトリを返す（共有 /tmp 固定パスを避ける）"""
+    try:
+        cache_root = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache"))
+        cache_dir = cache_root / "lefty_uf2_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+    except Exception:
+        return Path(tempfile.mkdtemp(prefix="lefty_uf2_cache_"))
+
+
 def fetch_latest_uf2_url(board=DEFAULT_BOARD, lang=DEFAULT_UF2_LANG, timeout=10.0):
     """circuitpython.org のボードページから最新安定版 .uf2 のダウンロード URL を抽出する"""
+    board = _validate_uf2_identifier(board, "board")
+    lang = _validate_uf2_identifier(lang, "lang")
     board_url = f"https://circuitpython.org/board/{board}/"
     try:
         req = urllib.request.Request(board_url, headers={"User-Agent": "lefty-controller-deploy/1.0"})
@@ -758,8 +783,11 @@ def download_uf2(board=DEFAULT_BOARD, lang=DEFAULT_UF2_LANG, dest_dir=None, time
     """最新安定版 .uf2 をダウンロード（キャッシュ済みなら再利用）してローカルパスを返す"""
     url = fetch_latest_uf2_url(board=board, lang=lang, timeout=min(timeout, 15.0))
     filename = url.rsplit("/", 1)[-1]
-    cache_dir = Path(dest_dir) if dest_dir else (Path(tempfile.gettempdir()) / "lefty_uf2_cache")
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    if dest_dir:
+        cache_dir = Path(dest_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        cache_dir = _default_uf2_cache_dir()
     target = cache_dir / filename
     if target.is_file() and target.stat().st_size > 0:
         return target, url
@@ -787,7 +815,12 @@ def copy_uf2_to_rp2(rp2_mount, uf2_path):
         win_drive = rp2_mount.rstrip("\\")
         win_src = _wsl_to_windows_path(uf2_file)
         win_dst = f"{win_drive}\\{uf2_file.name}"
-        ps_script = f"Copy-Item -LiteralPath '{win_src}' -Destination '{win_dst}' -Force"
+        payload_b64 = base64.b64encode(json.dumps({"src": win_src, "dst": win_dst}).encode("utf-8")).decode("ascii")
+        ps_script = f"""
+$ErrorActionPreference = 'Stop'
+$p = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{payload_b64}')) | ConvertFrom-Json
+Copy-Item -LiteralPath $p.src -Destination $p.dst -Force
+"""
         proc = _run_powershell(ps_script, timeout=30.0)
         if proc.returncode != 0:
             err = (proc.stderr or proc.stdout or "").strip()

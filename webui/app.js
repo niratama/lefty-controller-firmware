@@ -4798,7 +4798,7 @@ function setDeviceOpLoading(opType, isLoading, successText = "", customText = ""
 
       if (targetBtn) {
         targetBtn.classList.add("btn-flash-success");
-        targetBtn.innerHTML = `✓ ${successText}`;
+        targetBtn.textContent = `✓ ${successText}`;
       }
       if (progressEl) {
         progressEl.className = "action-progress success";

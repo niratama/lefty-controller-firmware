@@ -331,6 +331,43 @@ class TestDeployFirmware(unittest.TestCase):
                 self.assertEqual(path1, path2)
                 self.assertEqual(mock_open.call_count, 1)
 
+    def test_target_file_exists_and_copy_uf2_avoid_powershell_interpolation(self):
+        recorded_scripts = []
+
+        class FakeProc:
+            def __init__(self, stdout="1", returncode=0):
+                self.stdout = stdout
+                self.stderr = ""
+                self.returncode = returncode
+
+        def fake_run_ps(script, timeout=8.0):
+            recorded_scripts.append(script)
+            return FakeProc()
+
+        with patch.object(deploy_firmware, "_run_powershell", side_effect=fake_run_ps):
+            self.assertTrue(deploy_firmware.target_file_exists("E:\\", "user's/config.json"))
+            self.assertNotIn("user's", recorded_scripts[-1])
+            self.assertIn("FromBase64String", recorded_scripts[-1])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            uf2 = Path(tmp) / "o'hare.uf2"
+            uf2.write_bytes(b"UF2")
+            with patch.object(deploy_firmware, "_wsl_to_windows_path", return_value="C:\\tmp\\o'hare.uf2"), \
+                 patch.object(deploy_firmware, "_run_powershell", side_effect=fake_run_ps):
+                deploy_firmware.copy_uf2_to_rp2("E:\\", uf2)
+                self.assertNotIn("o'hare.uf2", recorded_scripts[-1])
+                self.assertIn("FromBase64String", recorded_scripts[-1])
+
+    def test_fetch_latest_uf2_url_rejects_invalid_board_or_lang(self):
+        with self.assertRaises(deploy_firmware.DeployError):
+            deploy_firmware.fetch_latest_uf2_url("../evil", "en_US")
+        with self.assertRaises(deploy_firmware.DeployError):
+            deploy_firmware.fetch_latest_uf2_url("waveshare_rp2040_zero", "en_US/../../x")
+
+    def test_default_uf2_cache_dir_not_in_shared_tmp(self):
+        cache_dir = deploy_firmware._default_uf2_cache_dir()
+        self.assertNotEqual(cache_dir, Path(tempfile.gettempdir()) / "lefty_uf2_cache")
+
 
 if __name__ == "__main__":
     unittest.main()

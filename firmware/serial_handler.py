@@ -113,6 +113,10 @@ class SerialHandler:
                 return self._cmd_reboot()
             return None
 
+        if not isinstance(msg, dict):
+            self.send_response({"status": "error", "message": "JSON payload must be an object"})
+            return None
+
         cmd = msg.get("cmd")
         if cmd == "get_config":
             return self._cmd_get_config()
@@ -193,7 +197,15 @@ class SerialHandler:
             self.send_response({"status": "error", "cmd": "get_config", "message": str(e)})
 
     def _cmd_set_config(self, new_config):
-        if isinstance(new_config, dict) and not new_config.get("version"):
+        if not isinstance(new_config, dict):
+            self.send_response({
+                "status": "error",
+                "cmd": "set_config",
+                "message": "Invalid config payload: expected object"
+            })
+            return None
+
+        if not new_config.get("version"):
             new_config["version"] = FIRMWARE_VERSION
 
         # 1. スティックエンジンおよびキーマップ設定をホットリロード
@@ -202,7 +214,12 @@ class SerialHandler:
                 self.on_config_updated(new_config)
             except Exception as e:
                 print(f"[WARN] on_config_updated failed: {e}")
-                self.stick_engine.load_config(new_config)
+                self.send_response({
+                    "status": "error",
+                    "cmd": "set_config",
+                    "message": f"Failed to apply config: {e}"
+                })
+                return None
         else:
             self.stick_engine.load_config(new_config)
 
